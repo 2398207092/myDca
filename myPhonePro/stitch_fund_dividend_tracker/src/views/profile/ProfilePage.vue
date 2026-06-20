@@ -24,6 +24,10 @@ function onAvatarError() {
   avatarError.value = true
 }
 
+function showAlert(msg: string) {
+  window.alert(msg)
+}
+
 async function loadData() {
   try {
     const [p, s, r] = await Promise.all([
@@ -260,7 +264,7 @@ onMounted(() => {
         <div class="divide-y divide-outline-variant">
           <div
             class="flex items-center justify-between p-md hover:bg-surface-container transition-colors cursor-pointer"
-            @click="alert('免责声明内容即将上线')"
+            @click="showAlert('免责声明内容即将上线')"
           >
             <span class="text-body-md text-on-surface-variant">免责声明</span>
             <span class="material-symbols-outlined text-on-surface-variant text-[18px]">
@@ -269,7 +273,7 @@ onMounted(() => {
           </div>
           <div
             class="flex items-center justify-between p-md hover:bg-surface-container transition-colors cursor-pointer"
-            @click="alert('用户协议内容即将上线')"
+            @click="showAlert('用户协议内容即将上线')"
           >
             <span class="text-body-md text-on-surface-variant">用户协议</span>
             <span class="material-symbols-outlined text-on-surface-variant text-[18px]">
@@ -278,7 +282,7 @@ onMounted(() => {
           </div>
           <div
             class="flex items-center justify-between p-md hover:bg-surface-container transition-colors cursor-pointer"
-            @click="alert('隐私政策内容即将上线')"
+            @click="showAlert('隐私政策内容即将上线')"
           >
             <span class="text-body-md text-on-surface-variant">隐私政策</span>
             <span class="material-symbols-outlined text-on-surface-variant text-[18px]">
