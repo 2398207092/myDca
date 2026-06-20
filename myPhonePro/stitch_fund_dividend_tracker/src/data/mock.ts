@@ -1,0 +1,147 @@
+import type { UserProfile, Holding, DividendEvent, Transaction, ExchangeRate, CoverageCategory } from '@/types'
+
+export const mockUser: UserProfile = {
+  id: 'u1',
+  name: '稳健投资者',
+  avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCbYiQicuUAE28AbXGRJ9Q9YRIJDgO1olg3hkt-hUiK0POmiIjb9VuQxqMHUUk2Vyc1wdOY7be-o1o4k7Dq54xtdq7NCBo2wcboQZcxPXUlQbF2GUdEA9vLtq6Wg2xj5qcCpnaTGe1SO1SxalDqFl5Ff9JOSl_rZJJbAnXC5Cj2zckoj0GoGAzM9WWu5Ft2hH9QWtZvCLgsS0xPRsons3IXuRLTc0kE07j8M-nv9DGN8oAvfUPwvXby1d3qZjp5yTQC62nNZPWZTsPQ',
+  membership: 'pro',
+  membershipExpiry: '2025-12-31',
+  phone: '138****8888',
+}
+
+export const mockHoldings: Holding[] = [
+  {
+    id: 'h1',
+    name: '招商中证白酒',
+    code: '161725',
+    type: 'fund',
+    shares: 12000,
+    cost: 41200,
+    marketValue: 45820,
+    predictedDividend: 1200,
+    dividendRate: 5.2,
+    priceDividendRate: 3.8,
+    totalDividendReceived: 2300,
+    netInvestment: 82700,
+    dividendRecoveryRate: 15,
+    estimatedRecoveryYears: 12.5,
+    color: '#FF7A45',
+  },
+  {
+    id: 'h2',
+    name: '长江电力',
+    code: '600900',
+    type: 'fund',
+    shares: 5000,
+    cost: 82000,
+    marketValue: 89500,
+    predictedDividend: 3450,
+    dividendRate: 4.2,
+    priceDividendRate: 3.5,
+    totalDividendReceived: 1800,
+    netInvestment: 82000,
+    dividendRecoveryRate: 12,
+    estimatedRecoveryYears: 18.3,
+    color: '#4CAF50',
+  },
+  {
+    id: 'h3',
+    name: '沪深300指数',
+    code: '000300',
+    type: 'fund',
+    shares: 8000,
+    cost: 96000,
+    marketValue: 102400,
+    predictedDividend: 4200,
+    dividendRate: 4.8,
+    priceDividendRate: 4.1,
+    totalDividendReceived: 5600,
+    netInvestment: 96000,
+    dividendRecoveryRate: 25,
+    estimatedRecoveryYears: 10.2,
+    color: '#2196F3',
+  },
+]
+
+export const mockEvents: DividendEvent[] = [
+  {
+    id: 'e1',
+    holdingId: 'h1',
+    holdingName: '招商中证白酒',
+    type: 'payout',
+    date: '2024-11-15',
+    amount: 350,
+    status: 'pending',
+    description: '预计到账 350.00 元',
+  },
+  {
+    id: 'e2',
+    holdingId: 'h3',
+    holdingName: '工银红利混合',
+    type: 'announcement',
+    date: '2024-11-15',
+    amount: 0,
+    status: 'pending',
+    description: '发布2024年三季度分红预告',
+  },
+  {
+    id: 'e3',
+    holdingId: 'h1',
+    holdingName: '招商中证白酒',
+    type: 'registration',
+    date: '2024-11-03',
+    amount: 0,
+    status: 'pending',
+    description: '股权登记日',
+  },
+  {
+    id: 'e4',
+    holdingId: 'h2',
+    holdingName: '长江电力',
+    type: 'ex_dividend',
+    date: '2024-11-07',
+    amount: 0,
+    status: 'pending',
+    description: '除权除息日',
+  },
+  {
+    id: 'e5',
+    holdingId: 'h2',
+    holdingName: '长江电力',
+    type: 'ex_dividend',
+    date: '2024-11-21',
+    amount: 0,
+    status: 'pending',
+    description: '除权除息日',
+  },
+  {
+    id: 'e6',
+    holdingId: 'h3',
+    holdingName: '沪深300指数',
+    type: 'registration',
+    date: '2024-11-18',
+    amount: 0,
+    status: 'pending',
+    description: '股权登记日',
+  },
+]
+
+export const mockTransactions: Transaction[] = [
+  { id: 't1', holdingId: 'h1', type: 'buy', date: '2023-06-15', quantity: 5000, price: 0.824, fee: 5.00, total: 4125 },
+  { id: 't2', holdingId: 'h1', type: 'buy', date: '2023-09-20', quantity: 3000, price: 0.856, fee: 3.00, total: 2571 },
+  { id: 't3', holdingId: 'h2', type: 'buy', date: '2023-03-10', quantity: 2000, price: 22.50, fee: 8.00, total: 45008 },
+  { id: 't4', holdingId: 'h2', type: 'reinvest', date: '2023-12-25', quantity: 150, price: 23.10, fee: 0, total: 3465 },
+]
+
+export const mockExchangeRates: ExchangeRate[] = [
+  { pair: 'HKD/CNY', label: '港币/人民币', rate: 0.9245, updatedAt: '2023-10-27 15:30' },
+  { pair: 'USD/CNY', label: '美金/人民币', rate: 7.2341, updatedAt: '2023-10-27 15:30' },
+]
+
+export const mockCoverageCategories: CoverageCategory[] = [
+  { id: 'c1', name: '话费', icon: 'phone_android', percentage: 80, color: '#FF7A45' },
+  { id: 'c2', name: '养车', icon: 'directions_car', percentage: 40, color: '#4CAF50' },
+  { id: 'c3', name: '娱乐', icon: 'confirmation_number', percentage: 30, color: '#9C27B0' },
+  { id: 'c4', name: '医药', icon: 'medical_services', percentage: 25, color: '#2196F3' },
+  { id: 'c5', name: '午餐', icon: 'restaurant', percentage: 60, color: '#FF9800' },
+]

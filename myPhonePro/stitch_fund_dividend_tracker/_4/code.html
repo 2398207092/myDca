@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>添加交易 - 种树</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Work+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface": "#1b1c1c",
+                        "inverse-primary": "#ffb59a",
+                        "background": "#faf9f9",
+                        "surface": "#faf9f9",
+                        "surface-bright": "#faf9f9",
+                        "surface-variant": "#e3e2e2",
+                        "inverse-on-surface": "#f2f0f0",
+                        "on-tertiary-container": "#383838",
+                        "on-error": "#ffffff",
+                        "tertiary": "#5f5e5e",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#ffdbcf",
+                        "surface-tint": "#a73a05",
+                        "on-tertiary-fixed": "#1b1c1c",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-background": "#1b1c1c",
+                        "surface-container-low": "#f4f3f3",
+                        "primary-container": "#ff7a45",
+                        "surface-container-high": "#e9e8e8",
+                        "primary": "#a73a05",
+                        "tertiary-fixed": "#e4e2e1",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#ffb59a",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#802900",
+                        "inverse-surface": "#2f3031",
+                        "surface-dim": "#dbdad9",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#dfc0b5",
+                        "on-surface-variant": "#58423a",
+                        "outline": "#8b7168",
+                        "on-tertiary-fixed-variant": "#474747",
+                        "on-secondary-container": "#5f6161",
+                        "on-primary-fixed": "#380d00",
+                        "secondary": "#5d5f5f",
+                        "tertiary-fixed-dim": "#c8c6c6",
+                        "surface-container": "#efeded",
+                        "on-error-container": "#93000a",
+                        "secondary-container": "#dcdddd",
+                        "surface-container-highest": "#e3e2e2",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-container": "#a2a1a1",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-primary-container": "#672000",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "base": "8px",
+                        "xl": "32px",
+                        "lg": "24px",
+                        "xs": "4px",
+                        "container-padding": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "body-sm": ["Work Sans"],
+                        "label-bold": ["Work Sans"],
+                        "body-md": ["Work Sans"],
+                        "caption": ["Work Sans"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "label-bold": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "22px", "fontWeight": "400"}],
+                        "caption": ["12px", {"lineHeight": "16px", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #F5F5F5;
+            color: #1b1c1c;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .segmented-control-active {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col font-body-md text-body-md selection:bg-primary-container/30">
+<!-- Top AppBar (from Shared Components) -->
+<header class="fixed top-0 w-full z-50 bg-surface shadow-sm flex items-center justify-between px-gutter h-14">
+<div class="flex items-center gap-2">
+<button class="material-symbols-outlined text-on-surface-variant active:opacity-80 transition-opacity p-2 -ml-2">arrow_back</button>
+<h1 class="font-headline-md text-headline-md text-on-surface">添加交易</h1>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="park">park</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 mt-14 mb-24 px-gutter py-lg max-w-[600px] mx-auto w-full">
+<!-- Transaction Type Segmented Control -->
+<section class="mb-xl">
+<div class="bg-surface-container-high rounded-xl p-1 flex w-full">
+<button class="type-btn flex-1 py-2 rounded-lg font-label-bold text-label-bold transition-all duration-200 bg-surface-container-lowest text-primary segmented-control-active" onclick="setType('buy', this)">买入</button>
+<button class="type-btn flex-1 py-2 rounded-lg font-label-bold text-label-bold transition-all duration-200 text-on-surface-variant hover:bg-surface-container/50" onclick="setType('sell', this)">卖出</button>
+<button class="type-btn flex-1 py-2 rounded-lg font-label-bold text-label-bold transition-all duration-200 text-on-surface-variant hover:bg-surface-container/50" onclick="setType('bonus_share', this)">送股</button>
+<button class="type-btn flex-1 py-2 rounded-lg font-label-bold text-label-bold transition-all duration-200 text-on-surface-variant hover:bg-surface-container/50" onclick="setType('reinvest', this)">分红复投</button>
+</div>
+</section>
+<!-- Form Card -->
+<section class="bg-surface-container-lowest rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-md space-y-md">
+<!-- Transaction Date -->
+<div class="group">
+<label class="block font-caption text-caption text-on-surface-variant mb-1 ml-1" id="date-label">交易日期</label>
+<div class="relative flex items-center">
+<input class="w-full bg-surface-container-low border-none rounded-lg px-md py-3 font-body-md text-on-surface focus:ring-2 focus:ring-primary-container outline-none transition-all appearance-none" type="date" value="2023-10-27"/>
+<span class="material-symbols-outlined absolute right-md pointer-events-none text-on-surface-variant" data-icon="calendar_month">calendar_month</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-md">
+<!-- Buy Quantity -->
+<div class="group">
+<label class="block font-caption text-caption text-on-surface-variant mb-1 ml-1" id="qty-label">买入数量</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-lg px-md py-3 font-body-md text-on-surface focus:ring-2 focus:ring-primary-container outline-none transition-all" placeholder="0.00" type="number"/>
+<span class="absolute right-md top-1/2 -translate-y-1/2 font-caption text-on-surface-variant">份</span>
+</div>
+</div>
+<!-- Buy Price -->
+<div class="group">
+<label class="block font-caption text-caption text-on-surface-variant mb-1 ml-1" id="price-label">买入价格</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-lg px-md py-3 font-body-md text-on-surface focus:ring-2 focus:ring-primary-container outline-none transition-all" placeholder="0.0000" type="number"/>
+<span class="absolute right-md top-1/2 -translate-y-1/2 font-caption text-on-surface-variant">CNY</span>
+</div>
+</div>
+</div>
+<!-- Transaction Fee (Optional) -->
+<div class="group">
+<label class="block font-caption text-caption text-on-surface-variant mb-1 ml-1">交易费用 (可选)</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-lg px-md py-3 font-body-md text-on-surface focus:ring-2 focus:ring-primary-container outline-none transition-all" placeholder="0.00" type="number"/>
+<span class="absolute right-md top-1/2 -translate-y-1/2 font-caption text-on-surface-variant">CNY</span>
+</div>
+</div>
+<!-- Visual Hint: Growth Tracking Indicator -->
+<div class="pt-sm">
+<div class="flex justify-between items-center mb-2">
+<span class="font-caption text-on-surface-variant">预估持仓影响</span>
+<span class="font-label-bold text-primary">+1,200.00 份</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-2/3 transition-all duration-500 rounded-full"></div>
+</div>
+</div>
+</section>
+<!-- Aesthetic Illustration Card -->
+<div class="mt-lg rounded-xl overflow-hidden h-32 relative">
+<img class="w-full h-full object-cover grayscale opacity-20" data-alt="A tranquil and minimalist financial growth scene featuring a young sprout emerging from rich dark soil, illuminated by warm, diffused morning sunlight. The environment is clean and spacious, evoking a sense of calm security and patient wealth accumulation. The color palette is composed of soft beige and deep terracotta tones, aligning with a modern minimalist aesthetic that emphasizes steady organic progress and quiet confidence." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAeNMey7HMjljwZ1X_saMDuSCWpgGGpCx3mK-N6Ixg2IA5s1rf7idRqmbMqdKbxRyEt3Zec4DKtNUVPEUc_GKUjdiRt49F7t4EdQohbctxIcXYH2rXw-XXrbf66-ygiMVxjkz2FJsAu1HtlrcN2op-utz-m6EGlU8D_WnD7SJ75rQHqHMBy6DL-xKTayt73NptkvG35Ag8fMtdnf5BgQlCHcemVqob0T6hB-wZ3PvfesPtKQ8C-ejw84eH92AiiLUNsOpoYbnU-llvL"/>
+<div class="absolute inset-0 bg-gradient-to-r from-background via-transparent to-background"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<p class="text-on-surface-variant/60 font-label-bold text-center italic">"每一笔投入，都是种下一颗未来的树"</p>
+</div>
+</div>
+</main>
+<!-- Fixed Bottom Action Area -->
+<div class="fixed bottom-0 w-full bg-surface px-gutter pb-8 pt-4 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-50">
+<button class="w-full h-14 bg-primary-container hover:bg-primary-container/90 active:scale-95 transition-all text-on-primary-container font-headline-md text-headline-md rounded-xl flex items-center justify-center gap-2">
+<span>确认添加</span>
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+</button>
+</div>
+<!-- Interactive Logic -->
+<script>
+        function setType(type, element) {
+            // Remove active classes from all buttons
+            const buttons = document.querySelectorAll('.type-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('bg-surface-container-lowest', 'text-primary', 'segmented-control-active');
+                btn.classList.add('text-on-surface-variant');
+            });
+
+            // Add active classes to current button
+            element.classList.remove('text-on-surface-variant');
+            element.classList.add('bg-surface-container-lowest', 'text-primary', 'segmented-control-active');
+
+            // Update Labels based on selection
+            const qtyLabel = document.getElementById('qty-label');
+            const priceLabel = document.getElementById('price-label');
+            const dateLabel = document.getElementById('date-label');
+
+            switch(type) {
+                case 'buy':
+                    qtyLabel.innerText = '买入数量';
+                    priceLabel.innerText = '买入价格';
+                    dateLabel.innerText = '交易日期';
+                    break;
+                case 'sell':
+                    qtyLabel.innerText = '卖出数量';
+                    priceLabel.innerText = '卖出价格';
+                    dateLabel.innerText = '交易日期';
+                    break;
+                case 'bonus_share':
+                    qtyLabel.innerText = '送股数量';
+                    priceLabel.innerText = '登记价格 (通常为0)';
+                    dateLabel.innerText = '除权日期';
+                    break;
+                case 'reinvest':
+                    qtyLabel.innerText = '复投数量';
+                    priceLabel.innerText = '复投单位净值';
+                    dateLabel.innerText = '分红再投日';
+                    break;
+            }
+            
+            // Subtle feedback vibration simulation
+            if (window.navigator.vibrate) {
+                window.navigator.vibrate(10);
+            }
+        }
+    </script>
+</body></html>

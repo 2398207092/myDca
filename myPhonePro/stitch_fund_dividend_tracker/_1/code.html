@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>种树 - 稳健收息管理</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Work+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-surface": "#1b1c1c",
+                    "inverse-primary": "#ffb59a",
+                    "background": "#faf9f9",
+                    "surface": "#faf9f9",
+                    "surface-bright": "#faf9f9",
+                    "surface-variant": "#e3e2e2",
+                    "inverse-on-surface": "#f2f0f0",
+                    "on-tertiary-container": "#383838",
+                    "on-error": "#ffffff",
+                    "tertiary": "#5f5e5e",
+                    "on-tertiary": "#ffffff",
+                    "primary-fixed": "#ffdbcf",
+                    "surface-tint": "#a73a05",
+                    "on-tertiary-fixed": "#1b1c1c",
+                    "on-secondary-fixed": "#1a1c1c",
+                    "secondary-fixed-dim": "#c6c6c7",
+                    "on-secondary-fixed-variant": "#454747",
+                    "on-background": "#1b1c1c",
+                    "surface-container-low": "#f4f3f3",
+                    "primary-container": "#ff7a45",
+                    "surface-container-high": "#e9e8e8",
+                    "primary": "#a73a05",
+                    "tertiary-fixed": "#e4e2e1",
+                    "on-secondary": "#ffffff",
+                    "primary-fixed-dim": "#ffb59a",
+                    "error-container": "#ffdad6",
+                    "on-primary-fixed-variant": "#802900",
+                    "inverse-surface": "#2f3031",
+                    "surface-dim": "#dbdad9",
+                    "on-primary": "#ffffff",
+                    "outline-variant": "#dfc0b5",
+                    "on-surface-variant": "#58423a",
+                    "outline": "#8b7168",
+                    "on-tertiary-fixed-variant": "#474747",
+                    "on-secondary-container": "#5f6161",
+                    "on-primary-fixed": "#380d00",
+                    "secondary": "#5d5f5f",
+                    "tertiary-fixed-dim": "#c8c6c6",
+                    "surface-container": "#efeded",
+                    "on-error-container": "#93000a",
+                    "secondary-container": "#dcdddd",
+                    "surface-container-highest": "#e3e2e2",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-container": "#a2a1a1",
+                    "secondary-fixed": "#e2e2e2",
+                    "on-primary-container": "#672000",
+                    "error": "#ba1a1a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "sm": "8px",
+                    "md": "16px",
+                    "base": "8px",
+                    "xl": "32px",
+                    "lg": "24px",
+                    "xs": "4px",
+                    "container-padding": "16px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "body-sm": ["Work Sans"],
+                    "label-bold": ["Work Sans"],
+                    "body-md": ["Work Sans"],
+                    "caption": ["Work Sans"]
+            },
+            "fontSize": {
+                    "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "label-bold": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "22px", "fontWeight": "400"}],
+                    "caption": ["12px", {"lineHeight": "16px", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #faf9f9;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        .custom-shadow {
+            box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface pb-24">
+<!-- Top AppBar (from JSON) -->
+<header class="fixed top-0 w-full z-50 bg-surface dark:bg-surface-dim shadow-sm dark:shadow-none">
+<div class="flex items-center justify-between px-gutter h-14 w-full">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed" style="font-size: 28px;">park</span>
+<span class="font-headline-lg text-headline-lg font-bold text-primary dark:text-primary-container">种树</span>
+</div>
+<div class="flex items-center gap-md">
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container transition-colors p-2 rounded-full">search</button>
+<img alt="种树 App Logo" class="w-8 h-8 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw75eAIKYGr-AHtHm1Idls47Scn76E4sbvtym8fbgNan29oxirWiacysWDTwHhxj_DyGmoxAAebTZdiI6UMN4UC7nRlE0YQwRXqllBlzIzFNp7XObjtZSyvB0YiqJ5YW_ovWw2-UNJ2FuBzXJgNAzbuvbIXRbTSIW58lHyhls0xx2HM4vnt_w232cWq-ZAYYCnv7btI-0QdcWCVcLqaVA9-1IHmyRVWJQByF772kbayOiZSv1igaPsX7simWpNyl-wB5kk-IiJTgCt"/>
+</div>
+</div>
+</header>
+<main class="mt-14 px-gutter pt-4 space-y-md">
+<!-- Notice Banner -->
+<div class="bg-primary-container/10 border border-primary/10 rounded-xl px-4 py-3 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">campaign</span>
+<span class="text-on-surface-variant font-label-bold text-label-bold">稳稳的幸福，本月预计收息1200元</span>
+</div>
+<!-- Hero Stats Card -->
+<div class="bg-surface-container-lowest rounded-xl p-lg custom-shadow relative overflow-hidden">
+<div class="absolute -right-4 -top-4 opacity-5">
+<span class="material-symbols-outlined text-[120px]">psychology_alt</span>
+</div>
+<div class="relative z-10">
+<p class="text-on-surface-variant font-caption text-caption mb-1">让财富在时间中生根发芽</p>
+<div class="flex items-baseline gap-xs">
+<span class="font-headline-lg text-[42px] leading-tight text-primary">365</span>
+<span class="font-headline-md text-primary">天</span>
+</div>
+<h2 class="font-headline-md text-headline-md mt-2">已连续收息</h2>
+<div class="mt-lg pt-lg border-t border-outline-variant/30 grid grid-cols-2 gap-4">
+<div>
+<p class="text-on-surface-variant font-caption text-caption">预测年度分红</p>
+<p class="text-primary-container font-headline-md text-headline-md">¥ 24,500</p>
+</div>
+<div>
+<p class="text-on-surface-variant font-caption text-caption">10年预期收益</p>
+<p class="text-on-surface font-headline-md text-headline-md">3.2 <span class="text-body-sm">倍</span></p>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Actions -->
+<div class="flex items-center justify-between gap-md">
+<button class="flex-1 bg-surface-container rounded-xl py-3 px-4 flex items-center justify-center gap-2 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">analytics</span>
+<span class="font-label-bold text-label-bold">查看更多指标</span>
+</button>
+<button class="flex-1 bg-surface-container rounded-xl py-3 px-4 flex items-center justify-center gap-2 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">settings_suggest</span>
+<span class="font-label-bold text-label-bold">设置指标</span>
+</button>
+</div>
+<!-- Dividend Coverage Section -->
+<section class="space-y-sm">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-md text-headline-md">分红覆盖</h3>
+<span class="text-primary font-caption text-caption">已覆盖 4 个类目</span>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-md custom-shadow">
+<div class="flex justify-between items-center hide-scrollbar overflow-x-auto pb-2 gap-md">
+<!-- Highlighted Item -->
+<div class="flex flex-col items-center min-w-[64px] gap-2">
+<div class="relative w-14 h-14 flex items-center justify-center">
+<svg class="absolute inset-0 w-full h-full -rotate-90">
+<circle cx="28" cy="28" fill="transparent" r="24" stroke="#E8E8E8" stroke-width="4"></circle>
+<circle cx="28" cy="28" fill="transparent" r="24" stroke="#FF7A45" stroke-dasharray="150" stroke-dashoffset="30" stroke-linecap="round" stroke-width="4"></circle>
+</svg>
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">phone_android</span>
+</div>
+<span class="font-caption text-caption text-primary">话费 80%</span>
+</div>
+<!-- Other Items -->
+<div class="flex flex-col items-center min-w-[64px] gap-2 opacity-60">
+<div class="w-14 h-14 bg-surface-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">directions_car</span>
+</div>
+<span class="font-caption text-caption text-on-surface-variant">养车</span>
+</div>
+<div class="flex flex-col items-center min-w-[64px] gap-2 opacity-60">
+<div class="w-14 h-14 bg-surface-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">confirmation_number</span>
+</div>
+<span class="font-caption text-caption text-on-surface-variant">娱乐</span>
+</div>
+<div class="flex flex-col items-center min-w-[64px] gap-2 opacity-60">
+<div class="w-14 h-14 bg-surface-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">medical_services</span>
+</div>
+<span class="font-caption text-caption text-on-surface-variant">医药</span>
+</div>
+<div class="flex flex-col items-center min-w-[64px] gap-2 opacity-60">
+<div class="w-14 h-14 bg-surface-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">restaurant</span>
+</div>
+<span class="font-caption text-caption text-on-surface-variant">午餐</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Holding List -->
+<section class="space-y-sm">
+<h3 class="font-headline-md text-headline-md">持仓详情</h3>
+<div class="space-y-md">
+<!-- Stock Card -->
+<div class="bg-surface-container-lowest rounded-xl p-md custom-shadow border-l-4 border-primary">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="font-headline-md text-headline-md">招商中证白酒</h4>
+<span class="font-body-sm text-on-surface-variant">161725</span>
+</div>
+<div class="text-right">
+<p class="text-primary-container font-headline-md text-headline-md">¥ 1,200</p>
+<p class="text-on-surface-variant font-caption text-caption">预测分红</p>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-2 pt-4 border-t border-outline-variant/30">
+<div>
+<p class="text-on-surface-variant font-caption text-caption">市值</p>
+<p class="font-label-bold text-label-bold">¥ 45,820</p>
+</div>
+<div>
+<p class="text-on-surface-variant font-caption text-caption">成本</p>
+<p class="font-label-bold text-label-bold">¥ 41,200</p>
+</div>
+<div>
+<p class="text-on-surface-variant font-caption text-caption">股息率</p>
+<p class="font-label-bold text-label-bold text-primary">5.2%</p>
+</div>
+</div>
+</div>
+<!-- Secondary Card Placeholder -->
+<div class="bg-surface-container-lowest rounded-xl p-md custom-shadow opacity-80">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-label-bold text-label-bold">长江电力</h4>
+<span class="font-body-sm text-on-surface-variant">600900</span>
+</div>
+<div class="text-right">
+<p class="text-on-surface font-label-bold text-label-bold">¥ 3,450</p>
+<p class="text-on-surface-variant font-caption text-caption">预测分红</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- FAB -->
+<button class="fixed right-6 bottom-24 w-14 h-14 bg-primary-container text-on-primary-container rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform z-50">
+<span class="material-symbols-outlined text-[32px]">add</span>
+</button>
+<!-- Bottom Navigation Bar (from JSON) -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-surface dark:bg-surface-container-lowest border-t border-outline-variant dark:border-none shadow-[0_-4px_12px_0_rgba(0,0,0,0.05)]">
+<div class="flex justify-around items-center h-16 w-full px-sm pb-safe">
+<!-- 持仓 (Active) -->
+<a class="flex flex-col items-center justify-center bg-primary-container/20 dark:bg-primary-container text-on-primary-container rounded-full px-4 py-1 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">bar_chart</span>
+<span class="font-label-bold text-[10px]">持仓</span>
+</a>
+<!-- 分红日历 -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-secondary-fixed-dim hover:text-primary dark:hover:text-primary-fixed active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-label-bold text-[10px]">分红日历</span>
+</a>
+<!-- 发现 -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-secondary-fixed-dim hover:text-primary dark:hover:text-primary-fixed active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">rocket_launch</span>
+<span class="font-label-bold text-[10px]">发现</span>
+</a>
+<!-- 我的 -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-secondary-fixed-dim hover:text-primary dark:hover:text-primary-fixed active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-bold text-[10px]">我的</span>
+</a>
+</div>
+</nav>
+<script>
+        // Simple scroll interaction for header shadow
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 10) {
+                header.classList.add('shadow-md');
+            } else {
+                header.classList.remove('shadow-md');
+            }
+        });
+    </script>
+</body></html>

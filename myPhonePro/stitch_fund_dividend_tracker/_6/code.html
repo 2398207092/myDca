@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>持仓详情 - 种树</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&amp;family=Work+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-surface": "#1b1c1c",
+                    "inverse-primary": "#ffb59a",
+                    "background": "#faf9f9",
+                    "surface": "#faf9f9",
+                    "surface-bright": "#faf9f9",
+                    "surface-variant": "#e3e2e2",
+                    "inverse-on-surface": "#f2f0f0",
+                    "on-tertiary-container": "#383838",
+                    "on-error": "#ffffff",
+                    "tertiary": "#5f5e5e",
+                    "on-tertiary": "#ffffff",
+                    "primary-fixed": "#ffdbcf",
+                    "surface-tint": "#a73a05",
+                    "on-tertiary-fixed": "#1b1c1c",
+                    "on-secondary-fixed": "#1a1c1c",
+                    "secondary-fixed-dim": "#c6c6c7",
+                    "on-secondary-fixed-variant": "#454747",
+                    "on-background": "#1b1c1c",
+                    "surface-container-low": "#f4f3f3",
+                    "primary-container": "#ff7a45",
+                    "surface-container-high": "#e9e8e8",
+                    "primary": "#a73a05",
+                    "tertiary-fixed": "#e4e2e1",
+                    "on-secondary": "#ffffff",
+                    "primary-fixed-dim": "#ffb59a",
+                    "error-container": "#ffdad6",
+                    "on-primary-fixed-variant": "#802900",
+                    "inverse-surface": "#2f3031",
+                    "surface-dim": "#dbdad9",
+                    "on-primary": "#ffffff",
+                    "outline-variant": "#dfc0b5",
+                    "on-surface-variant": "#58423a",
+                    "outline": "#8b7168",
+                    "on-tertiary-fixed-variant": "#474747",
+                    "on-secondary-container": "#5f6161",
+                    "on-primary-fixed": "#380d00",
+                    "secondary": "#5d5f5f",
+                    "tertiary-fixed-dim": "#c8c6c6",
+                    "surface-container": "#efeded",
+                    "on-error-container": "#93000a",
+                    "secondary-container": "#dcdddd",
+                    "surface-container-highest": "#e3e2e2",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-container": "#a2a1a1",
+                    "secondary-fixed": "#e2e2e2",
+                    "on-primary-container": "#672000",
+                    "error": "#ba1a1a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "sm": "8px",
+                    "md": "16px",
+                    "base": "8px",
+                    "xl": "32px",
+                    "lg": "24px",
+                    "xs": "4px",
+                    "container-padding": "16px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "body-sm": ["Work Sans"],
+                    "label-bold": ["Work Sans"],
+                    "body-md": ["Work Sans"],
+                    "caption": ["Work Sans"]
+            },
+            "fontSize": {
+                    "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "label-bold": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "22px", "fontWeight": "400"}],
+                    "caption": ["12px", {"lineHeight": "16px", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .progress-mask {
+            mask: linear-gradient(to right, white var(--progress), transparent var(--progress));
+        }
+        body {
+            background-color: #f5f5f5; /* Level 0 Background */
+            -webkit-tap-highlight-color: transparent;
+        }
+        .card-lift {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Soft ambient shadow from guidance */
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="font-body-md text-on-surface pb-32">
+<!-- Top Navigation Placeholder (Supressed as per task: focused detail page) -->
+<header class="fixed top-0 w-full z-50 bg-surface flex items-center justify-between px-gutter h-14 shadow-sm">
+<button class="w-10 h-10 flex items-center justify-center active:opacity-80">
+<span class="material-symbols-outlined text-on-surface-variant">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-on-surface">持仓详情</h1>
+<button class="w-10 h-10 flex items-center justify-center active:opacity-80">
+<span class="material-symbols-outlined text-on-surface-variant">share</span>
+</button>
+</header>
+<main class="pt-20 px-gutter space-y-md max-w-[600px] mx-auto">
+<!-- Top Tab Switch -->
+<div class="flex p-1 bg-surface-container rounded-xl w-full">
+<button class="flex-1 py-2 text-label-bold font-label-bold text-on-primary-container bg-primary-container/20 rounded-lg transition-all" id="tab-fund" onclick="switchTab('fund')">基金</button>
+<button class="flex-1 py-2 text-label-bold font-label-bold text-on-surface-variant rounded-lg transition-all" id="tab-cny" onclick="switchTab('cny')">人民币资产</button>
+</div>
+<!-- Hero Data Card -->
+<section class="bg-surface-container-lowest rounded-xl p-lg card-lift relative overflow-hidden border border-outline-variant/10">
+<div class="absolute -right-4 -top-4 opacity-5 pointer-events-none">
+<span class="material-symbols-outlined text-[120px]">potted_plant</span>
+</div>
+<div class="space-y-1 mb-md">
+<p class="text-caption font-caption text-on-surface-variant flex items-center gap-1">
+                    预测年分红 <span class="material-symbols-outlined text-[14px]">info</span>
+</p>
+<div class="flex items-baseline gap-1">
+<span class="text-primary font-headline-lg text-[32px] leading-none">5,600</span>
+<span class="text-primary font-label-bold text-label-bold">元</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-md pt-md border-t border-surface-variant">
+<div>
+<p class="text-caption font-caption text-on-surface-variant">当前市值</p>
+<p class="text-headline-md font-headline-md text-on-surface">85,000<span class="text-[12px] ml-1">元</span></p>
+</div>
+<div>
+<p class="text-caption font-caption text-on-surface-variant">累计已获分红</p>
+<p class="text-headline-md font-headline-md text-primary">2,300<span class="text-[12px] ml-1">元</span></p>
+</div>
+</div>
+<div class="flex items-center justify-between mt-lg bg-surface p-sm rounded-lg">
+<div class="text-center flex-1">
+<p class="text-[10px] uppercase tracking-wider text-on-surface-variant mb-1">成本息率</p>
+<p class="font-label-bold text-label-bold text-on-surface">4.5%</p>
+</div>
+<div class="h-8 w-[1px] bg-outline-variant/30"></div>
+<div class="text-center flex-1">
+<p class="text-[10px] uppercase tracking-wider text-on-surface-variant mb-1">股价息率</p>
+<p class="font-label-bold text-label-bold text-on-surface">3.8%</p>
+</div>
+</div>
+</section>
+<!-- Progress Card -->
+<section class="bg-surface-container-lowest rounded-xl p-md card-lift space-y-md">
+<div class="flex justify-between items-center">
+<h3 class="font-label-bold text-label-bold text-on-surface">分红回本进度</h3>
+<span class="text-primary font-label-bold text-label-bold">15%</span>
+</div>
+<!-- Progress Bar -->
+<div class="relative w-full h-3 bg-surface-container rounded-full overflow-hidden">
+<div class="absolute top-0 left-0 h-full bg-primary-container transition-all duration-1000 ease-out rounded-full" style="width: 15%"></div>
+</div>
+<!-- Recovery Grid -->
+<div class="grid grid-cols-2 gap-x-md gap-y-sm">
+<div class="flex justify-between items-center border-b border-surface-variant pb-2">
+<span class="text-caption font-caption text-on-surface-variant">净投入</span>
+<span class="text-body-sm font-body-sm">¥82,700</span>
+</div>
+<div class="flex justify-between items-center border-b border-surface-variant pb-2">
+<span class="text-caption font-caption text-on-surface-variant">已收回</span>
+<span class="text-body-sm font-body-sm text-primary">¥2,300</span>
+</div>
+<div class="flex justify-between items-center border-b border-surface-variant pb-2">
+<span class="text-caption font-caption text-on-surface-variant">剩余待回收</span>
+<span class="text-body-sm font-body-sm">¥80,400</span>
+</div>
+<div class="flex justify-between items-center border-b border-surface-variant pb-2">
+<span class="text-caption font-caption text-on-surface-variant">预计回本</span>
+<span class="text-body-sm font-body-sm">12.5 年</span>
+</div>
+</div>
+<p class="text-[10px] text-center text-on-tertiary-container pt-1">
+                *基于当前持仓市值及预测年度派息计算
+            </p>
+</section>
+<!-- Function Grid -->
+<section class="bg-surface-container-lowest rounded-xl p-md card-lift space-y-md">
+<div class="flex justify-between items-center">
+<h3 class="font-headline-md text-headline-md text-on-surface">分红预测</h3>
+<div class="flex bg-surface-container p-1 rounded-lg gap-1">
+<button class="text-[10px] px-2 py-1 rounded bg-primary-container/20 text-primary font-label-bold">近12月</button>
+<button class="text-[10px] px-2 py-1 rounded text-on-surface-variant">未来5年</button>
+</div>
+</div>
+<div class="relative h-32 w-full mt-md">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 300 100">
+<defs>
+<lineargradient id="chartGradient" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" style="stop-color:#ff7a45;stop-opacity:0.2"></stop>
+<stop offset="100%" style="stop-color:#ff7a45;stop-opacity:0"></stop>
+</lineargradient>
+</defs>
+<path d="M0,80 Q50,75 100,60 T200,40 T300,10 L300,100 L0,100 Z" fill="url(#chartGradient)"></path>
+<path d="M0,80 Q50,75 100,60 T200,40 T300,10" fill="none" stroke="#ff7a45" stroke-linecap="round" stroke-width="3"></path>
+<circle cx="100" cy="60" fill="#ff7a45" r="4"></circle>
+<circle cx="200" cy="40" fill="#ff7a45" r="4"></circle>
+<circle cx="300" cy="10" fill="#ff7a45" r="4"></circle>
+</svg>
+<div class="absolute top-8 left-[30%] bg-primary text-on-primary text-[10px] px-1.5 py-0.5 rounded shadow-sm">¥6,200</div>
+<div class="absolute top-2 right-0 bg-primary text-on-primary text-[10px] px-1.5 py-0.5 rounded shadow-sm">¥8,500</div>
+</div>
+<div class="flex items-center gap-2 pt-2">
+<span class="material-symbols-outlined text-primary text-[18px]">trending_up</span>
+<p class="text-on-surface-variant font-body-sm text-body-sm">
+      预计未来五年分红总额将增长45%
+    </p>
+</div>
+</section><section class="grid grid-cols-2 gap-md">
+<button class="flex flex-col items-center justify-center bg-surface-container-lowest p-lg rounded-xl card-lift hover:bg-surface transition-colors active:scale-95 duration-150 group">
+<div class="w-12 h-12 rounded-full bg-primary-container/10 flex items-center justify-center mb-2 group-hover:bg-primary-container/20 transition-colors">
+<span class="material-symbols-outlined text-primary">receipt_long</span>
+</div>
+<span class="text-label-bold font-label-bold text-on-surface">交易明细</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-surface-container-lowest p-lg rounded-xl card-lift hover:bg-surface transition-colors active:scale-95 duration-150 group">
+<div class="w-12 h-12 rounded-full bg-primary-container/10 flex items-center justify-center mb-2 group-hover:bg-primary-container/20 transition-colors">
+<span class="material-symbols-outlined text-primary">history_edu</span>
+</div>
+<span class="text-label-bold font-label-bold text-on-surface">分红记录</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-surface-container-lowest p-lg rounded-xl card-lift hover:bg-surface transition-colors active:scale-95 duration-150 group">
+<div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-secondary">edit_square</span>
+</div>
+<span class="text-label-bold font-label-bold text-on-surface">编辑持仓</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-surface-container-lowest p-lg rounded-xl card-lift hover:bg-surface transition-colors active:scale-95 duration-150 group">
+<div class="w-12 h-12 rounded-full bg-error-container/20 flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-error">delete</span>
+</div>
+<span class="text-label-bold font-label-bold text-error">删除持仓</span>
+</button>
+</section>
+<!-- Visual Anchor: Atmospheric Animation -->
+<div class="relative w-full h-40 rounded-2xl overflow-hidden mt-xl">
+<div class="relative z-10 p-md flex flex-col justify-end h-full">
+<h4 class="text-on-surface font-headline-md text-headline-md">稳健增长</h4>
+<p class="text-on-surface-variant text-caption">正如照料花园，财富也需耐心培育</p>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation (Filtered for destination rule) -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-surface flex justify-around items-center h-16 px-sm pb-safe shadow-[0_-4px_12px_0_rgba(0,0,0,0.05)] border-t border-outline-variant/10 md:hidden">
+<div class="flex flex-col items-center justify-center bg-primary-container/20 text-on-primary-container rounded-full px-4 py-1">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="text-[10px] font-label-bold">持仓</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="text-[10px] font-label-bold">分红日历</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined">rocket_launch</span>
+<span class="text-[10px] font-label-bold">发现</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-label-bold">我的</span>
+</div>
+</nav>
+<script>
+        function switchTab(type) {
+            const fundTab = document.getElementById('tab-fund');
+            const cnyTab = document.getElementById('tab-cny');
+            
+            if (type === 'fund') {
+                fundTab.classList.add('bg-primary-container/20', 'text-on-primary-container');
+                fundTab.classList.remove('text-on-surface-variant');
+                cnyTab.classList.remove('bg-primary-container/20', 'text-on-primary-container');
+                cnyTab.classList.add('text-on-surface-variant');
+            } else {
+                cnyTab.classList.add('bg-primary-container/20', 'text-on-primary-container');
+                cnyTab.classList.remove('text-on-surface-variant');
+                fundTab.classList.remove('bg-primary-container/20', 'text-on-primary-container');
+                fundTab.classList.add('text-on-surface-variant');
+            }
+            
+            // Add haptic feedback simulation
+            if (window.navigator.vibrate) {
+                window.navigator.vibrate(10);
+            }
+        }
+
+        // Initialize progress bar animation
+        window.addEventListener('load', () => {
+            const bars = document.querySelectorAll('.bg-primary-container');
+            bars.forEach(bar => {
+                const targetWidth = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.width = targetWidth;
+                }, 300);
+            });
+        });
+    </script>
+</body></html>

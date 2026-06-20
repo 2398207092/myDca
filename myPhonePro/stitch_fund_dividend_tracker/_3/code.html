@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>分红日历 - 种树</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=Work+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface": "#1b1c1c",
+                        "inverse-primary": "#ffb59a",
+                        "background": "#faf9f9",
+                        "surface": "#faf9f9",
+                        "surface-bright": "#faf9f9",
+                        "surface-variant": "#e3e2e2",
+                        "inverse-on-surface": "#f2f0f0",
+                        "on-tertiary-container": "#383838",
+                        "on-error": "#ffffff",
+                        "tertiary": "#5f5e5e",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#ffdbcf",
+                        "surface-tint": "#a73a05",
+                        "on-tertiary-fixed": "#1b1c1c",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-background": "#1b1c1c",
+                        "surface-container-low": "#f4f3f3",
+                        "primary-container": "#ff7a45",
+                        "surface-container-high": "#e9e8e8",
+                        "primary": "#a73a05",
+                        "tertiary-fixed": "#e4e2e1",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#ffb59a",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#802900",
+                        "inverse-surface": "#2f3031",
+                        "surface-dim": "#dbdad9",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#dfc0b5",
+                        "on-surface-variant": "#58423a",
+                        "outline": "#8b7168",
+                        "on-tertiary-fixed-variant": "#474747",
+                        "on-secondary-container": "#5f6161",
+                        "on-primary-fixed": "#380d00",
+                        "secondary": "#5d5f5f",
+                        "tertiary-fixed-dim": "#c8c6c6",
+                        "surface-container": "#efeded",
+                        "on-error-container": "#93000a",
+                        "secondary-container": "#dcdddd",
+                        "surface-container-highest": "#e3e2e2",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-container": "#a2a1a1",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-primary-container": "#672000",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "base": "8px",
+                        "xl": "32px",
+                        "lg": "24px",
+                        "xs": "4px",
+                        "container-padding": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "body-sm": ["Work Sans"],
+                        "label-bold": ["Work Sans"],
+                        "body-md": ["Work Sans"],
+                        "caption": ["Work Sans"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "label-bold": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "22px", "fontWeight": "400"}],
+                        "caption": ["12px", {"lineHeight": "16px", "fontWeight": "500"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #faf9f9;
+            color: #1b1c1c;
+            font-family: 'Work Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+        .active-tab-indicator {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .shadow-soft {
+            box-shadow: 0 4px 12px 0 rgba(0,0,0,0.05);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background pb-20">
+<!-- Top AppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface shadow-sm px-gutter h-14 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">park</span>
+<h1 class="font-headline-lg text-headline-lg font-bold text-primary">分红日历</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</header>
+<main class="mt-14 max-w-[600px] mx-auto px-gutter py-md space-y-md">
+<!-- Tab Switcher -->
+<div class="bg-surface-container-low p-1 rounded-xl flex relative">
+<button class="flex-1 py-2 text-label-bold font-label-bold text-on-surface z-10 transition-colors" id="tab-calendar" onclick="switchTab('calendar')">日历</button>
+<button class="flex-1 py-2 text-label-bold font-label-bold text-on-surface-variant z-10 transition-colors" id="tab-overview" onclick="switchTab('overview')">年度总览</button>
+<div class="active-tab-indicator absolute left-1 top-1 bottom-1 w-[calc(50%-4px)] bg-surface-container-lowest rounded-lg shadow-sm" id="tab-indicator"></div>
+</div>
+<!-- Month Navigation -->
+<div class="flex items-center justify-between bg-surface-container-lowest p-md rounded-xl shadow-soft">
+<button class="w-8 h-8 flex items-center justify-center text-outline transition-colors hover:text-primary">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<div class="text-center">
+<p class="font-headline-md text-headline-md text-on-surface">2024年 11月</p>
+<p class="font-caption text-caption text-on-surface-variant mt-0.5">当月预计派息 1,200.00 元</p>
+</div>
+<button class="w-8 h-8 flex items-center justify-center text-outline transition-colors hover:text-primary">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<!-- Calendar Card -->
+<section class="bg-surface-container-lowest p-md rounded-xl shadow-soft">
+<div class="calendar-grid mb-4">
+<div class="text-center font-caption text-caption text-on-surface-variant py-1">日</div>
+<div class="text-center font-caption text-caption text-on-surface-variant py-1">一</div>
+<div class="text-center font-caption text-caption text-on-surface-variant py-1">二</div>
+<div class="text-center font-caption text-caption text-on-surface-variant py-1">三</div>
+<div class="text-center font-caption text-caption text-on-surface-variant py-1">四</div>
+<div class="text-center font-caption text-caption text-on-surface-variant py-1">五</div>
+<div class="text-center font-caption text-caption text-on-surface-variant py-1">六</div>
+</div>
+<div class="calendar-grid gap-y-2">
+<!-- Row 1 (Empty placeholders) -->
+<div class="h-10"></div>
+<div class="h-10"></div>
+<div class="h-10"></div>
+<div class="h-10"></div>
+<div class="h-10"></div>
+<!-- Nov 1st -->
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">1</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">2</span>
+</div>
+<!-- Row 2 -->
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">3</span>
+<div class="w-1.5 h-1.5 rounded-full bg-blue-500 absolute bottom-0"></div>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">4</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">5</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">6</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">7</span>
+<div class="w-1.5 h-1.5 rounded-full bg-error absolute bottom-0"></div>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">8</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">9</span>
+</div>
+<!-- Row 3 -->
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">10</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">11</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">12</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">13</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">14</span>
+</div>
+<!-- Nov 15th - Selected -->
+<div class="flex flex-col items-center justify-center h-10 relative bg-primary-container rounded-lg text-on-primary-container">
+<span class="font-label-bold text-label-bold">15</span>
+<div class="w-1.5 h-1.5 rounded-full bg-green-500 absolute bottom-0"></div>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">16</span>
+</div>
+<!-- Row 4 -->
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">17</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">18</span>
+<div class="w-1.5 h-1.5 rounded-full bg-blue-500 absolute bottom-0"></div>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">19</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">20</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">21</span>
+<div class="w-1.5 h-1.5 rounded-full bg-error absolute bottom-0"></div>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">22</span>
+</div>
+<div class="flex flex-col items-center justify-center h-10 relative">
+<span class="font-body-md text-body-md">23</span>
+</div>
+</div>
+<!-- Legend -->
+<div class="mt-6 pt-4 border-t border-outline-variant flex justify-around">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+<span class="font-caption text-caption text-on-surface-variant">股权登记</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-error"></div>
+<span class="font-caption text-caption text-on-surface-variant">除权除息</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-green-500"></div>
+<span class="font-caption text-caption text-on-surface-variant">派息日</span>
+</div>
+</div>
+</section>
+<!-- Events List -->
+<section class="space-y-sm">
+<h3 class="font-label-bold text-label-bold text-on-surface px-1">11月15日 事件展示</h3>
+<!-- Event Card 1 -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-soft border-l-4 border-green-500 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-600">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="bg-green-100 text-green-700 font-caption text-[10px] px-1.5 py-0.5 rounded">派息</span>
+<p class="font-label-bold text-label-bold text-on-surface">招商中证白酒</p>
+</div>
+<p class="font-caption text-caption text-on-surface-variant mt-0.5">预计到账 350.00 元</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline">chevron_right</span>
+</div>
+<!-- Event Card 2 (Secondary context) -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-soft opacity-60 border-l-4 border-outline flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-outline">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="bg-surface-container-high text-on-surface-variant font-caption text-[10px] px-1.5 py-0.5 rounded">公告</span>
+<p class="font-label-bold text-label-bold text-on-surface">工银红利混合</p>
+</div>
+<p class="font-caption text-caption text-on-surface-variant mt-0.5">发布2024年三季度分红预告</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline">chevron_right</span>
+</div>
+</section>
+<!-- Monthly Insights Bento -->
+<section class="grid grid-cols-2 gap-md">
+<div class="col-span-1 bg-primary-fixed p-md rounded-xl flex flex-col justify-between">
+<p class="font-caption text-caption text-on-primary-fixed-variant">最丰厚来源</p>
+<div>
+<p class="font-label-bold text-label-bold text-on-primary-fixed">沪深300指数</p>
+<p class="font-headline-md text-headline-md text-primary mt-1">420.00</p>
+</div>
+</div>
+<div class="col-span-1 bg-surface-container-high p-md rounded-xl flex flex-col justify-between">
+<p class="font-caption text-caption text-on-surface-variant">派息强度</p>
+<div>
+<div class="flex items-end gap-1">
+<p class="font-headline-md text-headline-md text-on-surface">较上月</p>
+<p class="font-label-bold text-label-bold text-green-600 mb-1">+12%</p>
+</div>
+<div class="w-full h-1.5 bg-surface-variant rounded-full mt-2 overflow-hidden">
+<div class="w-3/4 h-full bg-primary rounded-full"></div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 w-full z-50 bg-surface rounded-t-xl shadow-[0_-4px_12px_0_rgba(0,0,0,0.05)] border-t border-outline-variant">
+<div class="flex justify-around items-center h-16 w-full px-sm pb-safe">
+<a class="flex flex-col items-center justify-center text-on-secondary-container" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-label-bold text-label-bold">持仓</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container/20 text-on-primary-container rounded-full px-4 py-1" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">calendar_month</span>
+<span class="font-label-bold text-label-bold">分红日历</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-secondary-container" href="#">
+<span class="material-symbols-outlined">rocket_launch</span>
+<span class="font-label-bold text-label-bold">发现</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-secondary-container" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-bold text-label-bold">我的</span>
+</a>
+</div>
+</nav>
+<script>
+        function switchTab(tab) {
+            const indicator = document.getElementById('tab-indicator');
+            const calBtn = document.getElementById('tab-calendar');
+            const overBtn = document.getElementById('tab-overview');
+            
+            if (tab === 'calendar') {
+                indicator.style.transform = 'translateX(0)';
+                calBtn.classList.replace('text-on-surface-variant', 'text-on-surface');
+                overBtn.classList.replace('text-on-surface', 'text-on-surface-variant');
+            } else {
+                indicator.style.transform = 'translateX(100%)';
+                overBtn.classList.replace('text-on-surface-variant', 'text-on-surface');
+                calBtn.classList.replace('text-on-surface', 'text-on-surface-variant');
+            }
+        }
+    </script>
+</body></html>
