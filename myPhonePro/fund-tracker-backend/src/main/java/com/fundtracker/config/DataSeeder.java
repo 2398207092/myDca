@@ -132,6 +132,7 @@ public class DataSeeder implements CommandLineRunner {
                 .name(name).code(code).type(type)
                 .costAlgorithm(algorithm)
                 .shares(shares).cost(BigDecimal.ZERO)
+                .costPerShare(BigDecimal.ZERO)
                 .marketValue(BigDecimal.ZERO)
                 .predictedDividend(predictedDividend)
                 .dividendRate(BigDecimal.ZERO)
@@ -154,6 +155,7 @@ public class DataSeeder implements CommandLineRunner {
                 .holdingId(holdingId).type(type)
                 .date(LocalDate.parse(date))
                 .quantity(quantity).price(price).fee(fee).total(total)
+                .source("manual")
                 .build();
     }
 

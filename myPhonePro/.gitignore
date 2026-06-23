@@ -1,0 +1,33 @@
+# Java / Maven
+fund-tracker-backend/target/
+*.jar
+*.war
+*.class
+*.log
+
+# Node / Frontend
+stitch_fund_dividend_tracker/node_modules/
+stitch_fund_dividend_tracker/dist/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+fund-tracker-backend/logs/
+fund-tracker-backend/pingzhong_test.js
+需求文档_PRD.md
+stop.bat
+apidoc.json
+
+# Sensitive - DO NOT COMMIT
+fund-tracker-backend/src/main/resources/application-prod.yml
+
+# Built frontend copied to backend resources
+fund-tracker-backend/src/main/resources/static/
