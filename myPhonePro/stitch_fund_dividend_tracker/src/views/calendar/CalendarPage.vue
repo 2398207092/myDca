@@ -33,10 +33,8 @@ async function refreshDividendData() {
   refreshing.value = true
   try {
     await refreshAllFundDividends()
-    // 刷新后重新加载数据
-    const monthStr = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, '0')}`
-    const eventsData = await listEvents({ month: monthStr })
-    events.value = eventsData as DividendEvent[]
+    // 刷新后重新加载当前月份数据和月度洞察
+    await loadMonthData()
   } catch {
     // ignore
   } finally {
@@ -44,18 +42,22 @@ async function refreshDividendData() {
   }
 }
 
+// 按当前 currentYear/currentMonth 加载事件和月度洞察
+async function loadMonthData() {
+  const monthStr = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, '0')}`
+  const [eventsData, insightData] = await Promise.all([
+    listEvents({ month: monthStr }),
+    getMonthlyInsight(currentYear.value, currentMonth.value + 1),
+  ])
+  events.value = eventsData as DividendEvent[]
+  monthlyInsightData.value = insightData
+}
+
 onMounted(async () => {
   try {
     // 先同步已有分红数据到日历事件
     await syncAllEvents()
-
-    const monthStr = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, '0')}`
-    const [eventsData, insightData] = await Promise.all([
-      listEvents({ month: monthStr }),
-      getMonthlyInsight(currentYear.value, currentMonth.value + 1),
-    ])
-    events.value = eventsData as DividendEvent[]
-    monthlyInsightData.value = insightData
+    await loadMonthData()
     pageState.value = 'ready'
   } catch {
     pageState.value = 'error'
@@ -278,6 +280,7 @@ function prevMonth() {
   if (!selectedDate.value.startsWith(prefix)) {
     selectedDate.value = `${prefix}-01`
   }
+  loadMonthData()  // 切换月份后重新加载事件和洞察
 }
 
 function nextMonth() {
@@ -291,6 +294,7 @@ function nextMonth() {
   if (!selectedDate.value.startsWith(prefix)) {
     selectedDate.value = `${prefix}-01`
   }
+  loadMonthData()  // 切换月份后重新加载事件和洞察
 }
 
 // === Tab 切换 ===

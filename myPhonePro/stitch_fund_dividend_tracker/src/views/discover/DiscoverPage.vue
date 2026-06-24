@@ -109,6 +109,7 @@ const budgetYear = ref(new Date().getFullYear())
 const budgetData = ref<DcaBudgetVO | null>(null)
 
 async function loadBudget() {
+  if (budgetLoading.value) return  // 防止快速切换重复请求
   budgetLoading.value = true
   try {
     budgetData.value = await getDcaBudget(budgetYear.value, budgetMonth.value)
@@ -689,22 +690,26 @@ async function doDelete() {
         <div class="relative bg-surface-container-lowest rounded-xl shadow-xl w-[90%] max-w-sm z-10 p-4">
           <!-- Header with month nav -->
           <div class="flex items-center justify-between mb-3">
-            <button class="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all active:scale-90"
+            <button class="w-8 h-8 flex items-center justify-center rounded-full transition-all active:scale-90"
+                    :class="budgetLoading ? 'text-outline-variant/40 cursor-not-allowed' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'"
+                    :disabled="budgetLoading"
                     @click="prevBudgetMonth()">
               <span class="material-symbols-outlined text-[18px]">chevron_left</span>
             </button>
             <h3 class="font-label-bold text-label-bold text-on-surface">
               {{ budgetYear }}年{{ budgetMonth }}月 定投预算
             </h3>
-            <button class="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all active:scale-90"
+            <button class="w-8 h-8 flex items-center justify-center rounded-full transition-all active:scale-90"
+                    :class="budgetLoading ? 'text-outline-variant/40 cursor-not-allowed' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'"
+                    :disabled="budgetLoading"
                     @click="nextBudgetMonth()">
               <span class="material-symbols-outlined text-[18px]">chevron_right</span>
             </button>
           </div>
 
           <Transition name="fade-slide" mode="out-in">
-            <div v-if="budgetLoading" key="loading" class="text-center py-8 text-caption text-on-surface-variant">加载中...</div>
-            <div v-else-if="budgetData" key="data">
+            <div v-if="budgetLoading" key="loading" class="text-center py-8 text-caption text-on-surface-variant min-h-[180px] flex items-center justify-center">加载中...</div>
+            <div v-else-if="budgetData" key="data" class="min-h-[180px]">
               <!-- Total -->
               <div class="bg-surface-container rounded-lg p-3 text-center mb-3">
                 <p class="font-caption text-caption text-on-surface-variant">总预算</p>
