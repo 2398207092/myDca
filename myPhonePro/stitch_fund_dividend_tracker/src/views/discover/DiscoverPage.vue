@@ -85,7 +85,6 @@ async function loadData() {
   }
 }
 
-onMounted(loadData)
 onActivated(loadData)
 
 // DCA plans overview

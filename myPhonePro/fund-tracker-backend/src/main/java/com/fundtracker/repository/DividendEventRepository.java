@@ -14,6 +14,7 @@ public interface DividendEventRepository extends JpaRepository<DividendEvent, St
     List<DividendEvent> findByHoldingIdAndDateBetween(String holdingId, LocalDate start, LocalDate end);
     List<DividendEvent> findByTypeAndStatus(String type, String status);
     List<DividendEvent> findByHoldingIdAndStatus(String holdingId, EventStatus status);
+    List<DividendEvent> findByStatus(EventStatus status);
     boolean existsByHoldingIdAndTypeAndDate(String holdingId, EventType type, LocalDate date);
     List<DividendEvent> findByHoldingIdAndTypeAndDate(String holdingId, EventType type, LocalDate date);
     int deleteByHoldingId(String holdingId);

@@ -55,9 +55,8 @@ async function loadMonthData() {
 
 onMounted(async () => {
   try {
-    // 先同步已有分红数据到日历事件
-    await syncAllEvents()
-    await loadMonthData()
+    // 同步与加载月份数据没有依赖关系，并行执行
+    await Promise.all([syncAllEvents(), loadMonthData()])
     pageState.value = 'ready'
   } catch {
     pageState.value = 'error'

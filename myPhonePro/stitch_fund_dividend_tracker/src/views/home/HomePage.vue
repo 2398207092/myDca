@@ -72,7 +72,6 @@ async function loadData() {
   }
 }
 
-onMounted(loadData)
 onActivated(loadData)
 </script>
 

@@ -49,6 +49,9 @@ public class EventService {
                     LocalDate.parse(dateFrom), LocalDate.parse(dateTo));
         } else if (holdingId != null) {
             events = eventRepository.findByHoldingIdOrderByDateDesc(holdingId);
+        } else if (type != null && !type.isEmpty() && status != null && !status.isEmpty()) {
+            // 同时有 type 和 status 时利用数据库过滤，避免 findAll()
+            events = eventRepository.findByTypeAndStatus(type, status);
         } else {
             events = eventRepository.findAll();
         }
