@@ -112,7 +112,7 @@ onActivated(loadData)
               <!-- 预测年度分红 -->
               <div class="text-center">
                 <div class="text-primary-container font-headline-xl whitespace-nowrap">{{ formatMoney(dashboard?.predictedAnnualDividend) }}</div>
-                <p class="text-on-surface-variant font-caption text-caption mt-1">预测年度分红</p>
+                <p class="text-on-surface-variant font-caption text-caption mt-1">🎯 预测年度分红</p>
               </div>
               
               <!-- 10年预期收益 -->
