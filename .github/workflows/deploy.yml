@@ -32,12 +32,24 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Deploy to server via SSH
-        uses: easingthemes/ssh-deploy@v4.1.0
-        with:
+      - name: Configure SSH and deploy
+        env:
           SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          ARGS: '-rlgoDzvc -i --delete'
-          SOURCE: 'myPhonePro/stitch_fund_dividend_tracker/dist/'
           REMOTE_HOST: '47.108.64.108'
           REMOTE_USER: 'root'
           TARGET: '/www/wwwroot/fund-tracker/www/'
+          SOURCE: 'myPhonePro/stitch_fund_dividend_tracker/dist/'
+        run: |
+          # Setup SSH
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $REMOTE_HOST >> ~/.ssh/known_hosts
+
+          # Sync dist/ to server via rsync
+          rsync -rlgoDzvc --delete \
+            -e "ssh -o StrictHostKeyChecking=no" \
+            "$SOURCE" \
+            "$REMOTE_USER@$REMOTE_HOST:$TARGET"
+
+          echo "✅ Deploy complete!"
