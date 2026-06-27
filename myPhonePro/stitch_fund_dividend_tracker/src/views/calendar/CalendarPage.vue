@@ -7,7 +7,6 @@ import { getMonthlyInsight, getMonthlyDetail, getAnnualInsight } from '@/api/ins
 import type { MonthlyInsight, MonthlyDetail, AnnualInsight } from '@/api/insight'
 import { refreshAllFundDividends } from '@/api/fund'
 import { syncAllEvents } from '@/api/event'
-import AppHeader from '@/components/shared/AppHeader.vue'
 import PageStateComp from '@/components/shared/PageState.vue'
 
 const router = useRouter()
@@ -118,7 +117,7 @@ const monthlyPredictedDividend = computed(() => {
     .reduce((sum, e) => sum + e.amount, 0)
 })
 
-// === 事件类型样式映射 ===
+// === 事件类型样式映射（保留语义色，统一风格） ===
 const eventTypeStyles: Record<DividendEventType, {
   badgeClass: string
   badgeText: string
@@ -127,32 +126,32 @@ const eventTypeStyles: Record<DividendEventType, {
   iconBgClass: string
 }> = {
   registration: {
-    badgeClass: 'bg-blue-100 text-blue-700',
+    badgeClass: 'bg-blue-500/10 text-blue-600',
     badgeText: '登记',
     icon: 'how_to_reg',
     borderClass: 'border-blue-500',
     iconBgClass: 'bg-blue-500/10 text-blue-600',
   },
   ex_dividend: {
-    badgeClass: 'bg-red-100 text-red-700',
+    badgeClass: 'bg-error/10 text-error',
     badgeText: '除息',
     icon: 'swap_horiz',
     borderClass: 'border-error',
     iconBgClass: 'bg-error/10 text-error',
   },
   payout: {
-    badgeClass: 'bg-green-100 text-green-700',
+    badgeClass: 'bg-brand-light text-brand',
     badgeText: '派息',
     icon: 'payments',
-    borderClass: 'border-green-500',
-    iconBgClass: 'bg-green-500/10 text-green-600',
+    borderClass: 'border-brand',
+    iconBgClass: 'bg-brand-light text-brand',
   },
   announcement: {
-    badgeClass: 'bg-surface-container-high text-on-surface-variant',
+    badgeClass: 'bg-card-alt text-text-secondary',
     badgeText: '公告',
     icon: 'description',
-    borderClass: 'border-outline',
-    iconBgClass: 'bg-surface-container text-outline',
+    borderClass: 'border-border-light',
+    iconBgClass: 'bg-card-alt text-text-secondary',
   },
 }
 
@@ -160,7 +159,7 @@ const eventTypeStyles: Record<DividendEventType, {
 const dotColorForType: Record<DividendEventType, string | null> = {
   registration: 'bg-blue-500',
   ex_dividend: 'bg-error',
-  payout: 'bg-green-500',
+  payout: 'bg-brand',
   announcement: null,
 }
 
@@ -185,8 +184,8 @@ const eventGroupOrder: DividendEventType[] = ['registration', 'ex_dividend', 'pa
 const eventGroupStyles: Record<DividendEventType, { label: string; dotClass: string }> = {
   registration: { label: '权益登记', dotClass: 'bg-blue-500' },
   ex_dividend: { label: '除权除息', dotClass: 'bg-error' },
-  payout: { label: '派息发放', dotClass: 'bg-green-500' },
-  announcement: { label: '公告', dotClass: 'bg-outline-variant' },
+  payout: { label: '派息发放', dotClass: 'bg-brand' },
+  announcement: { label: '公告', dotClass: 'bg-text-tertiary' },
 }
 
 const groupedEvents = computed(() => {
@@ -313,58 +312,70 @@ function goToHolding(holdingId: string) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
-    <AppHeader title="分红日历" right-icon="notifications" />
+  <div class="min-h-screen bg-page-bg flex flex-col">
 
-    <main class="mt-14 pt-sm pb-24 px-gutter max-w-[600px] mx-auto space-y-md">
+    <!-- Header — 统一 -->
+    <header class="flex items-center justify-between px-gutter h-14 sticky top-0 z-50 bg-card-bg border-b border-border-light/40">
+      <button @click="router.push('/')" class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80">
+        <span class="material-symbols-outlined text-text-secondary">arrow_back</span>
+      </button>
+      <div class="flex-1 text-center">
+        <h1 class="font-body text-md font-medium text-text-primary">分红日历</h1>
+      </div>
+      <button class="w-10 h-10 flex items-center justify-center active:opacity-80">
+        <span class="material-symbols-outlined text-text-secondary">notifications</span>
+      </button>
+    </header>
+
+    <main class="flex-1 px-gutter pt-sm pb-24 overflow-y-auto space-y-md max-w-[600px] mx-auto w-full">
       <PageStateComp
         v-if="pageState !== 'ready'"
         :state="pageState"
       />
 
       <template v-if="pageState === 'ready'">
-        <!-- Tab Switcher -->
-        <div class="bg-surface-container-low p-1 rounded-xl flex relative">
+        <!-- ========== Tab Switcher ========== -->
+        <div class="bg-card-alt p-[3px] rounded-xl flex relative">
           <button
-            class="flex-1 py-2 text-label-bold font-label-bold z-10 transition-colors"
-            :class="activeTab === 'calendar' ? 'text-on-surface' : 'text-on-surface-variant'"
+            class="flex-1 py-2 font-body font-medium text-sm z-10 transition-colors"
+            :class="activeTab === 'calendar' ? 'text-text-primary' : 'text-text-secondary'"
             @click="activeTab = 'calendar'"
           >
             日历
           </button>
           <button
-            class="flex-1 py-2 text-label-bold font-label-bold z-10 transition-colors"
-            :class="activeTab === 'overview' ? 'text-on-surface' : 'text-on-surface-variant'"
+            class="flex-1 py-2 font-body font-medium text-sm z-10 transition-colors"
+            :class="activeTab === 'overview' ? 'text-text-primary' : 'text-text-secondary'"
             @click="activeTab = 'overview'; loadAnnualData()"
           >
             年度总览
           </button>
           <div
-            class="active-tab-indicator absolute left-1 top-1 bottom-1 w-[calc(50%-4px)] bg-surface-container-lowest rounded-lg shadow-sm"
+            class="active-tab-indicator absolute left-[3px] top-[3px] bottom-[3px] w-[calc(50%-6px)] bg-card-bg rounded-lg shadow-sm transition-all duration-300"
             :style="tabIndicatorStyle"
           />
         </div>
 
-        <!-- 日历视图 -->
+        <!-- ==================== 日历视图 ==================== -->
         <template v-if="activeTab === 'calendar'">
           <!-- Month Navigation -->
-          <div class="flex items-center justify-between bg-surface-container-lowest p-md rounded-xl card-shadow">
+          <div class="flex items-center justify-between bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40">
             <button
-              class="w-8 h-8 flex items-center justify-center text-outline hover:text-primary transition-colors"
+              class="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-brand transition-colors"
               @click="prevMonth"
             >
               <span class="material-symbols-outlined">chevron_left</span>
             </button>
             <div class="text-center">
-              <p class="font-headline-md text-headline-md text-on-surface">
+              <p class="font-display text-xl text-text-primary">
                 {{ currentYear }}年 {{ currentMonth + 1 }}月
               </p>
-              <p class="font-caption text-caption text-on-surface-variant mt-0.5">
+              <p class="font-body text-xs text-text-tertiary mt-0.5">
                 当月预计派息 {{ monthlyPredictedDividend.toFixed(2) }} 元
               </p>
             </div>
             <button
-              class="w-8 h-8 flex items-center justify-center text-outline hover:text-primary transition-colors"
+              class="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-brand transition-colors"
               @click="nextMonth"
             >
               <span class="material-symbols-outlined">chevron_right</span>
@@ -373,7 +384,7 @@ function goToHolding(holdingId: string) {
 
           <!-- Refresh Button -->
           <button
-            class="w-full flex items-center justify-center gap-2 py-2 text-caption font-caption text-on-surface-variant hover:text-primary transition-colors rounded-lg hover:bg-surface-container-high"
+            class="w-full flex items-center justify-center gap-2 py-2 font-body text-xs text-text-secondary hover:text-brand transition-colors rounded-lg hover:bg-card-alt"
             :disabled="refreshing"
             @click="refreshDividendData"
           >
@@ -384,13 +395,13 @@ function goToHolding(holdingId: string) {
           </button>
 
           <!-- Calendar Card -->
-          <section class="bg-surface-container-lowest p-md rounded-xl card-shadow">
+          <section class="bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40">
             <!-- Weekday Headers -->
-            <div class="grid grid-cols-7 mb-4">
+            <div class="grid grid-cols-7 mb-lg">
               <div
                 v-for="(w, i) in ['日','一','二','三','四','五','六']"
                 :key="i"
-                class="text-center font-caption text-caption text-on-surface-variant py-1"
+                class="text-center font-body text-xs text-text-tertiary py-1"
               >
                 {{ w }}
               </div>
@@ -402,17 +413,15 @@ function goToHolding(holdingId: string) {
                 v-for="(cell, idx) in calendarCells"
                 :key="idx"
                 class="flex flex-col items-center justify-center h-10 relative"
-                :class="{
-                  'cursor-pointer': cell.isCurrentMonth,
-                }"
+                :class="{ 'cursor-pointer': cell.isCurrentMonth }"
                 @click="cell.isCurrentMonth && selectDate(cell.date)"
               >
                 <template v-if="cell.isCurrentMonth">
                   <span
-                    class="flex items-center justify-center w-9 h-9 rounded-lg transition-colors font-body-md text-body-md"
+                    class="flex items-center justify-center w-9 h-9 rounded-lg transition-colors font-body text-sm"
                     :class="cell.date === selectedDate
-                      ? 'bg-primary-container text-on-primary-container font-label-bold text-label-bold'
-                      : 'text-on-surface hover:bg-surface-container-high'"
+                      ? 'bg-brand text-white font-medium'
+                      : 'text-text-primary hover:bg-card-alt'"
                   >
                     {{ cell.day }}
                   </span>
@@ -423,7 +432,7 @@ function goToHolding(holdingId: string) {
                     </template>
                     <span
                       v-if="getDotColors(cell.date).length > 3"
-                      class="font-caption text-[8px] text-on-surface-variant leading-none"
+                      class="font-body text-[8px] text-text-tertiary leading-none"
                     >+{{ getDotColors(cell.date).length - 3 }}</span>
                   </div>
                 </template>
@@ -431,41 +440,32 @@ function goToHolding(holdingId: string) {
             </div>
 
             <!-- Legend -->
-            <div class="mt-6 pt-4 border-t border-outline-variant flex justify-around">
+            <div class="mt-lg pt-lg border-t border-border-light flex justify-around">
               <div class="flex items-center gap-2">
                 <div class="w-2 h-2 rounded-full bg-blue-500" />
-                <span class="font-caption text-caption text-on-surface-variant">股权登记</span>
+                <span class="font-body text-xs text-text-tertiary">股权登记</span>
               </div>
               <div class="flex items-center gap-2">
                 <div class="w-2 h-2 rounded-full bg-error" />
-                <span class="font-caption text-caption text-on-surface-variant">除权除息</span>
+                <span class="font-body text-xs text-text-tertiary">除权除息</span>
               </div>
               <div class="flex items-center gap-2">
-                <div class="w-2 h-2 rounded-full bg-green-500" />
-                <span class="font-caption text-caption text-on-surface-variant">派息日</span>
+                <div class="w-2 h-2 rounded-full bg-brand" />
+                <span class="font-body text-xs text-text-tertiary">派息日</span>
               </div>
             </div>
           </section>
 
-          <!-- Events List -->
-          <section class="space-y-sm">
+          <!-- Events List (only render when there are events) -->
+          <section v-if="selectedEvents.length > 0" class="space-y-sm">
             <!-- Header with count -->
-            <div v-if="selectedEvents.length > 0" class="flex items-center justify-between px-1">
-              <h3 class="font-label-bold text-label-bold text-on-surface">
+            <div class="flex items-center justify-between px-1">
+              <h3 class="font-body text-sm font-medium text-text-primary">
                 {{ selectedDateDisplay }}
               </h3>
-              <span class="font-caption text-caption text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full">
+              <span class="font-body text-xs text-text-tertiary bg-card-alt px-2 py-0.5 rounded-full">
                 {{ selectedEvents.length }} 个事件
               </span>
-            </div>
-
-            <!-- Empty state -->
-            <div
-              v-else
-              class="bg-surface-container-lowest rounded-xl p-xl flex flex-col items-center justify-center"
-            >
-              <span class="material-symbols-outlined text-[36px] text-outline-variant">event_busy</span>
-              <p class="font-caption text-caption text-on-surface-variant mt-2">当天无分红事件</p>
             </div>
 
             <!-- Grouped Events -->
@@ -474,8 +474,8 @@ function goToHolding(holdingId: string) {
                 <!-- Group header -->
                 <div class="flex items-center gap-2 px-1 pt-1">
                   <span class="w-2 h-2 rounded-full" :class="eventGroupStyles[type].dotClass"></span>
-                  <span class="font-label-bold text-label-bold text-on-surface">{{ eventGroupStyles[type].label }}</span>
-                  <span class="font-caption text-caption text-on-surface-variant/60 ml-auto">{{ groupedEvents[type].length }}</span>
+                  <span class="font-body text-sm font-medium text-text-primary">{{ eventGroupStyles[type].label }}</span>
+                  <span class="font-body text-xs text-text-tertiary/60 ml-auto">{{ groupedEvents[type].length }}</span>
                 </div>
 
                 <!-- Group items -->
@@ -483,7 +483,7 @@ function goToHolding(holdingId: string) {
                   <div
                     v-for="event in groupedEvents[type]"
                     :key="event.id"
-                    class="bg-surface-container-lowest p-md rounded-xl shadow-sm flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-all"
+                    class="bg-card-bg p-md rounded-xl card-shadow border border-border-light/40 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-all"
                     @click="goToHolding(event.holdingId)"
                   >
                     <div
@@ -495,18 +495,18 @@ function goToHolding(holdingId: string) {
                       </span>
                     </div>
                     <div class="flex-1 min-w-0">
-                      <p class="font-label-bold text-label-bold text-on-surface truncate">{{ event.holdingName }}</p>
-                      <p class="font-caption text-caption text-on-surface-variant mt-0.5 truncate">{{ event.description }}</p>
+                      <p class="font-body text-sm font-medium text-text-primary truncate">{{ event.holdingName }}</p>
+                      <p class="font-body text-xs text-text-tertiary mt-0.5 truncate">{{ event.description }}</p>
                     </div>
                     <div class="text-right shrink-0 ml-2">
                       <p
-                        class="font-label-bold text-label-bold"
-                        :class="event.type === 'payout' ? 'text-primary' : 'text-on-surface'"
+                        class="font-body text-sm font-medium"
+                        :class="event.type === 'payout' ? 'text-brand' : 'text-text-primary'"
                       >
                         ¥{{ event.amount.toFixed(2) }}
                       </p>
                       <span
-                        class="font-caption text-[10px] px-1.5 py-0.5 rounded mt-1 inline-block"
+                        class="font-body text-[10px] px-1.5 py-0.5 rounded mt-1 inline-block"
                         :class="eventTypeStyles[event.type].badgeClass"
                       >
                         {{ eventTypeStyles[event.type].badgeText }}
@@ -520,101 +520,97 @@ function goToHolding(holdingId: string) {
 
           <!-- Monthly Insights Bento -->
           <section class="grid grid-cols-3 gap-sm">
-            <div class="col-span-1 bg-primary-container p-sm rounded-xl flex flex-col justify-between min-h-[84px]">
-              <p class="font-caption text-[10px] text-on-primary-container/70">最丰厚来源</p>
-              <div>
-                <p class="font-label-bold text-[13px] text-on-primary-container truncate">
-                  {{ richestSource.name }}
-                </p>
-                <p class="font-headline-sm text-headline-sm text-primary mt-0.5">
+            <!-- 最丰厚来源 — 品牌色强调 -->
+            <div class="col-span-1 bg-brand-light p-sm rounded-xl flex flex-col justify-between min-h-[90px]">
+              <p class="font-body text-xs text-brand/60 font-medium">最丰厚来源</p>
+              <div class="space-y-[2px]">
+                <p class="text-[20px] font-display font-semibold text-brand leading-none">
                   ¥{{ richestSource.amount.toFixed(0) }}
                 </p>
+                <p class="font-body text-xs text-text-tertiary truncate">{{ richestSource.name }}</p>
               </div>
             </div>
-            <div class="col-span-1 bg-surface-container-high p-sm rounded-xl flex flex-col justify-between min-h-[84px] relative cursor-pointer hover:bg-surface-container-high/80 transition-colors" @click="openMonthlyDetail">
+            <!-- 本月动态 — 可点击进入明细 -->
+            <div class="col-span-1 bg-card-bg p-sm rounded-xl card-shadow border border-border-light/40 flex flex-col justify-between min-h-[90px] relative cursor-pointer active:scale-[0.98] transition-transform" @click="openMonthlyDetail">
               <div class="flex items-center justify-between">
-                <p class="font-caption text-[10px] text-on-surface-variant">本月动态</p>
-                <span class="material-symbols-outlined text-[12px] text-on-surface-variant/40">chevron_right</span>
+                <p class="font-body text-xs text-text-tertiary font-medium">本月动态</p>
+                <span class="material-symbols-outlined text-[14px] text-text-tertiary/50">chevron_right</span>
               </div>
-              <div>
-                <p class="text-[22px] font-label-bold text-on-surface leading-tight">{{ monthlyActivity.payoutCount }}</p>
-                <p class="font-caption text-[11px] text-on-surface-variant">笔分红</p>
-                <p class="font-caption text-[10px] text-on-surface-variant/60">{{ monthlyActivity.fundCount }} 只基金参与</p>
+              <div class="space-y-[2px]">
+                <p class="text-[20px] font-display font-semibold text-text-primary leading-none">{{ monthlyActivity.payoutCount }}</p>
+                <p class="font-body text-xs text-text-tertiary truncate">{{ monthlyActivity.payoutCount }}笔分红 · {{ monthlyActivity.fundCount }}只基金</p>
               </div>
             </div>
-            <div class="col-span-1 bg-surface-container-high p-sm rounded-xl flex flex-col justify-between min-h-[84px]">
-              <p class="font-caption text-[10px] text-on-surface-variant">下次分红</p>
-              <div>
-                <p class="text-[22px] font-label-bold leading-tight"
-                   :class="nextDividend.holdingName !== '--' ? 'text-primary' : 'text-on-surface-variant/40'">
+            <!-- 下次分红 -->
+            <div class="col-span-1 bg-card-bg p-sm rounded-xl card-shadow border border-border-light/40 flex flex-col justify-between min-h-[90px]">
+              <p class="font-body text-xs text-text-tertiary font-medium">下次分红</p>
+              <div class="space-y-[2px]">
+                <p class="text-[20px] font-display font-semibold leading-none"
+                   :class="nextDividend.holdingName !== '--' ? 'text-brand' : 'text-text-tertiary/40'">
                   {{ nextDividend.holdingName !== '--' ? (nextDividend.daysRemaining > 0 ? nextDividend.daysRemaining + '天后' : '今日') : '--' }}
                 </p>
-                <p class="font-caption text-[11px] text-on-surface-variant truncate">{{ nextDividend.holdingName }}</p>
-                <p class="font-caption text-[10px] text-on-surface-variant/60">预计 ¥{{ nextDividend.amount.toFixed(0) }}</p>
+                <p class="font-body text-xs text-text-tertiary truncate">{{ nextDividend.holdingName }}</p>
+                <p class="font-body text-xs text-text-tertiary/60">预计 ¥{{ nextDividend.amount.toFixed(0) }}</p>
               </div>
             </div>
           </section>
         </template>
 
-        <!-- 年度总览 -->
+        <!-- ==================== 年度总览 ==================== -->
         <template v-else>
           <template v-if="annualLoading && !annualData">
             <div class="flex items-center justify-center py-20">
-              <span class="material-symbols-outlined animate-spin text-outline text-[32px]">progress_activity</span>
+              <span class="material-symbols-outlined animate-spin text-text-tertiary text-[32px]">progress_activity</span>
             </div>
           </template>
 
           <template v-else-if="annualData">
             <!-- Summary Cards -->
             <section class="grid grid-cols-4 gap-[6px]">
-              <div class="bg-surface-container-lowest p-[10px] rounded-xl card-shadow flex flex-col items-center text-center border-t-2 border-outline-variant">
-                <p class="font-caption text-[11px] text-on-surface-variant/60">全年</p>
-                <p class="text-[18px] font-label-bold text-on-surface mt-1">¥{{ annualData.summary.totalDividend.toFixed(0) }}</p>
+              <div class="bg-card-bg p-[10px] rounded-xl card-shadow border border-border-light/40 flex flex-col items-center text-center border-t-2 border-border-light">
+                <p class="font-body text-[11px] text-text-tertiary/60">全年</p>
+                <p class="text-[18px] font-display font-medium text-text-primary mt-1">¥{{ annualData.summary.totalDividend.toFixed(0) }}</p>
               </div>
-              <div class="bg-surface-container-lowest p-[10px] rounded-xl card-shadow flex flex-col items-center text-center border-t-2 border-outline-variant">
-                <p class="font-caption text-[11px] text-on-surface-variant/60">笔数</p>
-                <p class="text-[18px] font-label-bold text-on-surface mt-1">{{ annualData.summary.totalPayoutCount }}</p>
+              <div class="bg-card-bg p-[10px] rounded-xl card-shadow border border-border-light/40 flex flex-col items-center text-center border-t-2 border-border-light">
+                <p class="font-body text-[11px] text-text-tertiary/60">笔数</p>
+                <p class="text-[18px] font-display font-medium text-text-primary mt-1">{{ annualData.summary.totalPayoutCount }}</p>
               </div>
-              <div class="bg-surface-container-lowest p-[10px] rounded-xl card-shadow flex flex-col items-center text-center border-t-2 border-outline-variant">
-                <p class="font-caption text-[11px] text-on-surface-variant/60">基金</p>
-                <p class="text-[18px] font-label-bold text-on-surface mt-1">{{ annualData.summary.fundCount }}</p>
+              <div class="bg-card-bg p-[10px] rounded-xl card-shadow border border-border-light/40 flex flex-col items-center text-center border-t-2 border-border-light">
+                <p class="font-body text-[11px] text-text-tertiary/60">基金</p>
+                <p class="text-[18px] font-display font-medium text-text-primary mt-1">{{ annualData.summary.fundCount }}</p>
               </div>
-              <div class="bg-surface-container-lowest p-[10px] rounded-xl card-shadow flex flex-col items-center text-center border-t-2 border-outline-variant">
-                <p class="font-caption text-[11px] text-on-surface-variant/60">最多</p>
-                <p class="text-[18px] font-label-bold text-on-surface mt-1">{{ annualData.summary.peakMonth }}</p>
+              <div class="bg-card-bg p-[10px] rounded-xl card-shadow border border-border-light/40 flex flex-col items-center text-center border-t-2 border-border-light">
+                <p class="font-body text-[11px] text-text-tertiary/60">最多</p>
+                <p class="text-[18px] font-display font-medium text-text-primary mt-1">{{ annualData.summary.peakMonth }}</p>
               </div>
             </section>
 
             <!-- Monthly Bar Chart -->
-            <section class="bg-surface-container-lowest p-md rounded-xl card-shadow space-y-md">
-              <h3 class="font-label-bold text-label-bold text-on-surface">月度分红趋势</h3>
+            <section class="bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40 space-y-md">
+              <h3 class="font-body text-sm font-medium text-text-primary">月度分红趋势</h3>
 
-              <div
-                  v-for="q in quarters"
-                  :key="q.label"
-                  class="flex items-center gap-2"
-                >
-                  <span
-                    class="font-caption text-caption text-on-surface-variant w-8 shrink-0"
-                    :class="q.percentage === 100 ? 'text-primary font-label-bold' : ''"
-                  >{{ q.label }}</span>
-                  <div class="flex-1 h-6 bg-surface-container rounded overflow-hidden">
-                    <div
-                      class="h-full rounded transition-all duration-500"
-                      :class="q.amount > 0 ? 'bg-primary' : 'bg-surface-container'"
-                      :style="{ width: q.percentage + '%' }"
-                    />
-                  </div>
-                  <span class="font-caption text-caption text-on-surface-variant w-20 text-right shrink-0">
-                    <template v-if="q.amount > 0">¥{{ q.amount.toFixed(0) }}</template>
-                    <template v-else>—</template>
-                  </span>
+              <div v-for="q in quarters" :key="q.label" class="flex items-center gap-2">
+                <span
+                  class="font-body text-xs text-text-tertiary w-8 shrink-0"
+                  :class="q.percentage === 100 ? 'text-brand font-medium' : ''"
+                >{{ q.label }}</span>
+                <div class="flex-1 h-6 bg-progress-bg rounded overflow-hidden">
+                  <div
+                    class="h-full rounded transition-all duration-500"
+                    :class="q.amount > 0 ? 'bg-brand' : 'bg-progress-bg'"
+                    :style="{ width: q.percentage + '%' }"
+                  />
                 </div>
+                <span class="font-body text-xs text-text-tertiary w-20 text-right shrink-0">
+                  <template v-if="q.amount > 0">¥{{ q.amount.toFixed(0) }}</template>
+                  <template v-else>—</template>
+                </span>
+              </div>
             </section>
 
             <!-- Fund Ranking -->
-            <section class="bg-surface-container-lowest p-md rounded-xl card-shadow space-y-md">
-              <h3 class="font-label-bold text-label-bold text-on-surface">基金分红排行</h3>
+            <section class="bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40 space-y-md">
+              <h3 class="font-body text-sm font-medium text-text-primary">基金分红排行</h3>
 
               <div
                 v-for="(fund, i) in annualData.fundRanks"
@@ -622,34 +618,35 @@ function goToHolding(holdingId: string) {
                 class="flex items-center gap-3"
               >
                 <span
-                  class="w-5 h-5 rounded-full flex items-center justify-center font-caption text-[10px] shrink-0"
-                  :class="i === 0 ? 'bg-primary text-on-primary' : i === 1 ? 'bg-surface-container-high text-on-surface-variant' : i === 2 ? 'bg-surface-container-high text-on-surface-variant' : 'text-on-surface-variant/40'"
+                  class="w-5 h-5 rounded-full flex items-center justify-center font-body text-[10px] shrink-0"
+                  :class="i === 0 ? 'bg-brand text-white' : i === 1 ? 'bg-card-alt text-text-secondary' : i === 2 ? 'bg-card-alt text-text-secondary' : 'text-text-tertiary/40'"
                 >
                   {{ fund.rank }}
                 </span>
                 <div class="flex-1 min-w-0">
-                  <p class="font-label-bold text-[13px] text-on-surface truncate">{{ fund.holdingName }}</p>
-                  <div class="h-2 bg-surface-container rounded overflow-hidden mt-1">
+                  <p class="font-body text-[13px] font-medium text-text-primary truncate">{{ fund.holdingName }}</p>
+                  <div class="h-2 bg-progress-bg rounded overflow-hidden mt-1">
                     <div
-                      class="h-full rounded bg-primary-container transition-all duration-500"
+                      class="h-full rounded transition-all duration-500"
+                      :class="fund.amount > 0 ? 'bg-brand-light' : 'bg-progress-bg'"
                       :style="{ width: fund.percentage + '%' }"
                     />
                   </div>
                 </div>
-                <span class="font-label-bold text-[13px] text-primary shrink-0">¥{{ fund.amount.toFixed(0) }}</span>
+                <span class="font-body text-[13px] font-medium text-brand shrink-0">¥{{ fund.amount.toFixed(0) }}</span>
               </div>
 
               <div v-if="annualData.fundRanks.length === 0" class="flex flex-col items-center py-8">
-                <span class="material-symbols-outlined text-[32px] text-outline-variant">bar_chart</span>
-                <p class="font-caption text-caption text-on-surface-variant mt-2">暂无分红数据</p>
+                <span class="text-3xl block mb-1">📊</span>
+                <p class="font-body text-sm text-text-tertiary">暂无分红数据</p>
               </div>
             </section>
           </template>
 
           <template v-else>
             <div class="flex flex-col items-center justify-center py-20">
-              <span class="material-symbols-outlined text-[48px] text-outline-variant">bar_chart</span>
-              <p class="text-on-surface-variant font-caption mt-4">暂无数据</p>
+              <span class="text-4xl block mb-2">📊</span>
+              <p class="font-body text-sm text-text-tertiary">暂无数据</p>
             </div>
           </template>
         </template>
@@ -663,19 +660,19 @@ function goToHolding(holdingId: string) {
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
         @click.self="showMonthlyDetail = false"
       >
-        <div class="bg-surface-container-lowest rounded-2xl w-[90vw] max-w-[420px] max-h-[80vh] flex flex-col shadow-xl">
+        <div class="bg-card-bg rounded-2xl w-[90vw] max-w-[420px] max-h-[80vh] flex flex-col shadow-overlay">
           <!-- Dialog Header -->
-          <div class="flex items-center justify-between px-md pt-md pb-sm">
-            <h3 class="font-label-bold text-label-bold text-on-surface">{{ currentYear }}年{{ currentMonth + 1 }}月 分红明细</h3>
-            <button class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container" @click="showMonthlyDetail = false">
-              <span class="material-symbols-outlined text-[18px]">close</span>
+          <div class="flex items-center justify-between px-lg pt-lg pb-sm">
+            <h3 class="font-body text-sm font-medium text-text-primary">{{ currentYear }}年{{ currentMonth + 1 }}月 分红明细</h3>
+            <button class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-card-alt" @click="showMonthlyDetail = false">
+              <span class="material-symbols-outlined text-[18px] text-text-secondary">close</span>
             </button>
           </div>
 
           <!-- Dialog Body -->
-          <div class="flex-1 overflow-y-auto px-md pb-md space-y-sm">
+          <div class="flex-1 overflow-y-auto px-lg pb-lg space-y-sm">
             <div v-if="loadingDetail" class="flex items-center justify-center py-12">
-              <span class="material-symbols-outlined animate-spin text-outline">progress_activity</span>
+              <span class="material-symbols-outlined animate-spin text-text-tertiary">progress_activity</span>
             </div>
 
             <template v-else-if="monthlyDetailData?.details?.length">
@@ -683,27 +680,27 @@ function goToHolding(holdingId: string) {
                 v-for="(item, i) in monthlyDetailData.details"
                 :key="i"
                 class="flex items-center justify-between py-2.5"
-                :class="{ 'border-b border-outline-variant/20': i < monthlyDetailData.details.length - 1 }"
+                :class="{ 'border-b border-border-light/40': i < monthlyDetailData.details.length - 1 }"
               >
                 <div class="flex-1 min-w-0">
-                  <p class="font-label-bold text-[13px] text-on-surface truncate">{{ item.holdingName }}</p>
+                  <p class="font-body text-[13px] font-medium text-text-primary truncate">{{ item.holdingName }}</p>
                   <div class="flex items-center gap-1.5 mt-0.5">
                     <span
                       v-for="(type, ti) in item.eventTypes"
                       :key="ti"
-                      class="font-caption text-[10px] text-on-surface-variant/60 bg-surface-container px-1.5 py-0.5 rounded"
+                      class="font-body text-[10px] text-text-tertiary/60 bg-card-alt px-1.5 py-0.5 rounded"
                     >
                       {{ type }}
                     </span>
                   </div>
                 </div>
-                <p class="font-label-bold text-[13px] text-primary shrink-0 ml-3">¥{{ item.amount.toFixed(0) }}</p>
+                <p class="font-body text-[13px] font-medium text-brand shrink-0 ml-3">¥{{ item.amount.toFixed(0) }}</p>
               </div>
             </template>
 
             <div v-else class="flex flex-col items-center py-12">
-              <span class="material-symbols-outlined text-[32px] text-outline-variant">inbox</span>
-              <p class="font-caption text-caption text-on-surface-variant mt-2">本月无分红事件</p>
+              <span class="text-3xl block mb-1">📭</span>
+              <p class="font-body text-sm text-text-tertiary">本月无分红事件</p>
             </div>
           </div>
         </div>

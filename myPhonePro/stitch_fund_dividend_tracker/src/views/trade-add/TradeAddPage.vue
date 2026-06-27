@@ -23,7 +23,7 @@ const fee = ref(0)
 
 // Labels that change based on type
 const qtyLabel = ref('买入数量')
-const priceLabel = ref('买入价格')
+const priceLabel = ref('买入金额 (总价)')
 const dateLabel = ref('交易日期')
 const qtySuffix = ref('份')
 const priceSuffix = ref('CNY')
@@ -165,38 +165,33 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
-    <!-- Custom Fixed Header -->
-    <header class="fixed top-0 w-full z-50 bg-surface shadow-sm">
-      <div class="flex items-center justify-between px-gutter h-14 max-w-[600px] mx-auto">
-        <div class="flex items-center gap-2">
-          <button
-            class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80 transition-opacity"
-            @click="goBack"
-          >
-            <span class="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-          </button>
-          <h1 class="font-headline-md text-headline-md text-on-surface font-bold">添加交易</h1>
-        </div>
-        <button @click="router.push('/')" class="w-10 h-10 flex items-center justify-center active:opacity-80 transition-opacity">
-          <span class="material-symbols-outlined text-on-surface-variant">home</span>
-        </button>
+  <div class="min-h-screen bg-page-bg">
+    <!-- Header — 统一 -->
+    <header class="flex items-center justify-between px-gutter h-14 sticky top-0 z-50 bg-card-bg border-b border-border-light/40">
+      <button @click="goBack" class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80">
+        <span class="material-symbols-outlined text-text-secondary">arrow_back</span>
+      </button>
+      <div class="flex-1 text-center">
+        <h1 class="font-body text-md font-medium text-text-primary">添加交易</h1>
       </div>
+      <button @click="router.push('/')" class="w-10 h-10 flex items-center justify-center active:opacity-80 transition-opacity">
+        <span class="material-symbols-outlined text-text-secondary">home</span>
+      </button>
     </header>
 
     <!-- Main Content -->
-    <main class="pt-14 pb-32 px-gutter max-w-[600px] mx-auto">
+    <main class="px-gutter pb-32 space-y-md pt-md">
       <!-- Transaction Type Segmented Control -->
-      <section class="mb-xl mt-lg">
-        <div class="bg-surface-container-high rounded-xl p-1 flex w-full">
+      <section>
+        <div class="bg-card-alt rounded-xl p-[3px] flex w-full">
           <button
             v-for="item in segmentItems"
             :key="item.type"
-            class="type-btn flex-1 py-2 rounded-lg font-label-bold text-label-bold transition-all duration-200"
+            class="flex-1 py-2 rounded-lg font-body font-medium text-sm transition-all duration-200"
             type="button"
             :class="transactionType === item.type
-              ? 'bg-surface-container-lowest text-primary shadow-sm'
-              : 'text-on-surface-variant hover:bg-surface-container/50'"
+              ? 'bg-card-bg text-text-primary shadow-sm'
+              : 'text-text-secondary hover:bg-card-alt/50'"
             @click="setType(item.type)"
           >
             {{ item.label }}
@@ -205,78 +200,78 @@ async function handleSubmit() {
       </section>
 
       <!-- Form Card -->
-      <section class="bg-surface-container-lowest rounded-xl card-shadow p-md space-y-md">
+      <section class="bg-card-bg rounded-xl card-shadow border border-border-light/40 p-lg space-y-md">
         <!-- Transaction Date -->
         <div class="group">
-          <label class="block font-caption text-caption text-on-surface-variant mb-1 ml-1">{{ dateLabel }}</label>
+          <label class="block font-body text-xs text-text-tertiary mb-1 ml-1">{{ dateLabel }}</label>
           <div class="relative flex items-center">
             <input
               v-model="date"
-              class="w-full bg-surface-container-low border-none rounded-lg px-md py-3 font-body-md text-on-surface focus:ring-2 focus:ring-primary-container outline-none transition-all appearance-none"
+              class="w-full bg-card-alt border-none rounded-lg px-md py-3 font-body text-sm text-text-primary focus:ring-2 focus:ring-brand outline-none transition-all appearance-none"
               type="date"
               placeholder="选择日期"
             />
-            <span class="material-symbols-outlined absolute right-md pointer-events-none text-on-surface-variant">calendar_month</span>
+            <span class="material-symbols-outlined absolute right-md pointer-events-none text-text-tertiary">calendar_month</span>
           </div>
         </div>
 
         <!-- Two Columns: Quantity + Price -->
         <div class="grid grid-cols-2 gap-md">
           <div class="group">
-            <label class="block font-caption text-caption text-on-surface-variant mb-1 ml-1">{{ qtyLabel }}</label>
+            <label class="block font-body text-xs text-text-tertiary mb-1 ml-1">{{ qtyLabel }}</label>
             <div class="relative">
               <input
                 v-model.number="quantity"
-                class="w-full bg-surface-container-low border-none rounded-lg px-md py-3 font-body-md text-on-surface focus:ring-2 focus:ring-primary-container outline-none transition-all"
+                class="w-full bg-card-alt border-none rounded-lg px-md py-3 font-body text-sm text-text-primary focus:ring-2 focus:ring-brand outline-none transition-all"
                 :placeholder="qtyPlaceholder"
                 type="number"
                 step="any"
                 min="0"
               />
-              <span class="absolute right-md top-1/2 -translate-y-1/2 font-caption text-on-surface-variant">{{ qtySuffix }}</span>
+              <span class="absolute right-md top-1/2 -translate-y-1/2 font-body text-xs text-text-tertiary">{{ qtySuffix }}</span>
             </div>
           </div>
           <div class="group">
-            <label class="block font-caption text-caption text-on-surface-variant mb-1 ml-1">{{ priceLabel }}</label>
+            <label class="block font-body text-xs text-text-tertiary mb-1 ml-1">{{ priceLabel }}</label>
             <div class="relative">
               <input
                 v-model.number="price"
-                class="w-full bg-surface-container-low border-none rounded-lg px-md py-3 font-body-md text-on-surface focus:ring-2 focus:ring-primary-container outline-none transition-all"
+                class="w-full bg-card-alt border-none rounded-lg px-md py-3 font-body text-sm text-text-primary focus:ring-2 focus:ring-brand outline-none transition-all"
                 :placeholder="pricePlaceholder"
                 type="number"
                 step="any"
                 min="0"
               />
-              <span class="absolute right-md top-1/2 -translate-y-1/2 font-caption text-on-surface-variant">{{ priceSuffix }}</span>
+              <span class="absolute right-md top-1/2 -translate-y-1/2 font-body text-xs text-text-tertiary">{{ priceSuffix }}</span>
             </div>
           </div>
         </div>
 
         <!-- Transaction Fee (Optional) -->
         <div class="group">
-          <label class="block font-caption text-caption text-on-surface-variant mb-1 ml-1">交易费用 (可选)</label>
+          <label class="block font-body text-xs text-text-tertiary mb-1 ml-1">交易费用 (可选)</label>
           <div class="relative">
             <input
               v-model.number="fee"
-              class="w-full bg-surface-container-low border-none rounded-lg px-md py-3 font-body-md text-on-surface focus:ring-2 focus:ring-primary-container outline-none transition-all"
+              class="w-full bg-card-alt border-none rounded-lg px-md py-3 font-body text-sm text-text-primary focus:ring-2 focus:ring-brand outline-none transition-all"
               placeholder="0.00"
               type="number"
               step="any"
               min="0"
             />
-            <span class="absolute right-md top-1/2 -translate-y-1/2 font-caption text-on-surface-variant">CNY</span>
+            <span class="absolute right-md top-1/2 -translate-y-1/2 font-body text-xs text-text-tertiary">CNY</span>
           </div>
         </div>
 
         <!-- Estimated Impact -->
         <div class="pt-sm">
           <div class="flex justify-between items-center mb-2">
-            <span class="font-caption text-on-surface-variant">预估持仓影响</span>
-            <span class="font-label-bold text-primary">{{ estimatedImpact }}</span>
+            <span class="font-body text-xs text-text-tertiary">预估持仓影响</span>
+            <span class="font-body text-sm font-medium text-brand">{{ estimatedImpact }}</span>
           </div>
-          <div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+          <div class="h-2 w-full bg-progress-bg rounded-full overflow-hidden">
             <div
-              class="h-full bg-primary-container rounded-full transition-all duration-500"
+              class="h-full bg-brand-light rounded-full transition-all duration-500"
               :style="{ width: impactProgress + '%' }"
             ></div>
           </div>
@@ -284,19 +279,19 @@ async function handleSubmit() {
       </section>
 
       <!-- 装饰插图 -->
-      <div class="mt-lg rounded-xl overflow-hidden h-32 relative bg-surface-container-high">
-        <div class="absolute inset-0 bg-gradient-to-br from-primary-container/10 to-secondary-container/10"></div>
+      <div class="rounded-xl overflow-hidden h-32 relative bg-card-alt">
+        <div class="absolute inset-0 bg-gradient-to-br from-brand-light/20 to-card-alt"></div>
         <div class="absolute inset-0 flex items-center justify-center">
-          <p class="text-on-surface-variant/60 font-label-bold text-center italic">&ldquo;每一笔投入，都是种下一颗未来的树&rdquo;</p>
+          <p class="text-text-tertiary/60 font-body text-xs font-medium text-center italic">&ldquo;每一笔投入，都是种下一颗未来的树&rdquo;</p>
         </div>
       </div>
     </main>
 
     <!-- Fixed Bottom Action Bar -->
-    <div class="fixed bottom-0 w-full bg-surface px-gutter pb-8 pt-4 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-50">
+    <div class="fixed bottom-0 w-full bg-card-bg px-gutter pb-8 pt-4 shadow-overlay z-50">
       <button
         id="submit-btn"
-        class="w-full h-14 bg-primary-container hover:bg-primary-container/90 active:scale-95 transition-all text-on-primary-container font-headline-md text-headline-md rounded-xl flex items-center justify-center gap-2"
+        class="w-full h-[52px] bg-brand hover:bg-brand/90 active:scale-95 transition-all text-white font-body font-medium text-md rounded-xl flex items-center justify-center gap-2"
         @click="handleSubmit"
       >
         <span>确认添加</span>

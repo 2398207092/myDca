@@ -88,36 +88,36 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="bg-surface rounded-2xl px-xl py-lg shadow-2xl w-full max-w-sm mx-auto" style="max-height: 85vh; overflow-y: auto;">
+  <div class="bg-card-bg rounded-2xl px-xl py-lg shadow-overlay w-full max-w-sm mx-auto" style="max-height: 85vh; overflow-y: auto;">
 
-    <h3 class="text-title-large font-title-large text-on-surface mb-1">创建定投计划</h3>
-    <p class="text-body-medium font-body-medium text-on-surface-variant mb-lg">{{ holdingName }} ({{ holdingCode }})</p>
+    <h3 class="font-body text-md font-medium text-text-primary mb-1">创建定投计划</h3>
+    <p class="font-body text-sm text-text-secondary mb-lg">{{ holdingName }} ({{ holdingCode }})</p>
 
     <!-- Amount -->
-    <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">每期金额</label>
+    <label class="font-body text-xs text-text-tertiary mb-sm block">每期金额</label>
     <div class="relative mb-lg">
-      <span class="absolute left-md top-1/2 -translate-y-1/2 text-on-surface-variant font-label-large">¥</span>
+      <span class="absolute left-md top-1/2 -translate-y-1/2 text-text-tertiary font-body text-md">¥</span>
       <input
         v-model.number="amount"
         type="number"
         step="1"
         min="1"
         placeholder="50"
-        class="w-full h-12 rounded-xl bg-surface-container-high pl-10 pr-md text-on-surface text-body-large font-body-large outline-none transition-colors focus:ring-2 focus:ring-primary"
+        class="w-full h-12 rounded-xl bg-card-alt pl-10 pr-md text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand"
       />
     </div>
 
     <!-- Frequency -->
-    <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">频率</label>
+    <label class="font-body text-xs text-text-tertiary mb-sm block">频率</label>
     <div class="flex gap-sm mb-lg">
       <button
         v-for="opt in frequencyOptions"
         :key="opt.value"
         type="button"
-        class="flex-1 h-10 rounded-lg text-label-large font-label-large transition-all"
+        class="flex-1 h-10 rounded-lg font-body font-medium text-sm transition-all"
         :class="frequency === opt.value
-          ? 'bg-primary-container text-on-primary-container shadow-sm'
-          : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest'"
+          ? 'bg-brand-light text-brand shadow-sm'
+          : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'"
         @click="frequency = opt.value as typeof frequency; if (opt.value === 'daily') day = null"
       >
         {{ opt.label }}
@@ -126,7 +126,7 @@ async function handleSubmit() {
 
     <!-- Day selector (hidden when daily) -->
     <template v-if="showDaySelector">
-      <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">扣款日</label>
+      <label class="font-body text-xs text-text-tertiary mb-sm block">扣款日</label>
 
       <!-- Weekly / Biweekly: 7 days -->
       <div v-if="frequency === 'weekly' || frequency === 'biweekly'" class="flex gap-1.5 mb-lg">
@@ -134,10 +134,10 @@ async function handleSubmit() {
           v-for="wd in weekDays"
           :key="wd.value"
           type="button"
-          class="flex-1 min-w-[40px] h-9 rounded-lg text-label-large font-label-large transition-all"
+          class="flex-1 min-w-[40px] h-9 rounded-lg font-body font-medium text-sm transition-all"
           :class="day === wd.value
-            ? 'bg-primary-container text-on-primary-container shadow-sm'
-            : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest'"
+            ? 'bg-brand-light text-brand shadow-sm'
+            : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'"
           @click="day = wd.value"
         >
           {{ wd.label }}
@@ -146,7 +146,7 @@ async function handleSubmit() {
 
       <!-- Monthly: number input -->
       <div v-else class="relative mb-lg">
-        <span class="absolute left-md top-1/2 -translate-y-1/2 text-on-surface-variant font-label-large">日</span>
+        <span class="absolute left-md top-1/2 -translate-y-1/2 text-text-tertiary font-body text-md">日</span>
         <input
           v-model.number="day"
           type="number"
@@ -154,7 +154,7 @@ async function handleSubmit() {
           max="31"
           step="1"
           placeholder="15"
-          class="w-full h-12 rounded-xl bg-surface-container-high pl-10 pr-md text-on-surface text-body-large font-body-large outline-none transition-colors focus:ring-2 focus:ring-primary"
+          class="w-full h-12 rounded-xl bg-card-alt pl-10 pr-md text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand"
           @keydown="(e: KeyboardEvent) => {
             if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault()
           }"
@@ -163,23 +163,23 @@ async function handleSubmit() {
     </template>
 
     <!-- Read-only info -->
-    <div class="bg-surface-container-high rounded-xl px-md py-sm mb-lg space-y-sm">
+    <div class="bg-card-alt rounded-xl px-md py-sm mb-lg space-y-sm">
       <div class="flex justify-between items-center">
-        <span class="text-caption font-caption text-on-surface-variant">市场</span>
-        <span class="text-body-small font-body-small text-on-surface">{{ marketLabel }}</span>
+        <span class="font-body text-xs text-text-tertiary">市场</span>
+        <span class="font-body text-sm text-text-primary">{{ marketLabel }}</span>
       </div>
       <div class="flex justify-between items-center">
-        <span class="text-caption font-caption text-on-surface-variant">开始日期</span>
-        <span class="text-body-small font-body-small text-on-surface">明天起第一个交易日</span>
+        <span class="font-body text-xs text-text-tertiary">开始日期</span>
+        <span class="font-body text-sm text-text-primary">明天起第一个交易日</span>
       </div>
     </div>
 
     <!-- Error -->
-    <p v-if="error" class="text-error text-body-small font-body-small mb-sm text-center">{{ error }}</p>
+    <p v-if="error" class="text-error font-body text-xs mb-sm text-center">{{ error }}</p>
 
     <!-- Submit -->
     <button
-      class="w-full h-12 rounded-xl bg-primary-container text-on-primary-container text-label-large font-label-large transition-all hover:brightness-95 active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
+      class="w-full h-12 rounded-xl bg-brand text-white font-body font-medium text-md transition-all active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
       :disabled="submitting"
       @click="handleSubmit"
     >

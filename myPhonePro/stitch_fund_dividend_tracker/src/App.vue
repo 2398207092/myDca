@@ -12,7 +12,7 @@ const showBottomNav = computed(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
+  <div class="min-h-screen bg-page-bg">
     <router-view v-slot="{ Component }">
       <KeepAlive>
         <component :is="Component" />

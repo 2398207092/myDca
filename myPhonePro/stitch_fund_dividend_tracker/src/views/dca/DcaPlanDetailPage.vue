@@ -153,26 +153,18 @@ function formatQuantity(n: number): string {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
-    <!-- Header -->
-    <header class="fixed top-0 w-full z-50 bg-surface shadow-sm">
-      <div class="flex items-center justify-between px-gutter h-14 w-full max-w-[600px] mx-auto">
-        <div class="flex items-center gap-2">
-          <button
-            class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80 transition-opacity"
-            @click="goBack"
-          >
-            <span class="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-          </button>
-          <h1 class="font-headline-md text-headline-md text-on-surface font-bold">定投计划</h1>
-        </div>
-        <button
-          class="w-10 h-10 flex items-center justify-center active:opacity-80 transition-opacity"
-          @click="goHome"
-        >
-          <span class="material-symbols-outlined text-on-surface-variant">home</span>
-        </button>
+  <div class="min-h-screen bg-page-bg">
+    <!-- Header — 统一 -->
+    <header class="flex items-center justify-between px-gutter h-14 sticky top-0 z-50 bg-card-bg border-b border-border-light/40">
+      <button @click="goBack" class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80">
+        <span class="material-symbols-outlined text-text-secondary">arrow_back</span>
+      </button>
+      <div class="flex-1 text-center">
+        <h1 class="font-body text-md font-medium text-text-primary">定投计划</h1>
       </div>
+      <button @click="goHome" class="w-10 h-10 flex items-center justify-center active:opacity-80 transition-opacity">
+        <span class="material-symbols-outlined text-text-secondary">home</span>
+      </button>
     </header>
 
     <!-- Page State -->
@@ -181,17 +173,17 @@ function formatQuantity(n: number): string {
     <!-- Main Content -->
     <main
       v-if="pageState === 'ready' && plan"
-      class="pt-20 pb-32 px-gutter space-y-md max-w-[600px] mx-auto"
+      class="pt-4 pb-32 px-gutter space-y-md"
     >
       <!-- Holding Name + Status -->
-      <div class="flex items-start gap-sm px-lg">
+      <div class="flex items-start gap-sm px-gutter">
         <div class="flex-1 min-w-0">
-          <h2 class="font-headline-md text-headline-md text-on-surface font-bold truncate">{{ plan.holdingName }}</h2>
-          <p class="text-caption font-caption text-on-surface-variant">{{ plan.holdingCode }}</p>
+          <h2 class="font-display text-xl text-text-primary truncate">{{ plan.holdingName }}</h2>
+          <p class="font-body text-xs text-text-tertiary">{{ plan.holdingCode }}</p>
         </div>
         <span
-          class="shrink-0 flex items-center gap-[2px] px-sm py-0.5 rounded-full text-label-small font-label-small whitespace-nowrap"
-          :class="plan?.status === 'active' ? 'bg-green-500/10 text-green-500' : plan?.status === 'paused' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-surface-container-high text-on-surface-variant'"
+          class="shrink-0 flex items-center gap-[2px] px-sm py-0.5 rounded-full font-body text-xs font-medium whitespace-nowrap"
+          :class="plan?.status === 'active' ? 'bg-brand-light text-brand' : plan?.status === 'paused' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-card-alt text-text-secondary'"
         >
           <span class="material-symbols-outlined text-[12px]">{{ statusInfo.icon }}</span>
           {{ statusInfo.label }}
@@ -199,90 +191,90 @@ function formatQuantity(n: number): string {
       </div>
 
       <!-- Summary Cards: 2x2 Grid -->
-      <section class="grid grid-cols-2 gap-md">
-        <div class="bg-surface-container-lowest rounded-xl p-md card-shadow">
-          <p class="text-caption font-caption text-on-surface-variant mb-1">累计投入</p>
-          <p class="text-headline-md font-headline-md text-primary">
+      <section class="grid grid-cols-2 gap-md px-gutter">
+        <div class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
+          <p class="font-body text-xs text-text-tertiary mb-1">累计投入</p>
+          <p class="font-display text-lg font-semibold text-brand">
             ¥{{ formatAmount(plan.totalInvested) }}
           </p>
         </div>
-        <div class="bg-surface-container-lowest rounded-xl p-md card-shadow">
-          <p class="text-caption font-caption text-on-surface-variant mb-1">累计期数</p>
-          <p class="text-headline-md font-headline-md text-on-surface">
-            {{ plan.totalExecutions }}<span class="text-[12px] ml-1">期</span>
+        <div class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
+          <p class="font-body text-xs text-text-tertiary mb-1">累计期数</p>
+          <p class="font-display text-lg font-semibold text-text-primary">
+            {{ plan.totalExecutions }}<span class="text-xs ml-1">期</span>
           </p>
         </div>
-        <div class="bg-surface-container-lowest rounded-xl p-md card-shadow">
-          <p class="text-caption font-caption text-on-surface-variant mb-1">平均成本</p>
-          <p class="text-headline-md font-headline-md text-on-surface">
-            ¥{{ avgCost }}<span class="text-[12px] ml-1">/份</span>
+        <div class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
+          <p class="font-body text-xs text-text-tertiary mb-1">平均成本</p>
+          <p class="font-display text-lg font-semibold text-text-primary">
+            ¥{{ avgCost }}<span class="text-xs ml-1">/份</span>
           </p>
         </div>
-        <div class="bg-surface-container-lowest rounded-xl p-md card-shadow">
-          <p class="text-caption font-caption text-on-surface-variant mb-1">累计买入份额</p>
-          <p class="text-headline-md font-headline-md text-on-surface">
-            {{ formatQuantity(plan.totalShares) }}<span class="text-[12px] ml-1">份</span>
+        <div class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
+          <p class="font-body text-xs text-text-tertiary mb-1">累计买入份额</p>
+          <p class="font-display text-lg font-semibold text-text-primary">
+            {{ formatQuantity(plan.totalShares) }}<span class="text-xs ml-1">份</span>
           </p>
         </div>
       </section>
 
       <!-- Plan Info -->
-      <section class="bg-surface-container-lowest rounded-xl p-md card-shadow space-y-sm">
-        <h3 class="font-label-bold text-label-bold text-on-surface mb-sm">计划信息</h3>
-        <div class="flex justify-between items-center border-b border-surface-variant pb-2">
-          <span class="text-caption font-caption text-on-surface-variant">每期金额</span>
-          <span class="text-body-sm font-body-sm text-on-surface">¥{{ formatAmount(plan.amount) }}</span>
+      <section class="mx-gutter bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 space-y-sm">
+        <h3 class="font-body text-sm font-medium text-text-primary mb-sm">计划信息</h3>
+        <div class="flex justify-between items-center border-b border-border-light pb-2">
+          <span class="font-body text-xs text-text-tertiary">每期金额</span>
+          <span class="font-body text-sm text-text-primary">¥{{ formatAmount(plan.amount) }}</span>
         </div>
-        <div class="flex justify-between items-center border-b border-surface-variant pb-2">
-          <span class="text-caption font-caption text-on-surface-variant">频率</span>
-          <span class="text-body-sm font-body-sm text-on-surface">{{ frequencyLabel }}</span>
+        <div class="flex justify-between items-center border-b border-border-light pb-2">
+          <span class="font-body text-xs text-text-tertiary">频率</span>
+          <span class="font-body text-sm text-text-primary">{{ frequencyLabel }}</span>
         </div>
-        <div class="flex justify-between items-center border-b border-surface-variant pb-2">
-          <span class="text-caption font-caption text-on-surface-variant">扣款日</span>
-          <span class="text-body-sm font-body-sm text-on-surface">{{ dayLabel }}</span>
+        <div class="flex justify-between items-center border-b border-border-light pb-2">
+          <span class="font-body text-xs text-text-tertiary">扣款日</span>
+          <span class="font-body text-sm text-text-primary">{{ dayLabel }}</span>
         </div>
-        <div class="flex justify-between items-center border-b border-surface-variant pb-2">
-          <span class="text-caption font-caption text-on-surface-variant">下次执行</span>
-          <span class="text-body-sm font-body-sm text-on-surface">{{ plan.nextExecutionDate || '--' }}</span>
+        <div class="flex justify-between items-center border-b border-border-light pb-2">
+          <span class="font-body text-xs text-text-tertiary">下次执行</span>
+          <span class="font-body text-sm text-text-primary">{{ plan.nextExecutionDate || '--' }}</span>
         </div>
         <div class="flex justify-between items-center">
-          <span class="text-caption font-caption text-on-surface-variant">开始日期</span>
-          <span class="text-body-sm font-body-sm text-on-surface">{{ plan.startedAt }}</span>
+          <span class="font-body text-xs text-text-tertiary">开始日期</span>
+          <span class="font-body text-sm text-text-primary">{{ plan.startedAt }}</span>
         </div>
       </section>
 
       <!-- Execution History Table -->
-      <section class="bg-surface-container-lowest rounded-xl p-md card-shadow">
-        <h3 class="font-label-bold text-label-bold text-on-surface mb-md">执行记录</h3>
+      <section class="mx-gutter bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
+        <h3 class="font-body text-sm font-medium text-text-primary mb-md">执行记录</h3>
         <div v-if="dcaTransactions.length === 0" class="text-center py-lg">
-          <span class="material-symbols-outlined text-3xl text-on-surface-variant/40 mb-sm">receipt_long</span>
-          <p class="text-caption font-caption text-on-surface-variant">暂无执行记录</p>
+          <span class="text-3xl block mb-sm text-text-tertiary/40">📋</span>
+          <p class="font-body text-sm text-text-tertiary">暂无执行记录</p>
         </div>
         <div v-else class="space-y-xs">
           <div
             v-for="tx in dcaTransactions"
             :key="tx.id"
-            class="flex items-center justify-between py-sm border-b border-surface-variant last:border-b-0"
+            class="flex items-center justify-between py-sm border-b border-border-light last:border-b-0"
           >
             <div>
-              <p class="text-body-small font-body-small text-on-surface">{{ tx.date }}</p>
-              <p class="text-caption font-caption text-on-surface-variant">
+              <p class="font-body text-sm text-text-primary">{{ tx.date }}</p>
+              <p class="font-body text-xs text-text-tertiary">
                 @ ¥{{ formatAmount(tx.price) }}
               </p>
             </div>
             <div class="text-right">
-              <p class="text-body-small font-body-small text-on-surface">¥{{ formatAmount(tx.total) }}</p>
-              <p class="text-caption font-caption text-on-surface-variant">{{ formatQuantity(tx.quantity) }} 份</p>
+              <p class="font-body text-sm text-text-primary">¥{{ formatAmount(tx.total) }}</p>
+              <p class="font-body text-xs text-text-tertiary">{{ formatQuantity(tx.quantity) }} 份</p>
             </div>
           </div>
         </div>
       </section>
 
       <!-- Action Buttons -->
-      <section class="space-y-sm">
+      <section class="px-gutter space-y-sm">
         <button
           v-if="plan.status === 'active'"
-          class="w-full h-12 rounded-xl bg-primary-container text-on-primary-container text-label-large font-label-large transition-all hover:brightness-95 active:scale-[0.98] flex items-center justify-center gap-sm"
+          class="w-full h-[52px] rounded-xl bg-brand text-white shadow-card font-body font-medium text-md transition-all active:scale-[0.98] flex items-center justify-center gap-sm"
           @click="handleExecute"
         >
           <span class="material-symbols-outlined">play_arrow</span>
@@ -291,7 +283,7 @@ function formatQuantity(n: number): string {
 
         <div class="grid grid-cols-2 gap-sm">
           <button
-            class="h-12 rounded-xl bg-surface-container-high text-on-surface-variant text-label-large font-label-large transition-all hover:bg-surface-container-highest active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
+            class="h-[52px] rounded-xl bg-card-alt text-text-secondary font-body font-medium text-md transition-all active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
             :disabled="updating"
             @click="handlePauseResume"
           >
@@ -303,7 +295,7 @@ function formatQuantity(n: number): string {
 
           <button
             v-if="plan.status !== 'ended'"
-            class="h-12 rounded-xl bg-surface-container-high text-on-surface-variant text-label-large font-label-large transition-all hover:bg-surface-container-highest active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
+            class="h-[52px] rounded-xl bg-card-alt text-text-secondary font-body font-medium text-md transition-all active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
             :disabled="updating"
             @click="handleEnd"
           >
@@ -313,7 +305,7 @@ function formatQuantity(n: number): string {
         </div>
 
         <button
-          class="w-full h-12 rounded-xl bg-error-container/20 text-error text-label-large font-label-large transition-all hover:bg-error-container/30 active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
+          class="w-full h-[52px] rounded-xl bg-error/10 text-error font-body font-medium text-md transition-all active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
           :disabled="updating"
           @click="showDeleteConfirm = true"
         >
@@ -323,8 +315,8 @@ function formatQuantity(n: number): string {
       </section>
 
       <!-- Bottom decoration -->
-      <div class="relative w-full rounded-2xl overflow-hidden py-md">
-        <p class="text-on-surface-variant text-caption text-center italic">
+      <div class="relative w-full rounded-2xl overflow-hidden py-md px-gutter">
+        <p class="text-text-tertiary font-body text-xs text-center italic">
           &ldquo;时间是最好的朋友&rdquo;
         </p>
       </div>
@@ -357,22 +349,22 @@ function formatQuantity(n: number): string {
         <div v-if="showDeleteConfirm"
              class="fixed inset-0 z-[110] flex items-center justify-center"
              @click.self="showDeleteConfirm = false">
-          <div class="bg-surface rounded-2xl px-xl py-lg mx-gutter max-w-sm w-full shadow-2xl">
+          <div class="bg-card-bg rounded-2xl px-xl py-lg mx-gutter max-w-sm w-full shadow-overlay">
             <div class="flex flex-col items-center text-center">
               <div class="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center mb-md">
                 <span class="material-symbols-outlined text-2xl text-error">delete_forever</span>
               </div>
-              <h3 class="text-title-large font-title-large text-on-surface mb-sm">确认删除</h3>
-              <p class="text-body-medium font-body-medium text-on-surface-variant mb-xl">删除后定投计划数据将不可恢复，确定要继续吗？</p>
+              <h3 class="font-body text-md font-medium text-text-primary mb-sm">确认删除</h3>
+              <p class="font-body text-sm text-text-secondary mb-xl">删除后定投计划数据将不可恢复，确定要继续吗？</p>
               <div class="flex gap-md w-full">
                 <button
-                  class="flex-1 h-12 rounded-xl bg-surface-container-high text-on-surface-variant text-label-large font-label-large transition-colors hover:bg-surface-container-highest active:scale-[0.98]"
+                  class="flex-1 h-12 rounded-xl bg-card-alt text-text-secondary font-body font-medium text-md transition-colors active:scale-[0.98]"
                   @click="showDeleteConfirm = false"
                 >
                   取消
                 </button>
                 <button
-                  class="flex-1 h-12 rounded-xl bg-error text-on-error text-label-large font-label-large transition-colors hover:brightness-95 active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
+                  class="flex-1 h-12 rounded-xl bg-error text-white font-body font-medium text-md transition-colors active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
                   :disabled="updating"
                   @click="handleDelete"
                 >

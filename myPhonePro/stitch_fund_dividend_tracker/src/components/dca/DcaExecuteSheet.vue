@@ -44,22 +44,22 @@ function formatNumber(n: number, digits = 2): string {
 </script>
 
 <template>
-  <div class="bg-surface rounded-2xl px-xl py-lg shadow-2xl w-full max-w-sm mx-auto">
+  <div class="bg-card-bg rounded-2xl px-xl py-lg shadow-overlay w-full max-w-sm mx-auto">
 
     <!-- Confirm state -->
     <template v-if="state === 'confirm'">
-      <h3 class="text-title-large font-title-large text-on-surface mb-1">执行定投</h3>
-      <p class="text-body-medium font-body-medium text-on-surface-variant mb-lg">{{ holdingName }}</p>
+      <h3 class="font-body text-md font-medium text-text-primary mb-1">执行定投</h3>
+      <p class="font-body text-sm text-text-secondary mb-lg">{{ holdingName }}</p>
 
-      <div class="bg-surface-container-high rounded-xl px-md py-md mb-lg">
+      <div class="bg-card-alt rounded-xl px-md py-md mb-lg">
         <div class="flex justify-between items-center">
-          <span class="text-caption font-caption text-on-surface-variant">金额</span>
-          <span class="text-headline-md font-headline-md text-primary">¥{{ formatNumber(amount) }}</span>
+          <span class="font-body text-xs text-text-tertiary">金额</span>
+          <span class="font-display text-lg font-semibold text-brand">¥{{ formatNumber(amount) }}</span>
         </div>
       </div>
 
       <button
-        class="w-full h-12 rounded-xl bg-primary-container text-on-primary-container text-label-large font-label-large transition-all hover:brightness-95 active:scale-[0.98] flex items-center justify-center gap-sm"
+        class="w-full h-12 rounded-xl bg-brand text-white font-body font-medium text-md transition-all active:scale-[0.98] flex items-center justify-center gap-sm"
         @click="handleExecute"
       >
         <span class="material-symbols-outlined">play_arrow</span>
@@ -70,41 +70,41 @@ function formatNumber(n: number, digits = 2): string {
     <!-- Loading state -->
     <template v-if="state === 'loading'">
       <div class="flex flex-col items-center justify-center py-lg">
-        <span class="material-symbols-outlined animate-spin text-3xl text-primary mb-md">progress_activity</span>
-        <p class="text-body-medium font-body-medium text-on-surface-variant">正在执行定投...</p>
+        <span class="material-symbols-outlined animate-spin text-3xl text-brand mb-md">progress_activity</span>
+        <p class="font-body text-sm text-text-secondary">正在执行定投...</p>
       </div>
     </template>
 
     <!-- Success state -->
     <template v-if="state === 'success' && result">
       <div class="flex flex-col items-center py-md">
-        <div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center mb-md">
-          <span class="material-symbols-outlined text-2xl text-success">check_circle</span>
+        <div class="w-12 h-12 rounded-full bg-brand-light flex items-center justify-center mb-md">
+          <span class="material-symbols-outlined text-2xl text-brand">check_circle</span>
         </div>
-        <h3 class="text-title-large font-title-large text-on-surface mb-1">执行成功</h3>
-        <p class="text-body-medium font-body-medium text-on-surface-variant mb-lg">{{ holdingName }}</p>
+        <h3 class="font-body text-md font-medium text-text-primary mb-1">执行成功</h3>
+        <p class="font-body text-sm text-text-secondary mb-lg">{{ holdingName }}</p>
 
-        <div class="w-full bg-surface-container-high rounded-xl px-md py-md space-y-sm mb-lg">
+        <div class="w-full bg-card-alt rounded-xl px-md py-md space-y-sm mb-lg">
           <div class="flex justify-between items-center">
-            <span class="text-caption font-caption text-on-surface-variant">金额</span>
-            <span class="text-body-small font-body-small text-on-surface">¥{{ formatNumber(result.amount) }}</span>
+            <span class="font-body text-xs text-text-tertiary">金额</span>
+            <span class="font-body text-sm text-text-primary">¥{{ formatNumber(result.amount) }}</span>
           </div>
           <div class="flex justify-between items-center">
-            <span class="text-caption font-caption text-on-surface-variant">成交份额</span>
-            <span class="text-body-small font-body-small text-on-surface">{{ formatNumber(result.quantity, 4) }} 份</span>
+            <span class="font-body text-xs text-text-tertiary">成交份额</span>
+            <span class="font-body text-sm text-text-primary">{{ formatNumber(result.quantity, 4) }} 份</span>
           </div>
           <div class="flex justify-between items-center">
-            <span class="text-caption font-caption text-on-surface-variant">成交净值</span>
-            <span class="text-body-small font-body-small text-on-surface">¥{{ formatNumber(result.navPrice, 4) }}</span>
+            <span class="font-body text-xs text-text-tertiary">成交净值</span>
+            <span class="font-body text-sm text-text-primary">¥{{ formatNumber(result.navPrice, 4) }}</span>
           </div>
           <div class="flex justify-between items-center">
-            <span class="text-caption font-caption text-on-surface-variant">净值日期</span>
-            <span class="text-body-small font-body-small text-on-surface">{{ result.navDate }}</span>
+            <span class="font-body text-xs text-text-tertiary">净值日期</span>
+            <span class="font-body text-sm text-text-primary">{{ result.navDate }}</span>
           </div>
         </div>
 
         <button
-          class="w-full h-12 rounded-xl bg-primary-container text-on-primary-container text-label-large font-label-large transition-all hover:brightness-95 active:scale-[0.98]"
+          class="w-full h-12 rounded-xl bg-brand text-white font-body font-medium text-md transition-all active:scale-[0.98]"
           @click="emit('close')"
         >
           完成
@@ -118,18 +118,18 @@ function formatNumber(n: number, digits = 2): string {
         <div class="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center mb-md">
           <span class="material-symbols-outlined text-2xl text-error">error_outline</span>
         </div>
-        <h3 class="text-title-large font-title-large text-on-surface mb-1">执行失败</h3>
-        <p class="text-body-medium font-body-medium text-on-surface-variant mb-lg">{{ errorMsg }}</p>
+        <h3 class="font-body text-md font-medium text-text-primary mb-1">执行失败</h3>
+        <p class="font-body text-sm text-text-secondary mb-lg">{{ errorMsg }}</p>
 
         <div class="flex gap-md w-full">
           <button
-            class="flex-1 h-12 rounded-xl bg-surface-container-high text-on-surface-variant text-label-large font-label-large transition-colors hover:bg-surface-container-highest active:scale-[0.98]"
+            class="flex-1 h-12 rounded-xl bg-card-alt text-text-secondary font-body font-medium text-md transition-colors active:scale-[0.98]"
             @click="emit('close')"
           >
             关闭
           </button>
           <button
-            class="flex-1 h-12 rounded-xl bg-primary text-on-primary text-label-large font-label-large transition-colors hover:brightness-95 active:scale-[0.98] flex items-center justify-center gap-sm"
+            class="flex-1 h-12 rounded-xl bg-brand text-white font-body font-medium text-md transition-colors active:scale-[0.98] flex items-center justify-center gap-sm"
             @click="handleRetry"
           >
             <span class="material-symbols-outlined">refresh</span>

@@ -139,7 +139,7 @@ const priceDateFormatted = computed(() => {
 
 const sharesFormatted = computed(() => {
   if (!holding.value) return '0'
-  return holding.value.shares.toLocaleString('zh-CN', { maximumFractionDigits: 4 })
+  return holding.value.shares.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 })
 
 // === 类型映射（币种 + 资产类别）===
@@ -273,22 +273,22 @@ onMounted(loadData)
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
+  <div class="min-h-screen bg-page-bg">
     <!-- 自定义固定顶栏 -->
-    <header class="fixed top-0 w-full z-50 bg-surface shadow-sm">
+    <header class="fixed top-0 w-full z-50 bg-card-bg border-b border-border-light/40">
       <div class="flex items-center justify-between px-gutter h-14 w-full max-w-[600px] mx-auto">
         <button
           class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80 transition-opacity"
           @click="goBack"
         >
-          <span class="material-symbols-outlined text-on-surface-variant">arrow_back</span>
+          <span class="material-symbols-outlined text-text-secondary">arrow_back</span>
         </button>
-        <h1 class="font-headline-md text-headline-md text-on-surface">持仓详情</h1>
+        <h1 class="font-body text-md font-medium text-text-primary">持仓详情</h1>
         <button
           class="w-10 h-10 flex items-center justify-center active:opacity-80 transition-opacity"
           @click="router.push('/')"
         >
-          <span class="material-symbols-outlined text-on-surface-variant">home</span>
+          <span class="material-symbols-outlined text-text-secondary">home</span>
         </button>
       </div>
     </header>
@@ -302,10 +302,10 @@ onMounted(loadData)
       class="pt-20 pb-8 px-gutter space-y-md max-w-[600px] mx-auto"
     >
       <!-- 持仓名称 + 类型注释 -->
-      <div v-if="holding" class="flex items-baseline justify-between px-lg">
+      <div v-if="holding" class="flex items-baseline justify-between px-sm">
         <div class="flex items-baseline gap-2 flex-wrap">
-          <h2 class="font-headline-md text-headline-md text-on-surface font-bold">{{ holding.name }}</h2>
-          <div class="flex items-center gap-2 text-caption font-caption text-on-surface-variant">
+          <h2 class="font-body text-lg font-medium text-text-primary">{{ holding.name }}</h2>
+          <div class="flex items-center gap-2 font-body text-xs text-text-tertiary">
             <span class="flex items-center gap-0.5">
               <span class="inline-block w-[6px] h-[6px] rounded-full" :class="currencyColorClass"></span>
               {{ currencyLabel }}
@@ -318,230 +318,176 @@ onMounted(loadData)
         </div>
       </div>
 
-      <!-- Hero 数据卡片 -->
-      <section class="bg-surface-container-lowest rounded-xl p-lg card-shadow relative overflow-hidden border border-outline-variant/10">
-        <div class="absolute -right-4 -top-4 opacity-5 pointer-events-none">
-          <span class="material-symbols-outlined text-[120px]">potted_plant</span>
-        </div>
-        <!-- 预测年分红 和 累计已获分红 并排 -->
-        <div class="grid grid-cols-2 gap-md mb-md">
-          <div>
-            <p class="text-caption font-caption text-on-surface-variant flex items-center gap-1 mb-1">
-              预测年分红
-              <span class="material-symbols-outlined text-[14px]">info</span>
-            </p>
-            <div class="flex items-baseline gap-1">
-              <span class="text-primary font-headline-lg text-[32px] leading-none">{{ annualDividend }}</span>
-              <span class="text-primary font-label-bold text-label-bold">元</span>
+      <!-- Hero 主卡：年分红 + 累计分红 + 息率 -->
+      <section class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 relative overflow-hidden">
+        <div class="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-brand-light/40 pointer-events-none"></div>
+        <div class="relative z-10">
+          <!-- 预测年分红 和 累计已获分红 并排 -->
+          <div class="grid grid-cols-2 gap-md">
+            <div>
+              <p class="font-body text-xs text-text-tertiary mb-1">预测年分红</p>
+              <div class="flex items-baseline gap-1">
+                <span class="font-display text-3xl font-semibold text-text-primary leading-none">{{ annualDividend }}</span>
+                <span class="font-body text-sm text-text-tertiary">元</span>
+              </div>
+            </div>
+            <div>
+              <p class="font-body text-xs text-text-tertiary mb-1">累计已获分红</p>
+              <div class="flex items-baseline gap-1">
+                <span class="font-display text-xl font-semibold text-text-primary leading-none mt-[5px]">{{ totalDividendFormatted }}</span>
+                <span class="font-body text-sm text-text-tertiary mt-[5px]">元</span>
+              </div>
             </div>
           </div>
-          <div>
-            <p class="text-caption font-caption text-on-surface-variant mb-1">累计已获分红</p>
-            <div class="flex items-baseline gap-1">
-              <span class="text-primary font-headline-lg text-[32px] leading-none">{{ totalDividendFormatted }}</span>
-              <span class="text-primary font-label-bold text-label-bold">元</span>
+          <!-- 息率双列：内联在数字下方 -->
+          <div v-if="hasDividends" class="flex items-center gap-3 mt-md pt-md border-t border-border-light/40">
+            <div class="flex items-center gap-1">
+              <span class="font-body text-[10px] text-text-tertiary">成本息率</span>
+              <span class="font-display text-xs font-semibold text-brand">{{ holding.dividendRate }}%</span>
             </div>
-          </div>
-        </div>
-        <!-- 总市值 -->
-        <div class="grid grid-cols-2 gap-md pt-md border-t border-surface-variant">
-          <div>
-            <p class="text-caption font-caption text-on-surface-variant">总市值</p>
-            <p class="text-headline-md font-headline-md text-on-surface">
-              ¥{{ marketValueFormatted }}<span class="text-[12px] ml-1">元</span>
-            </p>
-          </div>
-          <div class="opacity-60">
-            <p class="text-caption font-caption text-on-surface-variant">{{ priceDateFormatted }} 收盘价</p>
-            <p class="text-body-sm font-body-sm text-on-surface-variant">
-              ¥{{ latestPriceFormatted }} × {{ sharesFormatted }}份
-            </p>
-          </div>
-        </div>
-        <!-- 持仓数量 和 当前成本 -->
-        <div class="grid grid-cols-2 gap-md pt-md border-t border-surface-variant">
-          <div>
-            <p class="text-caption font-caption text-on-surface-variant">持仓数量</p>
-            <p class="text-headline-md font-headline-md text-on-surface">
-              {{ sharesFormatted }}<span class="text-[12px] ml-1">份</span>
-            </p>
-          </div>
-          <div>
-            <p class="text-caption font-caption text-on-surface-variant">当前成本</p>
-            <p class="text-headline-md font-headline-md text-on-surface">
-              ¥{{ costPerShareFormatted }}<span class="text-[12px] ml-1">/份</span>
-            </p>
-          </div>
-        </div>
-        <div v-if="hasDividends" class="flex items-center justify-between mt-lg bg-surface p-sm rounded-lg">
-          <div class="text-center flex-1">
-            <p class="text-[10px] uppercase tracking-wider text-on-surface-variant mb-1">成本息率</p>
-            <p class="font-label-bold text-label-bold text-on-surface">{{ holding.dividendRate }}%</p>
-          </div>
-          <div class="h-8 w-[1px] bg-outline-variant/30"></div>
-          <div class="text-center flex-1">
-            <p class="text-[10px] uppercase tracking-wider text-on-surface-variant mb-1">股价息率</p>
-            <p class="font-label-bold text-label-bold text-on-surface">{{ holding.priceDividendRate }}%</p>
+            <span class="w-px h-3 bg-border-light"></span>
+            <div class="flex items-center gap-1">
+              <span class="font-body text-[10px] text-text-tertiary">股价息率</span>
+              <span class="font-display text-xs font-semibold text-brand">{{ holding.priceDividendRate }}%</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- 分红回本进度 -->
-      <section v-if="hasDividends" class="bg-surface-container-lowest rounded-xl p-md card-shadow space-y-md">
+      <!-- Hero 副卡：市值 + 成本 + 份额等辅助数据 -->
+      <section class="bg-card-bg rounded-xl p-md card-shadow border border-border-light/40">
+        <div class="grid grid-cols-[1fr_auto_1fr] gap-0">
+          <div class="pr-md">
+            <p class="font-body text-xs text-text-tertiary">总市值</p>
+            <p class="font-display text-md font-semibold text-text-primary mt-0.5 whitespace-nowrap">
+              ¥{{ marketValueFormatted }}<span class="font-body text-xs text-text-tertiary ml-0.5">元</span>
+            </p>
+          </div>
+          <div class="w-px bg-border-light/60"></div>
+          <div class="pl-md min-w-0">
+            <p class="font-body text-xs text-text-tertiary">{{ priceDateFormatted }} 收盘价</p>
+            <p class="font-display text-sm font-semibold text-text-primary truncate mt-[6px]">
+              ¥{{ latestPriceFormatted }} × {{ sharesFormatted }}份
+            </p>
+          </div>
+        </div>
+        <div class="my-md h-px bg-border-light/60"></div>
+        <div class="grid grid-cols-[1fr_auto_1fr] gap-0">
+          <div class="pr-md">
+            <p class="font-body text-xs text-text-tertiary">持仓数量</p>
+            <p class="font-display text-md font-semibold text-text-primary mt-0.5">
+              {{ sharesFormatted }}<span class="font-body text-xs text-text-tertiary ml-0.5">份</span>
+            </p>
+          </div>
+          <div class="w-px bg-border-light/60"></div>
+          <div class="pl-md">
+            <p class="font-body text-xs text-text-tertiary">当前成本</p>
+            <p class="font-display text-md font-semibold text-text-primary mt-0.5">
+              ¥{{ costPerShareFormatted }}<span class="font-body text-xs text-text-tertiary ml-0.5">/份</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 分红回本进度 + 分红预测合并 -->
+      <section v-if="hasDividends" class="bg-card-bg rounded-xl p-md card-shadow border border-border-light/40 space-y-md">
         <div class="flex justify-between items-center">
-          <h3 class="font-label-bold text-label-bold text-on-surface">分红回本进度</h3>
-          <span class="text-primary font-label-bold text-label-bold">{{ holding.dividendRecoveryRate }}%</span>
+          <h3 class="font-body text-sm font-medium text-text-primary">分红回本进度</h3>
+          <span class="font-display text-md font-semibold text-brand">{{ holding.dividendRecoveryRate }}%</span>
         </div>
         <!-- 进度条 -->
-        <div class="relative w-full h-3 bg-surface-container rounded-full overflow-hidden">
+        <div class="relative w-full h-3 bg-progress-bg rounded-full overflow-hidden">
           <div
-            class="absolute top-0 left-0 h-full bg-primary-container transition-all duration-1000 ease-out rounded-full"
+            class="absolute top-0 left-0 h-full bg-brand transition-all duration-1000 ease-out rounded-full"
             :style="{ width: progressWidth + '%' }"
           ></div>
         </div>
         <!-- 回本网格 -->
         <div class="grid grid-cols-2 gap-x-md gap-y-sm">
-          <div class="flex justify-between items-center border-b border-surface-variant pb-2">
-            <span class="text-caption font-caption text-on-surface-variant">净投入</span>
-            <span class="text-body-sm font-body-sm">¥{{ netInvestmentFormatted }}</span>
+          <div class="flex justify-between items-center border-b border-border-light/40 pb-2">
+            <span class="font-body text-xs text-text-tertiary">净投入</span>
+            <span class="font-body text-sm text-text-primary">¥{{ netInvestmentFormatted }}</span>
           </div>
-          <div class="flex justify-between items-center border-b border-surface-variant pb-2">
-            <span class="text-caption font-caption text-on-surface-variant">已收回</span>
-            <span class="text-body-sm font-body-sm text-primary">¥{{ totalDividendFormatted }}</span>
+          <div class="flex justify-between items-center border-b border-border-light/40 pb-2">
+            <span class="font-body text-xs text-text-tertiary">已收回</span>
+            <span class="font-body text-sm font-medium text-brand">¥{{ totalDividendFormatted }}</span>
           </div>
-          <div class="flex justify-between items-center border-b border-surface-variant pb-2">
-            <span class="text-caption font-caption text-on-surface-variant">剩余待回收</span>
-            <span class="text-body-sm font-body-sm">¥{{ remainingRecovery }}</span>
+          <div class="flex justify-between items-center border-b border-border-light/40 pb-2">
+            <span class="font-body text-xs text-text-tertiary">剩余待回收</span>
+            <span class="font-body text-sm text-text-primary">¥{{ remainingRecovery }}</span>
           </div>
-          <div class="flex justify-between items-center border-b border-surface-variant pb-2">
-            <span class="text-caption font-caption text-on-surface-variant">预计回本</span>
-            <span class="text-body-sm font-body-sm">{{ holding.estimatedRecoveryYears }} 年</span>
+          <div class="flex justify-between items-center border-b border-border-light/40 pb-2">
+            <span class="font-body text-xs text-text-tertiary">预计回本</span>
+            <span class="font-body text-sm text-text-primary">{{ holding.estimatedRecoveryYears }} 年</span>
           </div>
         </div>
-        <p class="text-[10px] text-center text-on-tertiary-container pt-1">
+        <p class="font-body text-[10px] text-center text-text-tertiary">
           *基于当前持仓市值及预测年度派息计算
         </p>
-      </section>
 
-      <!-- 分红预测图表 -->
-      <section v-if="hasDividends" class="bg-surface-container-lowest rounded-xl p-md card-shadow space-y-md">
-        <div class="flex justify-between items-center">
-          <h3 class="font-headline-md text-headline-md text-on-surface">分红预测</h3>
-          <div class="flex bg-surface-container p-1 rounded-lg gap-1">
-            <button
-              class="text-[10px] px-2 py-1 rounded transition-all duration-200"
-              :class="forecastTab === '12m'
-                ? 'bg-primary-container/20 text-primary font-label-bold'
-                : 'text-on-surface-variant'"
-              @click="switchForecastTab('12m')"
-            >
-              近12月
-            </button>
-            <button
-              class="text-[10px] px-2 py-1 rounded transition-all duration-200"
-              :class="forecastTab === '5y'
-                ? 'bg-primary-container/20 text-primary font-label-bold'
-                : 'text-on-surface-variant'"
-              @click="switchForecastTab('5y')"
-            >
-              未来5年
-            </button>
-          </div>
-        </div>
-        <div class="relative h-32 w-full mt-md">
-          <!-- SVG 图表 -->
-          <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 300 100">
-            <defs>
-              <linearGradient id="chartGradient" x1="0%" x2="0%" y1="0%" y2="100%">
-                <stop offset="0%" style="stop-color:#ff7a45;stop-opacity:0.2" />
-                <stop offset="100%" style="stop-color:#ff7a45;stop-opacity:0" />
-              </linearGradient>
-            </defs>
-            <!-- 面积填充 -->
-            <path :d="areaPath" fill="url(#chartGradient)" />
-            <!-- 折线 -->
-            <path :d="linePath" fill="none" stroke="#ff7a45" stroke-linecap="round" stroke-width="3" />
-            <!-- 数据点 -->
-            <circle
-              v-for="(pt, idx) in chartPoints"
-              :key="idx"
-              :cx="pt.x"
-              :cy="pt.y"
-              r="4"
-              fill="#ff7a45"
-            />
-          </svg>
-          <!-- 数据标签（最后两个点） -->
-          <div
-            v-if="chartPoints.length >= 2"
-            class="absolute top-8"
-            :style="{ left: `calc(${((chartPoints.length - 2) / Math.max(chartPoints.length - 1, 1)) * 70 + 15}%)` }"
-          >
-            <div class="bg-primary text-on-primary text-[10px] px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">
-              ¥{{ chartPoints[chartPoints.length - 2].value.toLocaleString() }}
+        <!-- 内嵌分红预测 -->
+        <div class="pt-md border-t border-border-light/40">
+          <div class="flex justify-between items-center mb-sm">
+            <h4 class="font-body text-xs font-medium text-text-primary">分红预测</h4>
+            <div class="flex bg-card-alt p-0.5 rounded-lg gap-0.5">
+              <button
+                class="text-[9px] px-2 py-1 rounded transition-all duration-200 font-body"
+                :class="forecastTab === '12m'
+                  ? 'bg-brand text-white'
+                  : 'text-text-tertiary hover:text-text-primary'"
+                @click="switchForecastTab('12m')"
+              >
+                近12月
+              </button>
+              <button
+                class="text-[9px] px-2 py-1 rounded transition-all duration-200 font-body"
+                :class="forecastTab === '5y'
+                  ? 'bg-brand text-white'
+                  : 'text-text-tertiary hover:text-text-primary'"
+                @click="switchForecastTab('5y')"
+              >
+                未来5年
+              </button>
             </div>
           </div>
-          <div
-            v-if="chartPoints.length >= 1"
-            class="absolute top-2 right-0"
-          >
-            <div class="bg-primary text-on-primary text-[10px] px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">
-              ¥{{ chartPoints[chartPoints.length - 1].value.toLocaleString() }}
+          <!-- SVG 小图表 -->
+          <div class="relative h-20 w-full">
+            <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 300 60">
+              <defs>
+                <linearGradient id="chartGradient" x1="0%" x2="0%" y1="0%" y2="100%">
+                  <stop offset="0%" style="stop-color:#1A6B56;stop-opacity:0.12" />
+                  <stop offset="100%" style="stop-color:#1A6B56;stop-opacity:0" />
+                </linearGradient>
+              </defs>
+              <path :d="areaPath" fill="url(#chartGradient)" />
+              <path :d="linePath" fill="none" stroke="#1A6B56" stroke-linecap="round" stroke-width="2" />
+              <circle
+                v-for="(pt, idx) in chartPoints"
+                :key="idx"
+                :cx="pt.x"
+                :cy="pt.y"
+                r="2.5"
+                fill="#1A6B56"
+              />
+            </svg>
+            <!-- 最后一点标签 -->
+            <div v-if="chartPoints.length >= 1" class="absolute -top-1 right-0">
+              <span class="bg-brand text-white text-[9px] px-1.5 py-0.5 rounded shadow-card whitespace-nowrap">
+                ¥{{ chartPoints[chartPoints.length - 1].value.toLocaleString() }}
+              </span>
             </div>
           </div>
+          <div class="flex items-center gap-1 mt-1">
+            <span class="text-brand text-xs">📈</span>
+            <span class="font-body text-[10px] text-text-tertiary">预计未来五年分红总额将增长{{ trendPercentage }}%</span>
+          </div>
         </div>
-        <div class="flex items-center gap-2 pt-2">
-          <span class="material-symbols-outlined text-primary text-[18px]">trending_up</span>
-          <p class="text-on-surface-variant font-body-sm text-body-sm">
-            预计未来五年分红总额将增长{{ trendPercentage }}%
-          </p>
-        </div>
-      </section>
-
-      <!-- 操作网格 -->
-      <section class="grid grid-cols-2 gap-md">
-        <button
-          class="flex flex-col items-center justify-center bg-surface-container-lowest p-lg rounded-xl card-shadow hover:bg-surface transition-colors active:scale-95 duration-150 group"
-          @click="goToTradeDetail"
-        >
-          <div class="w-12 h-12 rounded-full bg-primary-container/10 flex items-center justify-center mb-2 group-hover:bg-primary-container/20 transition-colors">
-            <span class="material-symbols-outlined text-primary">receipt_long</span>
-          </div>
-          <span class="text-label-bold font-label-bold text-on-surface">交易明细</span>
-        </button>
-        <button
-          class="flex flex-col items-center justify-center bg-surface-container-lowest p-lg rounded-xl card-shadow hover:bg-surface transition-colors active:scale-95 duration-150 group"
-          @click="showDividendHistory"
-        >
-          <div class="w-12 h-12 rounded-full bg-primary-container/10 flex items-center justify-center mb-2 group-hover:bg-primary-container/20 transition-colors">
-            <span class="material-symbols-outlined text-primary">history_edu</span>
-          </div>
-          <span class="text-label-bold font-label-bold text-on-surface">分红记录</span>
-        </button>
-        <button
-          class="flex flex-col items-center justify-center bg-surface-container-lowest p-lg rounded-xl card-shadow hover:bg-surface transition-colors active:scale-95 duration-150 group"
-          @click="showEditHolding"
-        >
-          <div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center mb-2">
-            <span class="material-symbols-outlined text-secondary">edit_square</span>
-          </div>
-          <span class="text-label-bold font-label-bold text-on-surface">编辑持仓</span>
-        </button>
-        <button
-          class="flex flex-col items-center justify-center bg-surface-container-lowest p-lg rounded-xl card-shadow hover:bg-surface transition-colors active:scale-95 duration-150 group"
-          @click="confirmDelete"
-        >
-          <div class="w-12 h-12 rounded-full bg-error-container/20 flex items-center justify-center mb-2">
-            <span class="material-symbols-outlined text-error">delete</span>
-          </div>
-          <span class="text-label-bold font-label-bold text-error">删除持仓</span>
-        </button>
       </section>
 
       <!-- 定投计划 -->
-      <section class="bg-surface-container-lowest rounded-xl p-md card-shadow space-y-md">
+      <section class="bg-card-bg rounded-xl p-md card-shadow border border-border-light/40 space-y-md">
         <div class="flex justify-between items-center">
-          <h3 class="font-label-bold text-label-bold text-on-surface">
+          <h3 class="font-body text-sm font-medium text-text-primary">
             定投计划
           </h3>
         </div>
@@ -549,34 +495,34 @@ onMounted(loadData)
           <div
             v-for="plan in dcaPlans"
             :key="plan.id"
-            class="bg-surface-container rounded-lg p-md space-y-sm cursor-pointer hover:bg-surface-container-high transition-colors"
+            class="bg-card-alt/60 rounded-lg p-md space-y-sm cursor-pointer hover:bg-card-alt transition-colors"
             @click="goToDcaPlanDetail(plan.id)"
           >
             <div class="flex justify-between items-center">
-              <span class="text-label-medium font-label-medium text-on-surface">
+              <span class="font-body text-sm font-medium text-text-primary">
                 {{ plan.frequency === 'daily' ? '每日' : plan.frequency === 'weekly' ? '每周' : plan.frequency === 'biweekly' ? '双周' : '每月' }} ¥{{ plan.amount }}
               </span>
               <span
-                class="flex items-center gap-[2px] text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap"
-                :class="plan.status === 'active' ? 'bg-green-500/10 text-green-400' : plan.status === 'paused' ? 'bg-yellow-500/10 text-yellow-400' : 'bg-gray-500/10 text-gray-400'"
+                class="flex items-center gap-[2px] text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap font-body"
+                :class="plan.status === 'active' ? 'bg-brand-light text-brand' : plan.status === 'paused' ? 'bg-amber-50 text-amber-700' : 'bg-card-alt text-text-tertiary'"
               >
                 <span class="material-symbols-outlined text-[10px]">{{ plan.status === 'active' ? 'play_arrow' : plan.status === 'paused' ? 'pause' : 'stop' }}</span>
                 {{ plan.status === 'active' ? '活跃中' : plan.status === 'paused' ? '已暂停' : '已终止' }}
               </span>
             </div>
-            <div class="flex justify-between text-caption font-caption text-on-surface-variant">
+            <div class="flex justify-between font-body text-xs text-text-tertiary">
               <span>已执行 {{ plan.totalExecutions }} 期</span>
               <span>累计 ¥{{ plan.totalInvested.toLocaleString() }}</span>
             </div>
             <div class="flex gap-sm mt-sm">
               <button
-                class="flex-1 h-8 rounded-lg bg-primary/10 text-primary text-[11px] font-label-bold transition-colors hover:bg-primary/20 active:scale-95"
+                class="flex-1 h-8 rounded-lg bg-brand text-white text-[11px] font-medium transition-colors active:scale-95"
                 @click.stop="openExecuteSheet(plan.id)"
               >
                 执行一期
               </button>
               <button
-                class="flex-1 h-8 rounded-lg bg-surface-container-high text-on-surface-variant text-[11px] font-label-bold transition-colors hover:bg-surface-container-highest active:scale-95"
+                class="flex-1 h-8 rounded-lg bg-card-alt text-text-secondary text-[11px] font-medium transition-colors active:scale-95"
                 @click.stop="goToDcaPlanDetail(plan.id)"
               >
                 查看详情
@@ -586,7 +532,7 @@ onMounted(loadData)
         </template>
         <button
           v-else
-          class="w-full py-lg rounded-xl border-2 border-dashed border-outline-variant/30 text-on-surface-variant text-label-medium font-label-medium hover:border-primary/50 hover:text-primary transition-colors active:scale-[0.98] flex items-center justify-center gap-2"
+          class="w-full py-lg rounded-xl border-2 border-dashed border-border-light text-text-tertiary font-body text-sm hover:border-brand/50 hover:text-brand transition-colors active:scale-[0.98] flex items-center justify-center gap-2"
           @click="showCreateSheet = true"
         >
           <span class="material-symbols-outlined text-lg">add</span>
@@ -594,12 +540,43 @@ onMounted(loadData)
         </button>
       </section>
 
-      <!-- 底部装饰 -->
-      <div class="relative w-full rounded-2xl overflow-hidden py-md">
-        <div class="relative z-10 p-md flex flex-col h-full">
-          <h4 class="text-on-surface font-headline-md text-headline-md">稳健增长</h4>
-          <p class="text-on-surface-variant text-caption">正如照料花园，财富也需耐心培育</p>
-        </div>
+      <!-- 操作按钮：横排标签样式 -->
+      <div class="grid grid-cols-4 gap-sm">
+        <button
+          class="flex flex-col items-center justify-center gap-1 bg-card-bg rounded-xl py-md card-shadow border border-border-light/40 active:scale-[0.95] transition-all duration-150"
+          @click="goToTradeDetail"
+        >
+          <span class="material-symbols-outlined text-brand text-lg">receipt_long</span>
+          <span class="font-body text-[10px] font-medium text-text-primary">交易明细</span>
+        </button>
+        <button
+          class="flex flex-col items-center justify-center gap-1 bg-card-bg rounded-xl py-md card-shadow border border-border-light/40 active:scale-[0.95] transition-all duration-150"
+          @click="showDividendHistory"
+        >
+          <span class="material-symbols-outlined text-brand text-lg">history_edu</span>
+          <span class="font-body text-[10px] font-medium text-text-primary">分红记录</span>
+        </button>
+        <button
+          class="flex flex-col items-center justify-center gap-1 bg-card-bg rounded-xl py-md card-shadow border border-border-light/40 active:scale-[0.95] transition-all duration-150"
+          @click="showEditHolding"
+        >
+          <span class="material-symbols-outlined text-brand text-lg">edit_square</span>
+          <span class="font-body text-[10px] font-medium text-text-primary">编辑持仓</span>
+        </button>
+        <button
+          class="flex flex-col items-center justify-center gap-1 bg-card-bg rounded-xl py-md card-shadow border border-border-light/40 active:scale-[0.95] transition-all duration-150"
+          @click="confirmDelete"
+        >
+          <span class="material-symbols-outlined text-error text-lg">delete</span>
+          <span class="font-body text-[10px] font-medium text-error">删除持仓</span>
+        </button>
+      </div>
+
+      <!-- 底部 slogan 分隔线 -->
+      <div class="flex items-center gap-2 pt-sm pb-lg">
+        <span class="flex-1 h-px bg-border-light/60"></span>
+        <span class="font-body text-xs text-text-tertiary">🌱 正如照料花园，财富也需耐心培育</span>
+        <span class="flex-1 h-px bg-border-light/60"></span>
       </div>
     </main>
 
@@ -613,65 +590,65 @@ onMounted(loadData)
 
       <Transition name="slide-up">
         <div v-if="showEditSheet"
-             class="fixed bottom-0 left-0 right-0 z-[110] bg-surface rounded-t-2xl px-gutter py-lg shadow-2xl max-w-[600px] mx-auto"
+             class="fixed bottom-0 left-0 right-0 z-[110] bg-card-bg rounded-t-2xl px-gutter py-lg shadow-elevated max-w-[600px] mx-auto"
              :style="{ maxHeight: '80vh', overflowY: 'auto' }">
           <!-- Drag handle -->
-          <div class="w-10 h-1 bg-on-surface-variant/20 rounded-full mx-auto mb-lg"></div>
+          <div class="w-10 h-1 bg-border-light rounded-full mx-auto mb-lg"></div>
 
-          <h3 class="text-title-large font-title-large text-on-surface mb-md">编辑持仓</h3>
+          <h3 class="font-body text-md font-medium text-text-primary mb-md">编辑持仓</h3>
 
           <!-- Cost Algorithm -->
-           <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">成本算法</label>
+           <label class="font-body text-xs text-text-tertiary mb-sm block">成本算法</label>
            <div class="flex gap-sm mb-lg">
              <button v-for="opt in (['diluted', 'diluted_only', 'weighted_avg'] as const)" :key="opt"
-                     class="flex-1 h-10 rounded-lg text-label-large font-label-large transition-all"
+                     class="flex-1 h-10 rounded-lg font-body text-sm transition-all"
                      :class="editAlgorithm === opt
-                       ? 'bg-primary-container text-on-primary-container shadow-sm'
-                       : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest'"
+                       ? 'bg-brand text-white shadow-card'
+                       : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'"
                      @click="editAlgorithm = opt">
                {{ opt === 'diluted' ? '分红摊薄' : opt === 'diluted_only' ? '摊薄成本' : '加权平均' }}
              </button>
            </div>
 
           <!-- Shares -->
-          <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">持有份额</label>
+          <label class="font-body text-xs text-text-tertiary mb-sm block">持有份额</label>
           <input v-model.number="editShares" type="number" step="0.01" min="0"
-                 class="w-full h-11 rounded-xl bg-surface-container-high px-md text-on-surface text-body-large font-body-large outline-none mb-lg transition-colors focus:ring-2 focus:ring-primary" />
+                 class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none mb-lg transition-colors focus:ring-2 focus:ring-brand" />
 
           <!-- Cost -->
-          <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">总成本 (¥)</label>
+          <label class="font-body text-xs text-text-tertiary mb-sm block">总成本 (¥)</label>
           <input v-model.number="editCost" type="number" step="0.01" min="0"
-                 class="w-full h-11 rounded-xl bg-surface-container-high px-md text-on-surface text-body-large font-body-large outline-none mb-lg transition-colors focus:ring-2 focus:ring-primary" />
+                 class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none mb-lg transition-colors focus:ring-2 focus:ring-brand" />
 
           <!-- Market Value -->
-          <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">总市值 (¥)</label>
+          <label class="font-body text-xs text-text-tertiary mb-sm block">总市值 (¥)</label>
           <input v-model.number="editMarketValue" type="number" step="0.01" min="0"
-                 class="w-full h-11 rounded-xl bg-surface-container-high px-md text-on-surface text-body-large font-body-large outline-none mb-lg transition-colors focus:ring-2 focus:ring-primary" />
+                 class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none mb-lg transition-colors focus:ring-2 focus:ring-brand" />
 
           <!-- Asset Category -->
-          <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">资产分类</label>
+          <label class="font-body text-xs text-text-tertiary mb-sm block">资产分类</label>
           <div class="flex gap-sm mb-lg">
-            <button @click="editCategory=''" :class="editCategory==='' ? 'bg-primary-container text-on-primary-container shadow-sm' : 'bg-surface-container-high text-on-surface-variant'" class="flex-1 h-10 rounded-lg text-label-large font-label-large transition-all hover:bg-surface-container-highest">
+            <button @click="editCategory=''" :class="editCategory==='' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="flex-1 h-10 rounded-lg font-body text-sm transition-all">
               不分类
             </button>
-            <button @click="editCategory='us_stock'" :class="editCategory==='us_stock' ? 'bg-primary-container text-on-primary-container shadow-sm' : 'bg-surface-container-high text-on-surface-variant'" class="flex-1 h-10 rounded-lg text-label-large font-label-large transition-all hover:bg-surface-container-highest">
+            <button @click="editCategory='us_stock'" :class="editCategory==='us_stock' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="flex-1 h-10 rounded-lg font-body text-sm transition-all">
               📈 美股
             </button>
-            <button @click="editCategory='gold'" :class="editCategory==='gold' ? 'bg-primary-container text-on-primary-container shadow-sm' : 'bg-surface-container-high text-on-surface-variant'" class="flex-1 h-10 rounded-lg text-label-large font-label-large transition-all hover:bg-surface-container-highest">
+            <button @click="editCategory='gold'" :class="editCategory==='gold' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="flex-1 h-10 rounded-lg font-body text-sm transition-all">
               🥇 黄金
             </button>
-            <button @click="editCategory='dividend'" :class="editCategory==='dividend' ? 'bg-primary-container text-on-primary-container shadow-sm' : 'bg-surface-container-high text-on-surface-variant'" class="flex-1 h-10 rounded-lg text-label-large font-label-large transition-all hover:bg-surface-container-highest">
+            <button @click="editCategory='dividend'" :class="editCategory==='dividend' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="flex-1 h-10 rounded-lg font-body text-sm transition-all">
               📋 红利
             </button>
           </div>
 
           <!-- Actions -->
           <div class="flex gap-md mt-xl">
-            <button class="flex-1 h-12 rounded-xl bg-surface-container-high text-on-surface-variant text-label-large font-label-large transition-colors hover:bg-surface-container-highest active:scale-[0.98]"
+            <button class="flex-1 h-12 rounded-xl bg-card-alt text-text-secondary font-body text-sm font-medium transition-colors active:scale-[0.98]"
                     @click="showEditSheet = false">
               取消
             </button>
-            <button class="flex-1 h-12 rounded-xl bg-primary text-on-primary text-label-large font-label-large transition-colors hover:brightness-95 active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
+            <button class="flex-1 h-12 rounded-xl bg-brand text-white font-body text-sm font-medium transition-colors active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
                     :disabled="editSaving"
                     @click="saveEditHolding">
               <span v-if="editSaving" class="material-symbols-outlined animate-spin text-lg">progress_activity</span>
@@ -692,19 +669,19 @@ onMounted(loadData)
         <div v-if="showDeleteConfirm"
              class="fixed inset-0 z-[110] flex items-center justify-center"
              @click.self="showDeleteConfirm = false">
-          <div class="bg-surface rounded-2xl px-xl py-lg mx-gutter max-w-sm w-full shadow-2xl">
+          <div class="bg-card-bg rounded-2xl px-xl py-lg mx-gutter max-w-sm w-full shadow-elevated">
             <div class="flex flex-col items-center text-center">
               <div class="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center mb-md">
                 <span class="material-symbols-outlined text-2xl text-error">delete_forever</span>
               </div>
-              <h3 class="text-title-large font-title-large text-on-surface mb-sm">确认删除</h3>
-              <p class="text-body-medium font-body-medium text-on-surface-variant mb-xl">删除后数据将不可恢复，确定要继续吗？</p>
+              <h3 class="font-body text-md font-medium text-text-primary mb-sm">确认删除</h3>
+              <p class="font-body text-sm text-text-tertiary mb-xl">删除后数据将不可恢复，确定要继续吗？</p>
               <div class="flex gap-md w-full">
-                <button class="flex-1 h-12 rounded-xl bg-surface-container-high text-on-surface-variant text-label-large font-label-large transition-colors hover:bg-surface-container-highest active:scale-[0.98]"
+                <button class="flex-1 h-12 rounded-xl bg-card-alt text-text-secondary font-body text-sm font-medium transition-colors active:scale-[0.98]"
                         @click="showDeleteConfirm = false">
                   取消
                 </button>
-                <button class="flex-1 h-12 rounded-xl bg-error text-on-error text-label-large font-label-large transition-colors hover:brightness-95 active:scale-[0.98] flex items-center justify-center gap-sm"
+                <button class="flex-1 h-12 rounded-xl bg-error text-white font-body text-sm font-medium transition-colors active:scale-[0.98] flex items-center justify-center gap-sm"
                         @click="doDelete">
                   <span class="material-symbols-outlined">delete</span>
                   <span>删除</span>

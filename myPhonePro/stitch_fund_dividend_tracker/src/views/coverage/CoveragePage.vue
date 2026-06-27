@@ -3,7 +3,6 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCoverageData } from '@/api/expense'
 import type { CoverageData } from '@/api/expense'
-import AppHeader from '@/components/shared/AppHeader.vue'
 import PageStateComp from '@/components/shared/PageState.vue'
 
 const router = useRouter()
@@ -58,129 +57,248 @@ onMounted(loadData)
 </script>
 
 <template>
-  <div class="min-h-screen bg-surface flex flex-col">
-    <!-- Header -->
-    <header class="flex items-center justify-between px-container-padding h-16 bg-surface sticky top-0 z-50">
-      <div class="flex items-center gap-4">
-        <button @click="goBack" class="material-symbols-outlined text-primary">arrow_back</button>
-        <h1 class="font-headline-md text-headline-md font-bold text-primary">分红覆盖</h1>
+  <div class="min-h-screen bg-page-bg flex flex-col">
+    <!-- 自定义 Header：后退回首页 -->
+    <header class="fixed top-0 w-full z-50 bg-page-bg/90 backdrop-blur-md">
+      <div class="flex items-center justify-between px-gutter h-14 w-full max-w-[600px] mx-auto">
+        <div class="flex items-center gap-2">
+          <button class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80 transition-opacity" @click="goBack">
+            <span class="material-symbols-outlined text-text-secondary">arrow_back</span>
+          </button>
+          <h1 class="font-display text-2xl text-text-primary">分红覆盖</h1>
+        </div>
       </div>
-      <button @click="router.push('/')" class="w-10 h-10 flex items-center justify-center active:opacity-80 transition-opacity">
-        <span class="material-symbols-outlined text-on-surface-variant">home</span>
-      </button>
     </header>
 
     <PageStateComp :state="pageState" @retry="loadData" />
 
-    <main v-if="pageState === 'ready' && coverage" class="flex-1 px-container-padding pb-24 overflow-y-auto flex flex-col gap-md">
-      <!-- Summary Dashboard Card -->
-      <section class="bg-inverse-surface rounded-xl p-lg text-white relative overflow-hidden">
-        <div class="flex justify-between items-center mb-4">
-          <div>
-            <p class="text-secondary-fixed-dim font-caption text-caption mb-1">分红已覆盖</p>
-            <div class="flex items-baseline gap-1">
-              <span class="text-4xl font-headline-lg font-bold">{{ coverage.coveredExpenses }}</span>
-              <span class="text-secondary-fixed-dim text-body-md">/ {{ coverage.totalExpenses }} 项支出</span>
+    <main v-if="pageState === 'ready' && coverage" class="flex-1 px-gutter pt-16 pb-28 overflow-y-auto space-y-lg">
+      <!-- ============================================================ -->
+      <!-- Hero 卡片 — 覆盖概览（与首页 Hero 风格一致）                    -->
+      <!-- ============================================================ -->
+      <section class="bg-card-bg rounded-xl px-2xl py-2xl card-shadow border border-border-light/40 relative overflow-hidden">
+        <!-- 装饰底纹 -->
+        <div class="absolute -bottom-8 -right-8 w-40 h-40 rounded-full bg-brand-light/40 pointer-events-none"></div>
+        <div class="absolute -top-4 -left-4 w-16 h-16 rounded-full bg-brand-light/20 pointer-events-none"></div>
+
+        <div class="relative z-10">
+          <!-- 左上：覆盖数 + 设置按钮 -->
+          <div class="flex items-start justify-between mb-2xl">
+            <div>
+              <p class="font-body text-sm text-text-secondary mb-1">分红已覆盖</p>
+              <div class="flex items-baseline gap-1">
+                <span class="font-display text-4xl text-brand tabular-nums font-semibold">{{ coverage.coveredExpenses }}</span>
+                <span class="font-body text-sm text-text-tertiary">/ {{ coverage.totalExpenses }} 项支出</span>
+              </div>
+            </div>
+            <button
+              @click="goToSettings"
+              class="w-10 h-10 rounded-xl bg-brand-light flex items-center justify-center active:scale-90 transition-all hover:bg-brand-dim/20"
+            >
+              <span class="material-symbols-outlined text-brand text-lg">settings</span>
+            </button>
+          </div>
+
+          <!-- 三列指标 -->
+          <div class="grid grid-cols-3 border-t border-border-light pt-lg gap-2">
+            <div class="text-center">
+              <p class="font-body text-xs text-text-tertiary mb-1">固定支出总额</p>
+              <p class="font-display text-md text-text-primary font-semibold tabular-nums">{{ formatMoney(coverage.totalAnnualExpense) }}</p>
+            </div>
+            <div class="text-center border-x border-border-light">
+              <p class="font-body text-xs text-text-tertiary mb-1">预计年度分红</p>
+              <p class="font-display text-md text-brand font-semibold tabular-nums">{{ formatMoney(coverage.predictedAnnualDividend) }}</p>
+            </div>
+            <div class="text-center">
+              <p class="font-body text-xs text-text-tertiary mb-1">今年已实收</p>
+              <p class="font-display text-md text-text-primary font-semibold tabular-nums">{{ formatMoney(coverage.totalDividendReceived) }}</p>
             </div>
           </div>
-          <button @click="goToSettings" class="w-12 h-12 rounded-full bg-gradient-to-br from-white/20 to-primary-container/20 flex items-center justify-center active:scale-90 transition-all shadow-[0_0_10px_rgba(255,122,69,0.2)] hover:shadow-[0_0_14px_rgba(255,122,69,0.35)]">
-            <span class="material-symbols-outlined text-white/90 text-xl">settings</span>
-          </button>
-        </div>
-        <div class="grid grid-cols-3 border-t border-white/10 pt-4 gap-2">
-          <div class="text-center">
-            <p class="text-secondary-fixed-dim text-body-sm mb-1">固定支出总额</p>
-            <p class="font-label-bold text-label-bold">{{ formatMoney(coverage.totalAnnualExpense) }}</p>
-          </div>
-          <div class="text-center border-x border-white/10">
-            <p class="text-secondary-fixed-dim text-body-sm mb-1">预计年度分红</p>
-            <p class="font-label-bold text-label-bold text-[#4ADE80]">{{ formatMoney(coverage.predictedAnnualDividend) }}</p>
-          </div>
-          <div class="text-center">
-            <p class="text-secondary-fixed-dim text-body-sm mb-1">今年已实收</p>
-            <p class="font-label-bold text-label-bold text-[#FACC15]">{{ formatMoney(coverage.totalDividendReceived) }}</p>
+
+          <!-- 底部整体进度条 -->
+          <div class="mt-lg pt-lg border-t border-border-light">
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-body text-xs text-text-tertiary">整体覆盖进度</span>
+              <span class="font-body text-xs text-brand font-medium">{{ progressPercent }}%</span>
+            </div>
+            <div class="h-2 rounded-full bg-progress-bg overflow-hidden">
+              <div
+                class="h-full rounded-full bg-brand transition-all duration-700 ease-out"
+                :style="{ width: Math.min(progressPercent, 100) + '%' }"
+              ></div>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- Milestone -->
-      <section class="bg-surface-container-lowest rounded-xl p-md">
-        <div class="flex items-center gap-2 mb-4">
-          <span class="text-lg">🏆</span>
-          <h2 class="font-headline-md text-headline-md font-bold text-on-surface">成长之路</h2>
+      <!-- ============================================================ -->
+      <!-- 里程碑卡片                                                      -->
+      <!-- ============================================================ -->
+      <section class="bg-card-bg rounded-xl p-xl card-shadow border border-border-light/40">
+        <div class="flex items-center gap-2 mb-lg">
+          <span class="text-xl">🏆</span>
+          <h2 class="font-body text-sm font-medium text-text-primary tracking-wide">成长之路</h2>
         </div>
-        <div class="relative flex justify-between items-center mb-4 px-2">
-          <div v-for="(m, i) in milestones" :key="i" class="flex flex-col items-center gap-2 z-10 relative">
-            <div :class="[
-              'w-8 h-8 rounded-full flex items-center justify-center text-sm',
-              i <= coverage.currentMilestoneIndex
-                ? 'bg-primary-container text-white'
-                : 'bg-surface-container text-on-surface-variant'
-            ]">
-              <span>{{ m.icon }}</span>
+
+        <div class="relative">
+          <!-- 连接线背景 -->
+          <div class="absolute top-4 left-[14px] right-[14px] h-[3px] bg-progress-bg rounded-full z-0"></div>
+          <!-- 连接线已解锁部分 -->
+          <div
+            class="absolute top-4 left-[14px] h-[3px] bg-brand rounded-full z-0 transition-all duration-700"
+            :style="{
+              width: `calc(${(coverage.currentMilestoneIndex / (milestones.length - 1)) * 100}% - ${14 * (1 - coverage.currentMilestoneIndex / (milestones.length - 1))}px)`,
+              opacity: coverage.currentMilestoneIndex >= milestones.length - 1 ? 0 : 1
+            }"
+          ></div>
+          <!-- 全解锁时满格 -->
+          <div
+            v-if="coverage.currentMilestoneIndex >= milestones.length - 1"
+            class="absolute top-4 left-[14px] right-[14px] h-[3px] bg-brand rounded-full z-0"
+          ></div>
+
+          <div class="flex justify-between items-start relative z-10">
+            <div v-for="(m, i) in milestones" :key="i" class="flex flex-col items-center gap-1.5" style="min-width:0">
+              <div
+                :class="[
+                  'w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all duration-300',
+                  i <= coverage.currentMilestoneIndex
+                    ? 'bg-brand text-white shadow-[0_2px_8px_rgba(26,107,86,0.25)]'
+                    : 'bg-card-alt text-text-tertiary'
+                ]"
+              >
+                <span>{{ m.icon }}</span>
+              </div>
+              <span
+                :class="[
+                  'font-body text-[11px] whitespace-nowrap',
+                  i <= coverage.currentMilestoneIndex ? 'text-text-primary font-medium' : 'text-text-tertiary'
+                ]"
+              >{{ m.name }}</span>
             </div>
-            <span class="text-body-sm text-on-surface-variant whitespace-nowrap">{{ m.name }}</span>
           </div>
         </div>
-        <p class="text-body-sm text-on-surface-variant text-center bg-surface-container-low py-2 rounded-lg">
-          再覆盖剩余支出即可点亮更多成就
-        </p>
+
+        <div class="mt-lg bg-card-alt rounded-lg px-md py-2 text-center">
+          <p class="font-body text-xs text-text-tertiary">
+            <template v-if="coverage.currentMilestoneIndex < milestones.length - 1">
+              再覆盖 {{ milestones[coverage.currentMilestoneIndex + 1].requiredExpenses - coverage.coveredExpenses }} 项即可点亮「{{ milestones[coverage.currentMilestoneIndex + 1].name }}」
+            </template>
+            <template v-else>
+              🎉 恭喜！已点亮所有成就
+            </template>
+          </p>
+        </div>
       </section>
 
-      <!-- Next Target -->
-      <section v-if="nextTargetExpense" class="bg-primary-fixed/30 rounded-xl p-md border border-primary/10">
-        <div class="flex gap-4 mb-3">
-          <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl">
+      <!-- ============================================================ -->
+      <!-- 下一个目标                                                      -->
+      <!-- ============================================================ -->
+      <section v-if="nextTargetExpense" class="bg-card-bg rounded-xl p-xl card-shadow border border-border-light/40">
+        <div class="flex items-start gap-lg">
+          <div class="w-12 h-12 rounded-xl bg-brand-light flex items-center justify-center text-2xl shrink-0">
             <span>{{ nextTargetExpense.icon }}</span>
           </div>
-          <div>
-            <p class="text-primary font-caption text-caption mb-0.5">下一个目标</p>
-            <h3 class="font-headline-md text-headline-md font-bold text-on-surface">
-              {{ nextTargetExpense.name }} · ¥{{ nextTargetExpense.annualAmount }}/年
+          <div class="flex-1 min-w-0">
+            <p class="font-body text-xs text-text-tertiary mb-0.5">下一个目标</p>
+            <h3 class="font-body text-md font-medium text-text-primary truncate">
+              {{ nextTargetExpense.name }}
             </h3>
+            <p class="font-body text-xs text-text-tertiary mt-0.5">¥{{ nextTargetExpense.annualAmount.toLocaleString() }}/年</p>
           </div>
         </div>
-        <div class="mb-2">
-          <div class="flex justify-between text-body-sm mb-1.5">
-            <span class="text-primary font-bold">进度 {{ progressPercent }}%</span>
-            <span class="text-primary">还差 ¥{{ Math.max(0, nextTargetExpense.annualAmount - coverage.predictedAnnualDividend).toFixed(2) }} 分红</span>
+
+        <div class="mt-lg">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-body text-xs text-text-secondary font-medium">覆盖进度 {{ progressPercent }}%</span>
+            <span class="font-body text-xs text-text-tertiary">
+              还差 <span class="text-brand font-medium">¥{{ Math.max(0, nextTargetExpense.annualAmount - coverage.predictedAnnualDividend).toLocaleString() }}</span>
+            </span>
           </div>
-          <div class="h-2 w-full bg-white rounded-full overflow-hidden">
-            <div class="h-full bg-primary-container rounded-full" :style="{ width: Math.min(progressPercent, 100) + '%' }"></div>
+          <div class="h-2 rounded-full bg-progress-bg overflow-hidden">
+            <div
+              class="h-full rounded-full bg-brand transition-all duration-700 ease-out"
+              :style="{ width: Math.min(progressPercent, 100) + '%' }"
+            ></div>
           </div>
         </div>
       </section>
 
-      <!-- Expense List -->
-      <section class="flex flex-col gap-3">
-        <div
-          v-for="exp in coverage.expenses"
-          :key="exp.id"
-          :class="[
-            'rounded-xl p-md flex items-center justify-between',
-            exp.covered ? 'bg-surface-container-lowest border-l-4 border-primary' : 'bg-white/60 opacity-70'
-          ]"
-        >
-          <div class="flex items-center gap-4">
-            <span class="text-xl">{{ exp.icon }}</span>
-            <div>
-              <h4 class="font-label-bold text-label-bold">{{ exp.name }}</h4>
-              <p class="text-caption text-on-surface-variant">¥{{ exp.annualAmount }}/年</p>
+      <!-- ============================================================ -->
+      <!-- 支出列表                                                        -->
+      <!-- ============================================================ -->
+      <section>
+        <div class="flex items-center gap-2 mb-md">
+          <span class="material-symbols-outlined text-brand text-sm">receipt_long</span>
+          <h2 class="font-body text-sm font-medium text-text-primary tracking-wide">支出列表</h2>
+        </div>
+
+        <div class="space-y-sm">
+          <div
+            v-for="exp in coverage.expenses"
+            :key="exp.id"
+            :class="[
+              'rounded-xl p-md flex items-center justify-between card-shadow border transition-all duration-200',
+              exp.covered
+                ? 'bg-card-bg border-brand/20'
+                : exp.inProgress
+                  ? 'bg-card-bg border-amber-200/60'
+                  : 'bg-card-alt/50 border-transparent'
+            ]"
+          >
+            <div class="flex items-center gap-lg">
+              <div
+                :class="[
+                  'w-10 h-10 rounded-xl flex items-center justify-center text-lg',
+                  exp.covered ? 'bg-brand-light' : exp.inProgress ? 'bg-amber-50' : 'bg-card-alt'
+                ]"
+              >
+                <span>{{ exp.icon }}</span>
+              </div>
+              <div>
+                <h4
+                  :class="[
+                    'font-body text-sm font-medium',
+                    exp.covered ? 'text-text-primary' : 'text-text-secondary'
+                  ]"
+                >{{ exp.name }}</h4>
+                <p class="font-body text-xs text-text-tertiary">¥{{ exp.annualAmount.toLocaleString() }}/年</p>
+              </div>
             </div>
+
+            <!-- 状态标签 -->
+            <span
+              v-if="exp.inProgress"
+              class="inline-flex items-center gap-1 px-3 py-1 bg-amber-50 text-amber-800 font-body text-xs rounded-full"
+            >
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+              进行中
+            </span>
+            <span
+              v-else-if="exp.covered"
+              class="inline-flex items-center gap-1 px-3 py-1 bg-brand-light text-brand font-body text-xs rounded-full"
+            >
+              <span class="material-symbols-outlined text-sm" style="font-size:14px">check_circle</span>
+              已覆盖
+            </span>
+            <span
+              v-else
+              class="inline-flex items-center gap-1 px-3 py-1 bg-card-alt text-text-tertiary font-body text-xs rounded-full"
+            >
+              <span class="material-symbols-outlined text-sm" style="font-size:14px">lock</span>
+              未覆盖
+            </span>
           </div>
-          <span v-if="exp.inProgress" class="px-3 py-1 bg-primary-fixed text-primary text-caption rounded-full font-bold">进行中</span>
-          <span v-else-if="exp.covered" class="px-3 py-1 bg-[#4ADE80]/10 text-[#166534] text-caption rounded-full font-bold">已覆盖</span>
-          <span v-else class="material-symbols-outlined text-secondary-fixed-dim">lock</span>
         </div>
       </section>
     </main>
 
     <!-- Empty state -->
-    <main v-if="pageState === 'empty'" class="flex-1 flex flex-col items-center justify-center px-container-padding gap-md text-center">
+    <main v-if="pageState === 'empty'" class="flex-1 flex flex-col items-center justify-center px-gutter gap-md text-center">
       <span class="text-6xl">💰</span>
-      <h2 class="font-headline-md text-headline-md text-on-surface">还没有生活支出</h2>
-      <p class="text-body-md text-on-surface-variant">先设置你的生活支出，看看分红能覆盖多少</p>
-      <button @click="goToSettings" class="px-6 py-3 bg-primary-container text-white rounded-2xl font-semibold">
+      <h2 class="font-body text-md font-medium text-text-primary">还没有生活支出</h2>
+      <p class="font-body text-sm text-text-tertiary">先设置你的生活支出，看看分红能覆盖多少</p>
+      <button @click="goToSettings" class="px-6 py-3 bg-brand text-white rounded-xl font-body text-sm font-medium active:scale-[0.97] transition-all">
         去设置
       </button>
     </main>

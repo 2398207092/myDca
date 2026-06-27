@@ -13,28 +13,7 @@ const amount = ref<number | null>(null)
 const loading = ref(false)
 const error = ref('')
 
-const iconCategories = [
-  {
-    label: '生活',
-    icons: ['📌', '🏡', '🛏️', '🧹', '👕', '👶', '🐱', '🐶'],
-  },
-  {
-    label: '出行',
-    icons: ['🚗', '🚌', '🚇', '✈️', '⛽', '🅿️'],
-  },
-  {
-    label: '饮食',
-    icons: ['☕', '🍜', '🍱', '🥤', '🍺', '🛒'],
-  },
-  {
-    label: '娱乐学习',
-    icons: ['🎮', '🎬', '🎵', '📚', '🏋️', '⚽'],
-  },
-  {
-    label: '医疗保险',
-    icons: ['💊', '🏥', '🛡️', '🦷'],
-  },
-]
+const allIcons = ['📌', '🏡', '🛏️', '🧹', '👕', '👶', '🐱', '🐶', '🚗', '🚌', '🚇', '✈️', '⛽', '🅿️', '☕', '🍜', '🍱', '🥤', '🍺', '🛒', '🎮', '🎬', '🎵', '📚', '🏋️', '⚽', '💊', '🏥', '🛡️', '🦷']
 
 async function handleSubmit() {
   if (!name.value.trim()) {
@@ -69,74 +48,80 @@ async function handleSubmit() {
     @click.self="$emit('close')"
   >
     <!-- Modal -->
-    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="bg-card-bg w-full max-w-md rounded-2xl shadow-elevated overflow-hidden flex flex-col max-h-[90vh]">
       <!-- Header -->
-      <header class="pt-8 pb-4 text-center">
-        <h1 class="text-xl font-bold text-gray-800">添加自定义支出</h1>
+      <header class="pt-6 pb-4 text-center">
+        <h1 class="font-body text-md font-medium text-text-primary">添加自定义支出</h1>
       </header>
 
       <!-- Scrollable Form -->
-      <div class="px-6 pb-6 overflow-y-auto flex-1">
-        <!-- Name -->
-        <section class="mb-6">
-          <label class="block text-gray-400 text-sm font-medium mb-2">名称</label>
-          <input
-            v-model="name"
-            class="w-full bg-gray-50 border-none rounded-xl py-4 px-4 text-gray-700 focus:ring-2 focus:ring-[#FF7A45] focus:bg-white transition-all"
-            placeholder="如：健身房"
-            type="text"
-          />
+      <div class="px-gutter pb-4 overflow-y-auto flex-1">
+        <!-- Name + Icon inline -->
+        <section class="mb-3">
+          <label class="block font-body text-xs text-text-tertiary mb-2">名称</label>
+          <div class="flex gap-3">
+            <input
+              v-model="name"
+              class="flex-1 bg-card-alt rounded-xl py-3 px-md text-text-primary font-body text-sm outline-none focus:ring-2 focus:ring-brand transition-all"
+              placeholder="如：健身房"
+              type="text"
+            />
+            <div class="relative">
+              <div
+                class="w-12 h-12 bg-card-alt rounded-xl flex items-center justify-center text-xl border-2 transition-all"
+                :class="icon ? 'border-brand bg-brand-light' : 'border-transparent'"
+              >
+                {{ icon }}
+              </div>
+            </div>
+          </div>
         </section>
 
-        <!-- Icon Picker -->
-        <section class="mb-6">
-          <label class="block text-gray-400 text-sm font-medium mb-3">图标</label>
-          <div v-for="cat in iconCategories" :key="cat.label" class="mb-4">
-            <p class="text-gray-300 text-xs mb-2">{{ cat.label }}</p>
-            <div class="grid grid-cols-7 gap-2">
-              <button
-                v-for="ic in cat.icons"
-                :key="ic"
-                @click="icon = ic"
-                :class="[
-                  'aspect-square flex items-center justify-center rounded-xl text-xl transition-all',
-                  icon === ic
-                    ? 'bg-[#FF7A45]/10 border-2 border-[#FF7A45]'
-                    : 'bg-gray-50 hover:bg-gray-100'
-                ]"
-              >
-                <span>{{ ic }}</span>
-              </button>
-            </div>
+        <!-- Icon Picker - compact flat grid -->
+        <section class="mb-3">
+          <div class="grid grid-cols-8 gap-[6px]">
+            <button
+              v-for="ic in allIcons"
+              :key="ic"
+              @click="icon = ic"
+              :class="[
+                'aspect-square flex items-center justify-center rounded-lg text-base transition-all',
+                icon === ic
+                  ? 'bg-brand-light border border-brand'
+                  : 'bg-card-alt hover:bg-card-alt/80 border border-transparent'
+              ]"
+            >
+              <span>{{ ic }}</span>
+            </button>
           </div>
         </section>
 
         <!-- Amount -->
         <section class="mb-2">
-          <label class="block text-gray-400 text-sm font-medium mb-2">月度金额（元）</label>
+          <label class="block font-body text-xs text-text-tertiary mb-2">月度金额（元）</label>
           <input
             v-model.number="amount"
-            class="w-full bg-gray-50 border-none rounded-xl py-4 px-4 text-gray-700 focus:ring-2 focus:ring-[#FF7A45] focus:bg-white transition-all"
+            class="w-full bg-card-alt rounded-xl py-3 px-md text-text-primary font-body text-sm outline-none focus:ring-2 focus:ring-brand transition-all"
             placeholder="如：200"
             type="number"
           />
         </section>
 
-        <p v-if="error" class="text-red-500 text-sm mt-2">{{ error }}</p>
+        <p v-if="error" class="text-error font-body text-xs mt-2">{{ error }}</p>
       </div>
 
       <!-- Footer -->
-      <footer class="p-6 pt-2 flex gap-4 bg-white">
+      <footer class="p-gutter pt-2 flex gap-md bg-card-bg">
         <button
           @click="$emit('close')"
-          class="flex-1 py-4 bg-[#F4F3F3] text-gray-700 font-semibold rounded-2xl hover:bg-gray-200 transition-colors"
+          class="flex-1 h-12 bg-card-alt text-text-secondary font-body text-sm font-medium rounded-xl active:scale-[0.98] transition-all"
         >
           取消
         </button>
         <button
           @click="handleSubmit"
           :disabled="loading"
-          class="flex-1 py-4 bg-[#333333] text-white font-semibold rounded-2xl hover:bg-black transition-colors disabled:opacity-50"
+          class="flex-1 h-12 bg-brand text-white font-body text-sm font-medium rounded-xl active:scale-[0.98] transition-all disabled:opacity-50"
         >
           {{ loading ? '添加中...' : '添加' }}
         </button>

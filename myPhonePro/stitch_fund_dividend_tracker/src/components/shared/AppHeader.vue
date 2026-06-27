@@ -37,8 +37,8 @@ function goBack() {
 
 <template>
   <header
-    class="fixed top-0 w-full z-50 bg-surface transition-shadow duration-200"
-    :class="scrolled ? 'shadow-md' : 'shadow-sm'"
+    class="fixed top-0 w-full z-50 bg-surface/90 backdrop-blur-md transition-shadow duration-200"
+    :class="scrolled ? 'shadow-subtle' : 'shadow-none'"
   >
     <div class="flex items-center justify-between px-gutter h-14 w-full max-w-[600px] mx-auto">
       <div class="flex items-center gap-2">
@@ -51,18 +51,18 @@ function goBack() {
         </button>
         <span
           v-if="showLogo"
-          class="material-symbols-outlined text-primary"
+          class="material-symbols-outlined text-brand"
           style="font-size: 28px;"
         >park</span>
         <h1
-          class="font-headline-lg text-headline-lg font-bold"
-          :class="showLogo ? 'text-primary' : 'text-on-surface'"
+          class="font-display text-2xl"
+          :class="showLogo ? 'text-brand' : 'text-text-primary'"
         >{{ title }}</h1>
       </div>
       <div class="flex items-center gap-2">
         <button
           v-if="rightIcon"
-          class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-raised transition-colors"
           @click="rightAction"
         >
           <span class="material-symbols-outlined text-on-surface-variant">{{ rightIcon }}</span>

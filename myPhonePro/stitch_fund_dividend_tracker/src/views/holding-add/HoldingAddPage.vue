@@ -169,206 +169,217 @@ const estimatedAnnualDividend = computed(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background font-['Work_Sans']">
-    <!-- Header -->
-    <header class="bg-white border-b border-surface-variant flex items-center justify-between w-full px-container-padding h-14 sticky top-0 z-50">
-      <div class="flex items-center gap-4">
-        <button @click="goBack" class="active:scale-95 duration-200 hover:bg-surface-container-high transition-colors p-1 rounded-full">
-          <span class="material-symbols-outlined text-primary">arrow_back</span>
-        </button>
-        <h1 class="text-[20px] font-bold text-primary font-['Plus_Jakarta_Sans']">添加标的</h1>
+  <div class="min-h-screen bg-page-bg flex flex-col">
+
+    <!-- Header — 统一 -->
+    <header class="flex items-center justify-between px-gutter h-14 sticky top-0 z-50 bg-card-bg border-b border-border-light/40">
+      <button @click="goBack" class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80">
+        <span class="material-symbols-outlined text-text-secondary">arrow_back</span>
+      </button>
+      <div class="flex-1 text-center">
+        <h1 class="font-body text-md font-medium text-text-primary">添加标的</h1>
       </div>
       <button @click="router.push('/')" class="w-10 h-10 flex items-center justify-center active:opacity-80 transition-opacity">
-        <span class="material-symbols-outlined text-on-surface-variant">home</span>
+        <span class="material-symbols-outlined text-text-secondary">home</span>
       </button>
     </header>
 
     <!-- Main Content -->
-    <main class="max-w-[600px] mx-auto p-gutter space-y-md pb-40">
+    <main class="flex-1 px-gutter pb-32 overflow-y-auto space-y-md">
 
-      <!-- Step 1: 选择标的 -->
-      <section class="bg-white rounded-xl p-md shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
-        <div class="flex items-center gap-3 mb-md">
-          <span class="flex items-center justify-center w-6 h-6 rounded-full bg-[#1b1c1c] text-white text-[12px] font-bold">1</span>
-          <h2 class="text-[20px] font-semibold text-[#1b1c1c] font-['Plus_Jakarta_Sans']">选择标的</h2>
+      <!-- ==================== Step 1: 选择标的 ==================== -->
+      <section class="mt-md bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
+        <!-- Step number + title -->
+        <div class="flex items-center gap-3 mb-lg">
+          <span class="flex items-center justify-center w-7 h-7 rounded-full bg-brand text-white text-xs font-display font-semibold">1</span>
+          <h2 class="font-display text-xl text-text-primary">选择标的</h2>
         </div>
 
         <!-- Search input -->
-        <div class="border-t border-[#e3e2e2] pt-md">
-          <div class="relative">
-            <div class="flex items-center border border-[#dfc0b5] rounded-lg px-3 py-2 bg-white focus-within:border-[#ff7a45] transition-colors">
-              <span class="material-symbols-outlined text-[#8b7168] mr-2">search</span>
-              <input
-                v-model="keyword"
-                type="text"
-                placeholder="输入基金名称或代码搜索..."
-                class="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-[#c6c6c7]"
-                @click="handleSearchClick"
-              />
-              <span v-if="isSearching" class="material-symbols-outlined text-[#8b7168] animate-spin">refresh</span>
-            </div>
+        <div class="relative">
+          <div class="flex items-center border border-border-light rounded-lg px-3 py-[10px] bg-card-bg focus-within:border-brand transition-colors">
+            <span class="material-symbols-outlined text-text-tertiary mr-2 text-[18px]">search</span>
+            <input
+              v-model="keyword"
+              type="text"
+              placeholder="输入基金名称或代码搜索..."
+              class="flex-1 bg-transparent border-none outline-none font-body text-sm text-text-primary placeholder:text-text-tertiary"
+              @click="handleSearchClick"
+            />
+            <span v-if="isSearching" class="material-symbols-outlined text-text-tertiary animate-spin text-[18px]">refresh</span>
           </div>
+        </div>
 
-          <!-- Search results dropdown -->
-          <div v-if="showResults && searchResults.length > 0" class="mt-2 border border-[#e3e2e2] rounded-lg max-h-48 overflow-y-auto">
-            <div
-              v-for="item in searchResults"
-              :key="item.code"
-              @click="selectHolding(item)"
-              class="flex items-center justify-between px-3 py-3 border-b border-[#e3e2e2] last:border-b-0 hover:bg-[#f4f3f3] cursor-pointer active:scale-[0.99] transition-all"
-            >
-              <div>
-                <div class="text-sm font-medium text-[#1b1c1c]">{{ item.name }}</div>
-                <div class="text-xs text-[#8b7168]">{{ item.code }} · {{ item.type }}</div>
-              </div>
-              <span class="material-symbols-outlined text-[#8b7168]">chevron_right</span>
-            </div>
-          </div>
-
-          <!-- No results -->
-          <div v-if="showResults && !isSearching && searchResults.length === 0 && keyword.trim().length >= 1" class="mt-2 text-center py-4 text-sm text-[#8b7168]">
-            未找到匹配的标的
-          </div>
-
-          <!-- Selected holding display -->
-          <div v-if="selectedHolding" class="mt-2 flex items-center justify-between p-3 bg-[#ff7a45]/5 rounded-lg border border-[#ff7a45]/20">
+        <!-- Search results dropdown -->
+        <div v-if="showResults && searchResults.length > 0" class="mt-md border border-border-light rounded-lg max-h-48 overflow-y-auto">
+          <div
+            v-for="item in searchResults"
+            :key="item.code"
+            @click="selectHolding(item)"
+            class="flex items-center justify-between px-md py-3 border-b border-border-light last:border-b-0 hover:bg-card-alt cursor-pointer active:scale-[0.99] transition-all"
+          >
             <div>
-              <div class="text-sm font-medium text-[#1b1c1c]">{{ selectedHolding.name }}</div>
-              <div class="text-xs text-[#8b7168]">{{ selectedHolding.code }} · {{ selectedHolding.type }}</div>
+              <div class="font-body text-sm font-medium text-text-primary">{{ item.name }}</div>
+              <div class="font-body text-xs text-text-tertiary">{{ item.code }} · {{ item.type }}</div>
             </div>
-            <span class="material-symbols-outlined text-[#ff7a45]" style="font-variation-settings:'FILL' 1">check_circle</span>
+            <span class="material-symbols-outlined text-text-tertiary text-[18px]">chevron_right</span>
           </div>
+        </div>
+
+        <!-- No results -->
+        <div v-if="showResults && !isSearching && searchResults.length === 0 && keyword.trim().length >= 1" class="mt-md text-center py-lg">
+          <span class="text-2xl block mb-1">🔍</span>
+          <p class="font-body text-sm text-text-tertiary">未找到匹配的标的</p>
+        </div>
+
+        <!-- Selected holding display -->
+        <div v-if="selectedHolding" class="mt-md flex items-center justify-between p-md bg-brand-light/60 rounded-lg border border-brand/20">
+          <div>
+            <div class="font-body text-sm font-medium text-text-primary">{{ selectedHolding.name }}</div>
+            <div class="font-body text-xs text-text-tertiary">{{ selectedHolding.code }} · {{ selectedHolding.type }}</div>
+          </div>
+          <span class="material-symbols-outlined text-brand" style="font-variation-settings:'FILL' 1">check_circle</span>
         </div>
       </section>
 
-      <!-- Step 2: 持仓信息 -->
+      <!-- ==================== Step 2: 持仓信息 ==================== -->
       <section
-        :class="['bg-white rounded-xl p-md shadow-[0_4px_12px_rgba(0,0,0,0.05)]', !step2Active ? 'opacity-40 pointer-events-none' : '']"
+        :class="['bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40', !step2Active ? 'opacity-40 pointer-events-none' : '']"
       >
-        <div class="flex items-center justify-between mb-md">
+        <div class="flex items-center justify-between mb-lg">
           <div class="flex items-center gap-3">
-            <span :class="['flex items-center justify-center w-6 h-6 rounded-full text-white text-[12px] font-bold', step2Active ? 'bg-[#1b1c1c]' : 'bg-[#a2a1a1]']">2</span>
-            <h2 :class="['text-[20px] font-semibold font-[\'Plus_Jakarta_Sans\']', step2Active ? 'text-[#1b1c1c]' : 'text-[#5f5e5e]']">持仓信息</h2>
+            <span :class="['flex items-center justify-center w-7 h-7 rounded-full text-white text-xs font-display font-semibold', step2Active ? 'bg-brand' : 'bg-text-tertiary']">2</span>
+            <h2 :class="['font-display text-xl', step2Active ? 'text-text-primary' : 'text-text-secondary']">持仓信息</h2>
           </div>
-          <span class="text-[12px] text-[#5f5e5e]" v-if="!step2Active">选股后自动展开</span>
+          <span class="font-body text-xs text-text-tertiary" v-if="!step2Active">选股后自动展开</span>
         </div>
 
-        <div class="grid grid-cols-2 gap-md mb-md">
+        <div class="grid grid-cols-2 gap-lg mb-lg">
           <div class="space-y-1">
-            <label class="text-[12px] font-medium text-[#ba1a1a]">*持仓数量</label>
-            <input v-model.number="shares" type="number" placeholder="股数/份数" :disabled="!step2Active" class="w-full bg-transparent border-b border-[#dfc0b5] py-2 focus:outline-none focus:border-[#ff7a45] placeholder:text-[#c6c6c7] text-sm" />
+            <label class="font-body text-xs font-medium text-error">*持仓数量</label>
+            <input v-model.number="shares" type="number" placeholder="股数/份数" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
           </div>
           <div class="space-y-1">
-            <label class="text-[12px] font-medium text-[#ba1a1a]">*买入日期</label>
-            <div class="flex items-center border-b border-[#dfc0b5] py-2">
-              <input v-model="buyDate" type="date" :disabled="!step2Active" class="flex-1 bg-transparent border-none outline-none text-sm text-[#5d5f5f]" />
+            <label class="font-body text-xs font-medium text-error">*买入日期</label>
+            <div class="flex items-center border-b border-border-light py-2">
+              <input v-model="buyDate" type="date" :disabled="!step2Active" class="flex-1 bg-transparent border-none outline-none font-body text-sm text-text-primary" />
             </div>
           </div>
         </div>
 
-        <div class="mb-md">
-          <label class="text-[12px] font-medium text-[#5f5e5e] block mb-1">交易费用</label>
-          <input v-model.number="fee" type="number" placeholder="交易费用（可选）" :disabled="!step2Active" class="w-full bg-transparent border-b border-[#dfc0b5] py-2 focus:outline-none focus:border-[#ff7a45] placeholder:text-[#c6c6c7] text-sm" />
+        <div class="mb-lg">
+          <label class="font-body text-xs font-medium text-text-secondary block mb-1">交易费用</label>
+          <input v-model.number="fee" type="number" placeholder="交易费用（可选）" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
         </div>
 
-        <div class="space-y-3">
-          <!-- *当前成本 [selector] ? 同一行 -->
+        <div class="space-y-lg">
+          <!-- 当前成本算法选择器 -->
           <div class="flex items-center gap-2">
-            <label class="text-[12px] font-medium text-[#ba1a1a] whitespace-nowrap">*当前成本</label>
-            <div class="flex-1 flex bg-[#efeded] rounded-lg p-1 max-w-[260px]">
-              <button @click="costAlgorithm='diluted'" :class="costAlgorithm==='diluted' ? 'bg-white text-[#1b1c1c] shadow-sm' : 'text-[#5f5e5e]'" class="flex-1 py-1 rounded font-semibold text-xs transition-all">分红摊薄</button>
-              <button @click="costAlgorithm='diluted_only'" :class="costAlgorithm==='diluted_only' ? 'bg-white text-[#1b1c1c] shadow-sm' : 'text-[#5f5e5e]'" class="flex-1 py-1 rounded font-semibold text-xs transition-all">摊薄成本</button>
-              <button @click="costAlgorithm='weighted_avg'" :class="costAlgorithm==='weighted_avg' ? 'bg-white text-[#1b1c1c] shadow-sm' : 'text-[#5f5e5e]'" class="flex-1 py-1 rounded font-semibold text-xs transition-all">加权平均</button>
+            <label class="font-body text-xs font-medium text-error whitespace-nowrap">*当前成本</label>
+            <div class="flex-1 flex bg-card-alt rounded-lg p-[3px] max-w-[280px]">
+              <button @click="costAlgorithm='diluted'" :class="costAlgorithm==='diluted' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[5px] rounded font-body font-medium text-xs transition-all">分红摊薄</button>
+              <button @click="costAlgorithm='diluted_only'" :class="costAlgorithm==='diluted_only' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[5px] rounded font-body font-medium text-xs transition-all">摊薄成本</button>
+              <button @click="costAlgorithm='weighted_avg'" :class="costAlgorithm==='weighted_avg' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[5px] rounded font-body font-medium text-xs transition-all">加权平均</button>
             </div>
-            <span class="material-symbols-outlined text-[#8b7168] text-[18px]">help</span>
+            <span class="material-symbols-outlined text-text-tertiary text-[18px]">help</span>
           </div>
+          <!-- 成本输入 -->
           <div>
-            <input v-model.number="costInput" type="number" placeholder="可输入正数、零、或者负数（人民币）" :disabled="!step2Active" class="w-full bg-transparent border-b border-[#dfc0b5] py-2 focus:outline-none focus:border-[#ff7a45] placeholder:text-[#c6c6c7] text-sm" />
+            <input v-model.number="costInput" type="number" placeholder="可输入正数、零、或者负数（人民币）" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
           </div>
-          <div class="flex items-center gap-2 pt-1">
+          <!-- 负成本勾选 -->
+          <div class="flex items-center gap-2">
             <div
               @click="isNegativeCost = !isNegativeCost"
-              :class="['w-4 h-4 border rounded', isNegativeCost ? 'bg-[#ff7a45] border-[#ff7a45]' : 'border-[#dfc0b5] bg-white']"
-            ></div>
-            <span class="text-xs text-[#5f5e5e]">标记为负成本（成本已通过卖出全部收回）</span>
+              :class="['w-4 h-4 rounded border transition-all flex items-center justify-center', isNegativeCost ? 'bg-brand border-brand' : 'border-border-light bg-card-bg']"
+            >
+              <span v-if="isNegativeCost" class="text-white text-[10px] font-bold">✓</span>
+            </div>
+            <span class="font-body text-xs text-text-secondary">标记为负成本（成本已通过卖出全部收回）</span>
           </div>
         </div>
       </section>
 
-      <!-- Step 3: 分红预测口径 -->
+      <!-- ==================== Step 3: 分红预测口径 ==================== -->
       <section
-        :class="['bg-white rounded-xl p-md shadow-[0_4px_12px_rgba(0,0,0,0.05)]', !step3Active ? 'opacity-40 pointer-events-none' : '']"
+        :class="['bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40', !step3Active ? 'opacity-40 pointer-events-none' : '']"
       >
-        <div class="flex items-center justify-between mb-md">
+        <div class="flex items-center justify-between mb-lg">
           <div class="flex items-center gap-3">
-            <span :class="['flex items-center justify-center w-6 h-6 rounded-full text-white text-[12px] font-bold', step3Active ? 'bg-[#1b1c1c]' : 'bg-[#a2a1a1]']">3</span>
-            <h2 :class="['text-[20px] font-semibold flex items-center gap-1 font-[\'Plus_Jakarta_Sans\']', step3Active ? 'text-[#1b1c1c]' : 'text-[#5f5e5e]']">
+            <span :class="['flex items-center justify-center w-7 h-7 rounded-full text-white text-xs font-display font-semibold', step3Active ? 'bg-brand' : 'bg-text-tertiary']">3</span>
+            <h2 :class="['font-display text-xl flex items-center gap-1', step3Active ? 'text-text-primary' : 'text-text-secondary']">
               分红预测口径
-              <span class="material-symbols-outlined text-[18px] text-[#8b7168]">help</span>
+              <span class="material-symbols-outlined text-text-tertiary text-[18px]">help</span>
             </h2>
           </div>
-          <span class="text-[12px] text-[#5f5e5e]" v-if="!step3Active">选股后自动展开</span>
+          <span class="font-body text-xs text-text-tertiary" v-if="!step3Active">选股后自动展开</span>
         </div>
 
         <!-- 加载中 -->
-        <div v-if="isFetchingDividend" class="text-center py-4 text-sm text-[#8b7168]">
-          查询分红数据中...
+        <div v-if="isFetchingDividend" class="text-center py-lg">
+          <span class="text-xl block mb-1">🔄</span>
+          <p class="font-body text-sm text-text-tertiary">查询分红数据中...</p>
         </div>
 
-        <!-- 无分红数据：简化提示 -->
-        <div v-else-if="dividendInfo && !hasDividendData" class="text-center py-4">
-          <span class="material-symbols-outlined text-[#8b7168] text-[32px]">info</span>
-          <p class="text-sm text-[#5f5e5e] mt-2">该基金暂无分红记录，已跳过分红预测</p>
+        <!-- 无分红数据 -->
+        <div v-else-if="dividendInfo && !hasDividendData" class="text-center py-lg">
+          <span class="text-2xl block mb-1">📋</span>
+          <p class="font-body text-sm text-text-tertiary">该基金暂无分红记录，已跳过分红预测</p>
         </div>
 
         <!-- 有分红数据：完整预测 UI -->
         <template v-else-if="hasDividendData">
-          <div class="flex bg-[#efeded] rounded-lg p-1 mb-md">
-            <button @click="forecastMethod='ex_date'" :class="forecastMethod==='ex_date' ? 'bg-white text-[#1b1c1c] shadow-sm' : 'text-[#5f5e5e]'" class="flex-1 py-2 rounded font-semibold text-sm transition-all">按除权日</button>
-            <button @click="forecastMethod='report_period'" :class="forecastMethod==='report_period' ? 'bg-white text-[#1b1c1c] shadow-sm' : 'text-[#5f5e5e]'" class="flex-1 py-2 rounded font-semibold text-sm transition-all">按报告期</button>
-            <button @click="forecastMethod='custom'" :class="forecastMethod==='custom' ? 'bg-white text-[#1b1c1c] shadow-sm' : 'text-[#5f5e5e]'" class="flex-1 py-2 rounded font-semibold text-sm transition-all">自定义</button>
+          <!-- 预测方法切换 -->
+          <div class="flex bg-card-alt rounded-lg p-[3px] mb-lg">
+            <button @click="forecastMethod='ex_date'" :class="forecastMethod==='ex_date' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[7px] rounded font-body font-medium text-sm transition-all">按除权日</button>
+            <button @click="forecastMethod='report_period'" :class="forecastMethod==='report_period' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[7px] rounded font-body font-medium text-sm transition-all">按报告期</button>
+            <button @click="forecastMethod='custom'" :class="forecastMethod==='custom' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[7px] rounded font-body font-medium text-sm transition-all">自定义</button>
           </div>
 
-          <div class="grid grid-cols-3 gap-2 mb-md">
-            <button @click="forecastYears='1y'" :class="forecastYears==='1y' ? 'border-[#ff7a45] bg-[#ff7a45]/10 text-[#672000] font-semibold' : 'border-[#dfc0b5] text-[#5f5e5e]'" class="py-2 border rounded-lg text-sm transition-all">近1年</button>
-            <button @click="forecastYears='3y'" :class="forecastYears==='3y' ? 'border-[#ff7a45] bg-[#ff7a45]/10 text-[#672000] font-semibold' : 'border-[#dfc0b5] text-[#5f5e5e]'" class="py-2 border rounded-lg text-sm transition-all">近3年</button>
-            <button @click="forecastYears='5y'" :class="forecastYears==='5y' ? 'border-[#ff7a45] bg-[#ff7a45]/10 text-[#672000] font-semibold' : 'border-[#dfc0b5] text-[#5f5e5e]'" class="py-2 border rounded-lg text-sm transition-all">近5年</button>
+          <!-- 年限选择 -->
+          <div class="grid grid-cols-3 gap-2 mb-lg">
+            <button @click="forecastYears='1y'" :class="forecastYears==='1y' ? 'border-brand bg-brand-light text-brand font-medium' : 'border-border-light text-text-secondary'" class="py-2 border rounded-lg font-body text-sm transition-all">近1年</button>
+            <button @click="forecastYears='3y'" :class="forecastYears==='3y' ? 'border-brand bg-brand-light text-brand font-medium' : 'border-border-light text-text-secondary'" class="py-2 border rounded-lg font-body text-sm transition-all">近3年</button>
+            <button @click="forecastYears='5y'" :class="forecastYears==='5y' ? 'border-brand bg-brand-light text-brand font-medium' : 'border-border-light text-text-secondary'" class="py-2 border rounded-lg font-body text-sm transition-all">近5年</button>
           </div>
 
-          <div class="flex items-center justify-between border-t border-[#e3e2e2] pt-md">
-            <span class="text-[12px] text-[#5f5e5e]">
+          <!-- 分红结果 -->
+          <div class="flex items-center justify-between border-t border-border-light pt-lg">
+            <span class="font-body text-xs text-text-secondary">
               年均每份分红
-              <span v-if="dividendInfo" class="text-[#8b7168]">（{{ dividendInfo.unitText }}）</span>
+              <span v-if="dividendInfo" class="text-text-tertiary">（{{ dividendInfo.unitText }}）</span>
             </span>
-            <span class="text-[20px] font-semibold text-[#5f5e5e]">
+            <span class="font-display text-xl font-semibold text-text-primary">
               ¥{{ dividendInfo!.annualDividendPerShare.toFixed(4) }}
             </span>
           </div>
 
-          <div class="mt-md p-sm bg-[#ff7a45]/5 rounded flex gap-2 items-start">
-            <span class="material-symbols-outlined text-[#a73a05] text-[18px] mt-0.5" style="font-variation-settings:'FILL' 1">info</span>
-            <p class="text-xs text-[#a73a05]">
+          <!-- 提示信息 -->
+          <div class="mt-lg p-sm bg-brand-light/60 rounded-lg flex gap-2 items-start">
+            <span class="text-brand text-[16px] mt-[2px]">💡</span>
+            <p class="font-body text-xs text-text-secondary">
               取最近{{ { '1y': '1', '3y': '3', '5y': '5' }[forecastYears] || '3' }}年{{ forecastMethod === 'ex_date' ? '内除权除息日对应的分红记录' : '的报告期净值增长' }}，计算年均{{ dividendInfo?.unitText || '每份' }}收益
             </p>
           </div>
         </template>
 
-        <!-- 初始状态（未查询） -->
-        <div v-else class="text-center py-4 text-sm text-[#8b7168]">
-          选择标的后将自动查询分红数据
+        <!-- 初始状态 -->
+        <div v-else class="text-center py-lg">
+          <span class="text-2xl block mb-1">📊</span>
+          <p class="font-body text-sm text-text-tertiary">选择标的后将自动查询分红数据</p>
         </div>
       </section>
 
-      <!-- Bottom Button (in flow) -->
-      <div class="pt-md">
+      <!-- ==================== 提交按钮 ==================== -->
+      <div class="pt-sm">
         <button
           @click="handleSubmit"
           :disabled="!canSubmit || isSubmitting"
-          :class="[canSubmit ? 'bg-[#ff7a45] text-white shadow-md' : 'bg-[#efeded] text-[#5f5e5e] cursor-not-allowed', 'w-full h-14 rounded-full font-bold text-lg transition-all active:scale-[0.98]']"
+          :class="[canSubmit ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-tertiary cursor-not-allowed', 'w-full h-[52px] rounded-xl font-body font-medium text-md transition-all active:scale-[0.98]']"
         >
           {{ isSubmitting ? '添加中...' : '确认添加' }}
         </button>
-        <p v-if="error" class="text-center text-[#ba1a1a] text-xs mt-2">{{ error }}</p>
+        <p v-if="error" class="text-center font-body text-xs text-error mt-md">{{ error }}</p>
       </div>
     </main>
   </div>

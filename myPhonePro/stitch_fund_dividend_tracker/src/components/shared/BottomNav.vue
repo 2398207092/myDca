@@ -30,25 +30,31 @@ function navigate(tab: NavTab, path: string) {
 
 <template>
   <nav
-    class="fixed bottom-0 w-full z-50 rounded-t-xl bg-surface shadow-[0_-4px_12px_0_rgba(0,0,0,0.05)] border-t border-outline-variant"
+    class="fixed bottom-0 w-full z-50 rounded-t-xl bg-card-bg shadow-elevated border-t border-border-light"
   >
     <div class="flex justify-around items-center h-16 w-full px-sm safe-bottom">
       <button
         v-for="tab in tabs"
         :key="tab.key"
-        class="flex flex-col items-center justify-center transition-all duration-150 active:scale-95"
+        class="flex flex-col items-center justify-center transition-all duration-200 active:scale-95 min-w-[64px] py-1 rounded-xl"
         :class="
           activeTab === tab.key
-            ? 'bg-primary-container/20 text-on-primary-container rounded-full px-4 py-1'
-            : 'text-on-secondary-container hover:text-primary'
+            ? 'bg-brand-light'
+            : 'hover:bg-card-alt'
         "
         @click="navigate(tab.key, tab.route)"
       >
         <span
-          class="material-symbols-outlined"
-          :class="{ fill: activeTab === tab.key }"
+          class="material-symbols-outlined text-[24px] transition-all duration-200"
+          :class="activeTab === tab.key ? 'text-brand' : 'text-text-secondary'"
+          :style="activeTab === tab.key
+            ? { fontVariationSettings: '&quot;FILL&quot; 1, &quot;wght&quot; 700' }
+            : { fontVariationSettings: '&quot;FILL&quot; 0, &quot;wght&quot; 400' }"
         >{{ tab.icon }}</span>
-        <span class="font-label-bold text-[10px]">{{ tab.label }}</span>
+        <span
+          class="text-xs transition-all duration-200 mt-0.5"
+          :class="activeTab === tab.key ? 'text-brand font-medium' : 'text-text-secondary'"
+        >{{ tab.label }}</span>
       </button>
     </div>
   </nav>

@@ -11,50 +11,50 @@ defineProps<Props>()
 
 <template>
   <div
-    class="bg-surface-container-lowest rounded-xl p-md shadow-md transition-all active:scale-[0.98] cursor-pointer"
-    :style="{ borderTop: `2px solid ${holding.color}` }"
+    class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 transition-all duration-200 active:scale-[0.98] cursor-pointer"
+    :style="{ borderLeft: `3px solid ${holding.color}` }"
     @click="onClick"
   >
     <div class="flex items-center gap-2 mb-3">
-      <span class="w-3 h-3 rounded-full shrink-0" :style="{ backgroundColor: holding.color }"></span>
+      <div class="w-3 h-3 rounded-full shrink-0" :style="{ backgroundColor: holding.color }"></div>
       <div class="flex-1 min-w-0">
-        <h4 class="font-label-bold text-label-bold text-on-surface truncate">{{ holding.name }}</h4>
-        <span class="font-caption text-caption text-on-surface-variant">{{ holding.code }}</span>
+        <h4 class="font-display text-md text-text-primary truncate">{{ holding.name }}</h4>
+        <span class="font-body text-sm text-text-tertiary">{{ holding.code }}</span>
       </div>
       <div class="text-right shrink-0 ml-2">
         <template v-if="holding.predictedDividend > 0">
-          <p class="text-primary font-headline-md text-headline-md leading-none whitespace-nowrap">
+          <p class="text-brand font-display text-xl leading-none whitespace-nowrap tabular-nums">
             ¥{{ holding.predictedDividend >= 10000
               ? (holding.predictedDividend / 10000).toFixed(2) + '万'
               : holding.predictedDividend.toFixed(2) }}
           </p>
-          <p class="text-on-surface-variant font-caption text-caption mt-0.5">预测分红</p>
+          <p class="text-text-tertiary font-body text-sm mt-0.5">预测分红</p>
         </template>
         <template v-else>
-          <p class="text-on-surface-variant font-headline-md text-headline-md leading-none">--</p>
-          <p class="text-on-surface-variant font-caption text-caption mt-0.5">暂无分红</p>
+          <p class="text-text-tertiary font-display text-xl leading-none">--</p>
+          <p class="text-text-tertiary font-body text-sm mt-0.5">暂无分红</p>
         </template>
       </div>
     </div>
 
     <!-- 4×1 指标网格 -->
-    <div class="bg-surface-container rounded-lg p-2.5 mt-3">
-      <div class="grid grid-cols-4">
-        <div class="text-center border-r border-outline-variant/20">
-          <p class="font-caption text-caption text-on-surface-variant/60">市值</p>
-          <p class="font-label-bold text-label-bold text-on-surface mt-0.5">¥{{ Math.round(holding.marketValue).toLocaleString() }}</p>
-        </div>
-        <div class="text-center border-r border-outline-variant/20">
-          <p class="font-caption text-caption text-on-surface-variant/60">成本</p>
-          <p class="font-label-bold text-label-bold text-on-surface mt-0.5">¥{{ Math.round(holding.cost).toLocaleString() }}</p>
-        </div>
-        <div class="text-center border-r border-outline-variant/20">
-          <p class="font-caption text-caption text-on-surface-variant/60">份额</p>
-          <p class="font-label-bold text-label-bold text-on-surface mt-0.5">{{ Math.round(holding.shares).toLocaleString() }} 份</p>
+    <div class="bg-card-alt rounded-lg p-lg mt-3">
+      <div class="grid grid-cols-4 divide-x divide-border-light/10">
+        <div class="text-center first:pl-0 last:pr-0">
+          <p class="font-body text-sm text-text-tertiary/60">市值</p>
+          <p class="font-body text-base text-text-primary mt-0.5 tabular-nums">¥{{ Math.round(holding.marketValue).toLocaleString() }}</p>
         </div>
         <div class="text-center">
-          <p class="font-caption text-caption text-on-surface-variant/60">股息率</p>
-          <p class="font-label-bold text-label-bold mt-0.5" :style="{ color: holding.color }">{{ holding.dividendRate }}%</p>
+          <p class="font-body text-sm text-text-tertiary/60">成本</p>
+          <p class="font-body text-base text-text-primary mt-0.5 tabular-nums">¥{{ Math.round(holding.cost).toLocaleString() }}</p>
+        </div>
+        <div class="text-center">
+          <p class="font-body text-sm text-text-tertiary/60">份额</p>
+          <p class="font-body text-base text-text-primary mt-0.5 tabular-nums">{{ Math.round(holding.shares).toLocaleString() }} 份</p>
+        </div>
+        <div class="text-center">
+          <p class="font-body text-sm text-text-tertiary/60">股息率</p>
+          <p class="font-body text-base mt-0.5" :style="{ color: holding.color }">{{ holding.dividendRate }}%</p>
         </div>
       </div>
     </div>

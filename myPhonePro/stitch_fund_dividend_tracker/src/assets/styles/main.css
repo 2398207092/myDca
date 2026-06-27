@@ -8,7 +8,7 @@
   }
 
   body {
-    @apply bg-background text-on-surface font-body-md antialiased;
+    @apply bg-page-bg text-text-primary font-body text-base antialiased;
     min-height: 100dvh;
     overscroll-behavior: none;
   }
@@ -20,7 +20,7 @@
 
 @layer components {
   .card-shadow {
-    box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   }
 
   .safe-bottom {
@@ -31,23 +31,8 @@
     display: none;
   }
 
-  .active-tab-indicator {
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
   .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     vertical-align: middle;
-  }
-
-  .material-symbols-outlined.fill {
-    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-  }
-}
-
-@layer utilities {
-  .scrollbar-none {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
   }
 }

@@ -118,10 +118,10 @@ function formatQuantity(n: number): string {
 
 function txLabel(type: string): { text: string; color: string } {
   switch (type) {
-    case 'buy': return { text: '买入', color: 'text-success' }
+    case 'buy': return { text: '买入', color: 'text-brand' }
     case 'sell': return { text: '卖出', color: 'text-error' }
-    case 'dividend': return { text: '分红', color: 'text-primary' }
-    default: return { text: type, color: 'text-on-surface' }
+    case 'dividend': return { text: '分红', color: 'text-brand' }
+    default: return { text: type, color: 'text-text-primary' }
   }
 }
 
@@ -139,96 +139,84 @@ function goAddTrade() {
 </script>
 
 <template>
-  <div class="page-container flex flex-col min-h-screen bg-surface">
-    <!-- Header -->
-    <header class="fixed top-0 left-0 right-0 z-40 bg-surface px-gutter">
-      <div class="max-w-[600px] mx-auto flex items-center justify-between h-14">
-        <button class="flex items-center gap-1 text-on-surface" @click="goBack">
-          <span class="material-symbols-outlined text-2xl">arrow_back</span>
-          <span class="text-title-medium font-title-medium">交易明细</span>
-        </button>
-        <button class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" @click="goHome">
-          <span class="material-symbols-outlined text-2xl text-on-surface-variant">home</span>
-        </button>
+  <div class="min-h-screen bg-page-bg flex flex-col">
+    <!-- Header — 统一 -->
+    <header class="flex items-center justify-between px-gutter h-14 sticky top-0 z-50 bg-card-bg border-b border-border-light/40">
+      <button @click="goBack" class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80">
+        <span class="material-symbols-outlined text-text-secondary">arrow_back</span>
+      </button>
+      <div class="flex-1 text-center">
+        <h1 class="font-body text-md font-medium text-text-primary">交易明细</h1>
       </div>
+      <button @click="goHome" class="w-10 h-10 flex items-center justify-center active:opacity-80 transition-opacity">
+        <span class="material-symbols-outlined text-text-secondary">home</span>
+      </button>
     </header>
 
     <!-- Content -->
-    <main class="flex-1 pt-14 pb-24 px-gutter">
-      <div class="max-w-[600px] mx-auto">
-        <!-- Loading -->
-        <div v-if="loading" class="flex justify-center items-center py-32">
-          <span class="material-symbols-outlined animate-spin text-on-surface-variant text-3xl">progress_activity</span>
-        </div>
+    <main class="flex-1 px-gutter pb-24 space-y-md">
+      <!-- Loading -->
+      <div v-if="loading" class="flex justify-center items-center py-32">
+        <span class="material-symbols-outlined animate-spin text-text-tertiary text-3xl">progress_activity</span>
+      </div>
 
-        <!-- Empty -->
-        <div v-else-if="transactions.length === 0" class="flex flex-col items-center justify-center py-32 gap-md">
-          <span class="material-symbols-outlined text-5xl text-on-surface-variant/40">receipt_long</span>
-          <p class="text-body-medium font-body-medium text-on-surface-variant">暂无交易记录</p>
-          <button class="mt-sm px-lg py-sm rounded-lg bg-primary-container text-on-primary-container text-label-large font-label-large transition-colors hover:brightness-95 active:scale-95" @click="goAddTrade">
-            添加第一笔交易
-          </button>
-        </div>
+      <!-- Empty -->
+      <div v-else-if="transactions.length === 0" class="flex flex-col items-center justify-center py-32 gap-md">
+        <span class="text-5xl block text-text-tertiary/40">📋</span>
+        <p class="font-body text-sm text-text-secondary">暂无交易记录</p>
+        <button class="mt-sm px-lg py-sm rounded-lg bg-brand-light text-brand font-body text-sm font-medium transition-colors active:scale-95" @click="goAddTrade">
+          添加第一笔交易
+        </button>
+      </div>
 
-        <!-- Transaction List -->
-        <div v-else class="space-y-xs">
-          <div v-for="tx in transactions" :key="tx.id"
-               class="flex items-center justify-between bg-surface-container-lowest rounded-xl px-lg py-md transition-colors hover:bg-surface-container-high cursor-pointer active:scale-[0.98]"
-               @click="showTxAction(tx)">
-            <!-- Left: type + date -->
-            <div class="flex items-center gap-md">
-              <div class="w-10 h-10 rounded-full flex items-center justify-center"
-                   :class="{
-                     'bg-success/10': tx.type === 'buy',
-                     'bg-error/10': tx.type === 'sell',
-                     'bg-primary-container/40': tx.type === 'dividend'
-                   }">
-                <span class="material-symbols-outlined text-xl"
-                      :class="{
-                        'text-success': tx.type === 'buy',
-                        'text-error': tx.type === 'sell',
-                        'text-primary': tx.type === 'dividend'
-                      }">
-                  {{ tx.type === 'buy' ? 'trending_up' : tx.type === 'sell' ? 'trending_down' : 'payments' }}
-                </span>
-              </div>
-              <div>
-                <span class="text-label-large font-label-large text-on-surface" :class="txLabel(tx.type).color">
-                  {{ txLabel(tx.type).text }}
-                </span>
-                <p class="text-body-small font-body-small text-on-surface-variant">{{ tx.date }}</p>
-              </div>
+      <!-- Transaction List -->
+      <div v-else class="space-y-xs">
+        <div v-for="tx in transactions" :key="tx.id"
+             class="flex items-center justify-between bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 transition-colors cursor-pointer active:scale-[0.98]"
+             @click="showTxAction(tx)">
+          <!-- Left: type + date -->
+          <div class="flex items-center gap-md">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center"
+                 :class="tx.type === 'buy' ? 'bg-brand-light' : tx.type === 'sell' ? 'bg-error/10' : 'bg-brand-light'">
+              <span class="material-symbols-outlined text-xl"
+                    :class="tx.type === 'buy' ? 'text-brand' : tx.type === 'sell' ? 'text-error' : 'text-brand'">
+                {{ tx.type === 'buy' ? 'trending_up' : tx.type === 'sell' ? 'trending_down' : 'payments' }}
+              </span>
             </div>
-
-            <!-- Right: detail -->
-            <div class="text-right">
-              <p class="text-label-large font-label-large text-on-surface">
-                <template v-if="tx.type === 'dividend'">
-                  {{ formatAmount(tx.total, true) }}
-                </template>
-                <template v-else>
-                  {{ formatQuantity(tx.quantity) }} 份
-                </template>
-              </p>
-              <p v-if="tx.type !== 'dividend'" class="text-body-small font-body-small text-on-surface-variant">
-                @ {{ formatAmount(tx.price, true) }}
-                <template v-if="tx.fee"> / 手续费 {{ formatAmount(tx.fee, true) }}</template>
-              </p>
+            <div>
+              <span class="font-body text-sm font-medium text-text-primary" :class="txLabel(tx.type).color">
+                {{ txLabel(tx.type).text }}
+              </span>
+              <p class="font-body text-xs text-text-tertiary">{{ tx.date }}</p>
             </div>
+          </div>
+
+          <!-- Right: detail -->
+          <div class="text-right">
+            <p class="font-body text-sm font-medium text-text-primary">
+              <template v-if="tx.type === 'dividend'">
+                {{ formatAmount(tx.total, true) }}
+              </template>
+              <template v-else>
+                {{ formatQuantity(tx.quantity) }} 份
+              </template>
+            </p>
+            <p v-if="tx.type !== 'dividend'" class="font-body text-xs text-text-tertiary">
+              @ {{ formatAmount(tx.price, true) }}
+              <template v-if="tx.fee"> / 手续费 {{ formatAmount(tx.fee, true) }}</template>
+            </p>
           </div>
         </div>
       </div>
     </main>
 
     <!-- Bottom add button -->
-    <div class="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-surface via-surface/95 to-transparent pt-8 pb-gutter px-gutter">
-      <div class="max-w-[600px] mx-auto">
-        <button class="w-full h-12 rounded-xl bg-primary-container text-on-primary-container text-label-large font-label-large transition-colors hover:brightness-95 active:scale-[0.98] flex items-center justify-center gap-sm"
-                @click="goAddTrade">
-          <span class="material-symbols-outlined">add</span>
-          <span>添加交易</span>
-        </button>
-      </div>
+    <div class="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-page-bg via-page-bg/95 to-transparent pt-8 pb-gutter px-gutter">
+      <button class="w-full h-[52px] rounded-xl bg-brand text-white font-body font-medium text-md transition-colors active:scale-[0.98] flex items-center justify-center gap-sm shadow-card"
+              @click="goAddTrade">
+        <span class="material-symbols-outlined">add</span>
+        <span>添加交易</span>
+      </button>
     </div>
 
     <!-- === Action Sheet (edit / delete) === -->
@@ -237,19 +225,19 @@ function goAddTrade() {
         <div v-if="showActionSheet" class="fixed inset-0 z-[100] bg-black/40" @click="closeActionSheet"></div>
       </Transition>
       <Transition name="slide-up">
-        <div v-if="showActionSheet" class="fixed bottom-0 left-0 right-0 z-[110] bg-surface rounded-t-2xl px-gutter py-lg shadow-2xl max-w-[600px] mx-auto">
-          <div class="w-10 h-1 bg-on-surface-variant/20 rounded-full mx-auto mb-lg"></div>
-          <button class="w-full flex items-center gap-md px-md py-lg rounded-xl hover:bg-surface-container-high transition-colors"
+        <div v-if="showActionSheet" class="fixed bottom-0 left-0 right-0 z-[110] bg-card-bg rounded-t-2xl px-gutter py-lg shadow-overlay">
+          <div class="w-10 h-1 bg-border-light rounded-full mx-auto mb-lg"></div>
+          <button class="w-full flex items-center gap-md px-md py-lg rounded-xl hover:bg-card-alt transition-colors"
                   @click="openEdit">
-            <span class="material-symbols-outlined text-primary">edit</span>
-            <span class="text-label-large font-label-large text-on-surface">编辑</span>
+            <span class="material-symbols-outlined text-brand">edit</span>
+            <span class="font-body text-sm font-medium text-text-primary">编辑</span>
           </button>
-          <button class="w-full flex items-center gap-md px-md py-lg rounded-xl hover:bg-surface-container-high transition-colors"
+          <button class="w-full flex items-center gap-md px-md py-lg rounded-xl hover:bg-card-alt transition-colors"
                   @click="openDelete">
             <span class="material-symbols-outlined text-error">delete</span>
-            <span class="text-label-large font-label-large text-on-surface">删除</span>
+            <span class="font-body text-sm font-medium text-text-primary">删除</span>
           </button>
-          <button class="w-full mt-md h-12 rounded-xl bg-surface-container-high text-on-surface-variant text-label-large font-label-large transition-colors hover:bg-surface-container-highest active:scale-[0.98]"
+          <button class="w-full mt-md h-12 rounded-xl bg-card-alt text-text-secondary font-body font-medium text-md transition-colors active:scale-[0.98]"
                   @click="closeActionSheet">
             取消
           </button>
@@ -264,56 +252,56 @@ function goAddTrade() {
       </Transition>
       <Transition name="slide-up">
         <div v-if="showEditSheet"
-             class="fixed bottom-0 left-0 right-0 z-[110] bg-surface rounded-t-2xl px-gutter py-lg shadow-2xl max-w-[600px] mx-auto"
+             class="fixed bottom-0 left-0 right-0 z-[110] bg-card-bg rounded-t-2xl px-gutter py-lg shadow-overlay"
              style="max-height: 85vh; overflow-y: auto;">
-          <div class="w-10 h-1 bg-on-surface-variant/20 rounded-full mx-auto mb-lg"></div>
-          <h3 class="text-title-large font-title-large text-on-surface mb-md">编辑交易</h3>
+          <div class="w-10 h-1 bg-border-light rounded-full mx-auto mb-lg"></div>
+          <h3 class="font-body text-md font-medium text-text-primary mb-md">编辑交易</h3>
 
           <!-- Type selector -->
-          <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">交易类型</label>
+          <label class="font-body text-xs text-text-tertiary mb-sm block">交易类型</label>
           <div class="flex gap-sm mb-lg">
             <button v-for="t in (['buy', 'sell', 'bonus_share', 'reinvest'] as const)" :key="t"
                     type="button"
-                    class="flex-1 h-10 rounded-lg text-label-large font-label-large transition-all"
-                    :class="editType === t ? 'bg-primary-container text-on-primary-container shadow-sm' : 'bg-surface-container-high text-on-surface-variant'"
+                    class="flex-1 h-10 rounded-lg font-body font-medium text-sm transition-all"
+                    :class="editType === t ? 'bg-brand-light text-brand shadow-sm' : 'bg-card-alt text-text-secondary'"
                     @click="editType = t">
               {{ { buy: '买入', sell: '卖出', bonus_share: '送股', reinvest: '复投' }[t] }}
             </button>
           </div>
 
           <!-- Date -->
-          <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">交易日期</label>
+          <label class="font-body text-xs text-text-tertiary mb-sm block">交易日期</label>
           <input v-model="editDate" type="date"
-                 class="w-full h-11 rounded-xl bg-surface-container-high px-md text-on-surface text-body-large font-body-large outline-none mb-lg transition-colors focus:ring-2 focus:ring-primary" />
+                 class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none mb-lg transition-colors focus:ring-2 focus:ring-brand" />
 
           <!-- Quantity + Price -->
           <div class="grid grid-cols-2 gap-md">
             <div>
-              <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">数量</label>
+              <label class="font-body text-xs text-text-tertiary mb-sm block">数量</label>
               <input v-model.number="editQuantity" type="number" step="any" min="0"
-                     class="w-full h-11 rounded-xl bg-surface-container-high px-md text-on-surface text-body-large font-body-large outline-none mb-lg transition-colors focus:ring-2 focus:ring-primary" />
+                     class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none mb-lg transition-colors focus:ring-2 focus:ring-brand" />
             </div>
             <div>
-              <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">单价</label>
+              <label class="font-body text-xs text-text-tertiary mb-sm block">单价</label>
               <input v-model.number="editPrice" type="number" step="any" min="0"
-                     class="w-full h-11 rounded-xl bg-surface-container-high px-md text-on-surface text-body-large font-body-large outline-none mb-lg transition-colors focus:ring-2 focus:ring-primary" />
+                     class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none mb-lg transition-colors focus:ring-2 focus:ring-brand" />
             </div>
           </div>
 
           <!-- Fee -->
-          <label class="text-label-medium font-label-medium text-on-surface-variant mb-sm block">手续费</label>
+          <label class="font-body text-xs text-text-tertiary mb-sm block">手续费</label>
           <input v-model.number="editFee" type="number" step="any" min="0"
-                 class="w-full h-11 rounded-xl bg-surface-container-high px-md text-on-surface text-body-large font-body-large outline-none mb-lg transition-colors focus:ring-2 focus:ring-primary" />
+                 class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none mb-lg transition-colors focus:ring-2 focus:ring-brand" />
 
-          <p v-if="error" class="text-error text-body-small font-body-small mb-sm">{{ error }}</p>
+          <p v-if="error" class="text-error font-body text-xs mb-sm">{{ error }}</p>
 
           <!-- Actions -->
           <div class="flex gap-md mt-md">
-            <button class="flex-1 h-12 rounded-xl bg-surface-container-high text-on-surface-variant text-label-large font-label-large transition-colors hover:bg-surface-container-highest active:scale-[0.98]"
+            <button class="flex-1 h-12 rounded-xl bg-card-alt text-text-secondary font-body font-medium text-md transition-colors active:scale-[0.98]"
                     @click="showEditSheet = false">
               取消
             </button>
-            <button class="flex-1 h-12 rounded-xl bg-primary text-on-primary text-label-large font-label-large transition-colors hover:brightness-95 active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
+            <button class="flex-1 h-12 rounded-xl bg-brand text-white font-body font-medium text-md transition-colors active:scale-[0.98] flex items-center justify-center gap-sm disabled:opacity-50"
                     :disabled="editSaving"
                     @click="doEdit">
               <span v-if="editSaving" class="material-symbols-outlined animate-spin text-lg">progress_activity</span>
@@ -333,19 +321,19 @@ function goAddTrade() {
         <div v-if="showDeleteConfirm"
              class="fixed inset-0 z-[110] flex items-center justify-center"
              @click.self="showDeleteConfirm = false">
-          <div class="bg-surface rounded-2xl px-xl py-lg mx-gutter max-w-sm w-full shadow-2xl">
+          <div class="bg-card-bg rounded-2xl px-xl py-lg mx-gutter max-w-sm w-full shadow-overlay">
             <div class="flex flex-col items-center text-center">
               <div class="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center mb-md">
                 <span class="material-symbols-outlined text-2xl text-error">delete_forever</span>
               </div>
-              <h3 class="text-title-large font-title-large text-on-surface mb-sm">确认删除</h3>
-              <p class="text-body-medium font-body-medium text-on-surface-variant mb-xl">删除后数据将不可恢复，确定要继续吗？</p>
+              <h3 class="font-body text-md font-medium text-text-primary mb-sm">确认删除</h3>
+              <p class="font-body text-sm text-text-secondary mb-xl">删除后数据将不可恢复，确定要继续吗？</p>
               <div class="flex gap-md w-full">
-                <button class="flex-1 h-12 rounded-xl bg-surface-container-high text-on-surface-variant text-label-large font-label-large transition-colors hover:bg-surface-container-highest active:scale-[0.98]"
+                <button class="flex-1 h-12 rounded-xl bg-card-alt text-text-secondary font-body font-medium text-md transition-colors active:scale-[0.98]"
                         @click="showDeleteConfirm = false">
                   取消
                 </button>
-                <button class="flex-1 h-12 rounded-xl bg-error text-on-error text-label-large font-label-large transition-colors hover:brightness-95 active:scale-[0.98] flex items-center justify-center gap-sm"
+                <button class="flex-1 h-12 rounded-xl bg-error text-white font-body font-medium text-md transition-colors active:scale-[0.98] flex items-center justify-center gap-sm"
                         @click="doDeleteTx">
                   <span class="material-symbols-outlined">delete</span>
                   <span>删除</span>

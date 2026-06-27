@@ -38,3 +38,11 @@ pingzhong_test.js
 
 # Batch scripts
 stop.bat
+
+# WorkBuddy
+.workbuddy/
+
+# Project docs
+docs/
+overview.md
+*.bat
