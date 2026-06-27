@@ -34,30 +34,13 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Install rsync
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq rsync
-
       - name: Deploy via SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          REMOTE_HOST: '47.108.64.108'
-          REMOTE_USER: 'root'
-          TARGET: '/www/wwwroot/fund-tracker/www/'
-          SOURCE: 'dist/'
-        run: |
-          # 写 SSH 私钥
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "$REMOTE_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-
-          # 测试连接
-          ssh "$REMOTE_USER@$REMOTE_HOST" "echo SSH connection OK" || exit 1
-
-          # rsync 部署
-          rsync -avz --delete \
-            -e "ssh -o StrictHostKeyChecking=no" \
-            "$SOURCE" \
-            "$REMOTE_USER@$REMOTE_HOST:$TARGET"
-
-          echo "✅ Deploy complete!"
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 47.108.64.108
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: 'myPhonePro/stitch_fund_dividend_tracker/dist/*'
+          strip_components: 4
+          target: '/www/wwwroot/fund-tracker/www/'
+          rm: true
