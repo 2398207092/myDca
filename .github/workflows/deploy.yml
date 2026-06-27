@@ -40,7 +40,7 @@ jobs:
           host: 47.108.64.108
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: 'myPhonePro/stitch_fund_dividend_tracker/dist/*'
-          strip_components: 4
+          source: 'myPhonePro/stitch_fund_dividend_tracker/dist/'
+          strip_components: 3
           target: '/www/wwwroot/fund-tracker/www/'
           rm: true
