@@ -3,10 +3,6 @@ name: Deploy Frontend
 on:
   push:
     branches: [main]
-    paths:
-      - 'myPhonePro/stitch_fund_dividend_tracker/**'
-      - '.github/workflows/deploy.yml'
-      - '.gitignore'
   workflow_dispatch:
 
 jobs:
