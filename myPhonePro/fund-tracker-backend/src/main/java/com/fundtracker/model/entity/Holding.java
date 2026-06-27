@@ -73,6 +73,9 @@ public class Holding {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal estimatedRecoveryYears;
 
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal reinvestRecoveryYears;
+
     @Column(nullable = false, length = 10)
     private String color;
 

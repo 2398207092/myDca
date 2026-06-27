@@ -19,6 +19,7 @@ export interface HoldingItem {
   netInvestment: number
   dividendRecoveryRate: number
   estimatedRecoveryYears: number
+  reinvestRecoveryYears: number
   color: string
   assetCategory?: string
 }

@@ -30,6 +30,7 @@ public class HoldingDTO {
     private BigDecimal netInvestment;
     private BigDecimal dividendRecoveryRate;
     private BigDecimal estimatedRecoveryYears;
+    private BigDecimal reinvestRecoveryYears;
         private String color;
     private String assetCategory;
 }

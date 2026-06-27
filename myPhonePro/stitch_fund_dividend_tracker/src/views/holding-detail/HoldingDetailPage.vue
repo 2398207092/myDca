@@ -118,10 +118,30 @@ const hasDividends = computed(() => {
   return holding.value != null && (holding.value.predictedDividend > 0 || holding.value.totalDividendReceived > 0)
 })
 
-// === 当前成本格式化（直接使用后端返回的 costPerShare）===
-const costPerShareFormatted = computed(() => {
+// 成本已收回判断（costPerShare <= 0 时）
+const isCostRecovered = computed(() => {
+  return holding.value?.costPerShare != null && holding.value.costPerShare <= 0
+})
+
+// 息率展示：后端返回 -1 时显示"已收回"
+const dividendRateDisplay = computed(() => {
+  const rate = holding.value?.dividendRate
+  if (rate == null) return '--'
+  if (rate === -1) return '已收回'
+  return rate.toFixed(2) + '%'
+})
+const priceDividendRateDisplay = computed(() => {
+  const rate = holding.value?.priceDividendRate
+  if (rate == null) return '--'
+  if (rate === -1) return '已收回'
+  return rate.toFixed(2) + '%'
+})
+
+// 成本展示：负值时显示"成本已收回"
+const costPerShareDisplay = computed(() => {
   if (!holding.value) return '0.0000'
-  return holding.value.costPerShare.toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+  if (holding.value.costPerShare <= 0) return '成本已收回'
+  return '¥' + holding.value.costPerShare.toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
 })
 
 // === 最新价格格式化 ===
@@ -165,6 +185,17 @@ const forecastSeries = computed<{ label: string; value: number }[]>(() => {
 })
 
 const trendPercentage = computed(() => forecast.value?.trendPercentage ?? 0)
+
+// 决定哪些数据点显示金额
+// - 未来5年：全部显示（数据点少）
+// - 近12月：>4 个点时只显示首尾 + 等距中间 2 个
+function shouldShowValue(idx: number, total: number): boolean {
+  if (forecastTab.value === '5y') return true
+  if (total <= 4) return true
+  if (idx === 0 || idx === total - 1) return true
+  const gap = (total - 1) / 3
+  return idx === Math.round(gap) || idx === Math.round(gap * 2)
+}
 
 // SVG 图表坐标计算
 const chartPoints = computed(() => {
@@ -340,15 +371,21 @@ onMounted(loadData)
             </div>
           </div>
           <!-- 息率双列：内联在数字下方 -->
-          <div v-if="hasDividends" class="flex items-center gap-3 mt-md pt-md border-t border-border-light/40">
+            <div v-if="hasDividends" class="flex items-center gap-3 mt-md pt-md border-t border-border-light/40">
             <div class="flex items-center gap-1">
               <span class="font-body text-[10px] text-text-tertiary">成本息率</span>
-              <span class="font-display text-xs font-semibold text-brand">{{ holding.dividendRate }}%</span>
+              <span class="font-display text-xs font-semibold"
+                    :class="holding.dividendRate === -1 ? 'text-success' : 'text-brand'">
+                {{ dividendRateDisplay }}
+              </span>
             </div>
             <span class="w-px h-3 bg-border-light"></span>
             <div class="flex items-center gap-1">
               <span class="font-body text-[10px] text-text-tertiary">股价息率</span>
-              <span class="font-display text-xs font-semibold text-brand">{{ holding.priceDividendRate }}%</span>
+              <span class="font-display text-xs font-semibold"
+                    :class="holding.priceDividendRate === -1 ? 'text-success' : 'text-brand'">
+                {{ priceDividendRateDisplay }}
+              </span>
             </div>
           </div>
         </div>
@@ -383,27 +420,27 @@ onMounted(loadData)
           <div class="pl-md">
             <p class="font-body text-xs text-text-tertiary">当前成本</p>
             <p class="font-display text-md font-semibold text-text-primary mt-0.5">
-              ¥{{ costPerShareFormatted }}<span class="font-body text-xs text-text-tertiary ml-0.5">/份</span>
+              {{ costPerShareDisplay }}<span v-if="holding.costPerShare > 0" class="font-body text-xs text-text-tertiary ml-0.5">/份</span>
             </p>
           </div>
         </div>
       </section>
 
       <!-- 分红回本进度 + 分红预测合并 -->
-      <section v-if="hasDividends" class="bg-card-bg rounded-xl p-md card-shadow border border-border-light/40 space-y-md">
+      <section v-if="hasDividends" class="bg-card-bg rounded-xl p-md card-shadow border border-border-light/40">
         <div class="flex justify-between items-center">
           <h3 class="font-body text-sm font-medium text-text-primary">分红回本进度</h3>
           <span class="font-display text-md font-semibold text-brand">{{ holding.dividendRecoveryRate }}%</span>
         </div>
         <!-- 进度条 -->
-        <div class="relative w-full h-3 bg-progress-bg rounded-full overflow-hidden">
+        <div class="relative w-full h-3 bg-progress-bg rounded-full overflow-hidden mt-md">
           <div
             class="absolute top-0 left-0 h-full bg-brand transition-all duration-1000 ease-out rounded-full"
             :style="{ width: progressWidth + '%' }"
           ></div>
         </div>
-        <!-- 回本网格 -->
-        <div class="grid grid-cols-2 gap-x-md gap-y-sm">
+        <!-- 回本网格 + 复投合并为同一区域 -->
+        <div class="grid grid-cols-2 gap-x-md gap-y-sm mt-md">
           <div class="flex justify-between items-center border-b border-border-light/40 pb-2">
             <span class="font-body text-xs text-text-tertiary">净投入</span>
             <span class="font-body text-sm text-text-primary">¥{{ netInvestmentFormatted }}</span>
@@ -412,22 +449,36 @@ onMounted(loadData)
             <span class="font-body text-xs text-text-tertiary">已收回</span>
             <span class="font-body text-sm font-medium text-brand">¥{{ totalDividendFormatted }}</span>
           </div>
-          <div class="flex justify-between items-center border-b border-border-light/40 pb-2">
+          <div class="flex justify-between items-center pb-2">
             <span class="font-body text-xs text-text-tertiary">剩余待回收</span>
             <span class="font-body text-sm text-text-primary">¥{{ remainingRecovery }}</span>
           </div>
-          <div class="flex justify-between items-center border-b border-border-light/40 pb-2">
+          <div class="flex justify-between items-center pb-2">
             <span class="font-body text-xs text-text-tertiary">预计回本</span>
             <span class="font-body text-sm text-text-primary">{{ holding.estimatedRecoveryYears }} 年</span>
           </div>
+          <!-- 复投行：用 border-t 与上面 4 行分隔 -->
+          <div v-if="holding.reinvestRecoveryYears && holding.reinvestRecoveryYears < 999"
+               class="col-span-2 flex items-center justify-between pt-0 -mt-[9px] border-t border-border-light/30">
+            <div class="flex items-center gap-1" style="padding-top: 4px;">
+              <span class="material-symbols-outlined text-brand text-[14px]">recycling</span>
+              <span class="font-body text-xs text-text-tertiary">分红复投预计</span>
+            </div>
+            <div class="text-right" style="padding-top: 4px;">
+              <span class="font-display text-sm font-semibold text-brand">
+                ~{{ holding.reinvestRecoveryYears }} 年
+              </span>
+              <span v-if="holding.estimatedRecoveryYears - holding.reinvestRecoveryYears > 0"
+                    class="font-body text-[10px] text-success ml-1">
+                节约 {{ (holding.estimatedRecoveryYears - holding.reinvestRecoveryYears).toFixed(0) }} 年
+              </span>
+            </div>
+          </div>
         </div>
-        <p class="font-body text-[10px] text-center text-text-tertiary">
-          *基于当前持仓市值及预测年度派息计算
-        </p>
 
-        <!-- 内嵌分红预测 -->
-        <div class="pt-md border-t border-border-light/40">
-          <div class="flex justify-between items-center mb-sm">
+        <!-- 分隔线 + 分红预测区域 -->
+        <div class="pt-md border-t border-border-light mt-md">
+          <div class="flex justify-between items-center mb-3">
             <h4 class="font-body text-xs font-medium text-text-primary">分红预测</h4>
             <div class="flex bg-card-alt p-0.5 rounded-lg gap-0.5">
               <button
@@ -450,36 +501,35 @@ onMounted(loadData)
               </button>
             </div>
           </div>
-          <!-- SVG 小图表 -->
-          <div class="relative h-20 w-full">
-            <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 300 60">
-              <defs>
-                <linearGradient id="chartGradient" x1="0%" x2="0%" y1="0%" y2="100%">
-                  <stop offset="0%" style="stop-color:#1A6B56;stop-opacity:0.12" />
-                  <stop offset="100%" style="stop-color:#1A6B56;stop-opacity:0" />
-                </linearGradient>
-              </defs>
-              <path :d="areaPath" fill="url(#chartGradient)" />
-              <path :d="linePath" fill="none" stroke="#1A6B56" stroke-linecap="round" stroke-width="2" />
-              <circle
-                v-for="(pt, idx) in chartPoints"
-                :key="idx"
-                :cx="pt.x"
-                :cy="pt.y"
-                r="2.5"
-                fill="#1A6B56"
-              />
-            </svg>
-            <!-- 最后一点标签 -->
-            <div v-if="chartPoints.length >= 1" class="absolute -top-1 right-0">
-              <span class="bg-brand text-white text-[9px] px-1.5 py-0.5 rounded shadow-card whitespace-nowrap">
-                ¥{{ chartPoints[chartPoints.length - 1].value.toLocaleString() }}
-              </span>
+          <!-- 时间轴：圆点 + 绝对定位连线（修复半边线问题） -->
+          <div class="relative" v-if="forecastSeries.length >= 2">
+            <!-- 圆点行 -->
+            <div class="flex items-end justify-between h-14 mb-3 relative z-[1]">
+              <div v-for="(pt, idx) in forecastSeries" :key="idx"
+                   class="flex flex-col items-center gap-2 min-w-0"
+                   :style="{ width: (100 / forecastSeries.length) + '%' }">
+                <span v-if="shouldShowValue(idx, forecastSeries.length)"
+                      class="font-body text-xs text-text-tertiary tabular-nums whitespace-nowrap font-medium"
+                      style="margin-bottom: 4px;">
+                  ¥{{ pt.value.toLocaleString() }}
+                </span>
+                <span v-else style="height: 20px; margin-bottom: 4px;"></span>
+                <div class="w-2.5 h-2.5 rounded-full"
+                     :class="idx === forecastSeries.length - 1 ? 'bg-brand' : 'bg-brand-dim'">
+                </div>
+                <span class="font-body text-[10px] text-text-tertiary">{{ pt.label }}</span>
+              </div>
+            </div>
+            <!-- 水平连线 -->
+            <div class="absolute left-0 right-0 top-[26px] h-px bg-border-light z-0"></div>
+            <div class="flex items-center gap-1.5 relative z-[1] mt-1">
+              <span class="text-brand text-sm">📈</span>
+              <span class="font-body text-xs text-text-tertiary">预计{{ forecastTab === '5y' ? '五年' : '十二月' }}分红总额增长{{ trendPercentage }}%</span>
             </div>
           </div>
-          <div class="flex items-center gap-1 mt-1">
-            <span class="text-brand text-xs">📈</span>
-            <span class="font-body text-[10px] text-text-tertiary">预计未来五年分红总额将增长{{ trendPercentage }}%</span>
+          <div v-else class="flex items-center gap-1.5 py-3">
+            <span class="text-brand text-sm">📈</span>
+            <span class="font-body text-xs text-text-tertiary">预计未来五年分红总额将增长{{ trendPercentage }}%</span>
           </div>
         </div>
       </section>

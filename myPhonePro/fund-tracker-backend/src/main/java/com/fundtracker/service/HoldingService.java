@@ -156,6 +156,7 @@ public class HoldingService {
                 .netInvestment(totalCost)
                 .dividendRecoveryRate(BigDecimal.ZERO)
                 .estimatedRecoveryYears(BigDecimal.ZERO)
+                .reinvestRecoveryYears(BigDecimal.ZERO)
                 .color(color)
                 .assetCategory(req.getAssetCategory())
                 .deleted(false)
@@ -329,6 +330,12 @@ public class HoldingService {
                 netInvestment, totalDividend, holding.getPredictedDividend()
         );
 
+        // 计算复投回本年限（用实体中存储的最新净值）
+        BigDecimal reinvestYears = costCalculator.calculateReinvestRecoveryYears(
+                netInvestment, totalDividend, holding.getPredictedDividend(),
+                currentShares, latestPrice
+        );
+
         // 更新持仓指标
         holding.setCostPerShare(costPerShare);
         holding.setCost(totalCost);
@@ -337,6 +344,7 @@ public class HoldingService {
         holding.setPriceDividendRate(priceDividendRate);
         holding.setDividendRecoveryRate(recoveryRate);
         holding.setEstimatedRecoveryYears(recoveryYears);
+        holding.setReinvestRecoveryYears(reinvestYears);
     }
 
     /**
@@ -435,6 +443,7 @@ public class HoldingService {
                 .netInvestment(holding.getNetInvestment())
                 .dividendRecoveryRate(holding.getDividendRecoveryRate())
                 .estimatedRecoveryYears(holding.getEstimatedRecoveryYears())
+                .reinvestRecoveryYears(holding.getReinvestRecoveryYears())
                 .color(holding.getColor())
                 .assetCategory(holding.getAssetCategory())
                 .build();

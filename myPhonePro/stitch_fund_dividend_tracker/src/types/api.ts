@@ -89,6 +89,7 @@ export interface HoldingItem {
   netInvestment: number         // 净投入（元）
   dividendRecoveryRate: number  // 分红回本进度（0-100）
   estimatedRecoveryYears: number // 预计回本年限
+  reinvestRecoveryYears: number  // 复投模式预计回本年限
   color: string                 // 标识色，如 "#FF7A45"
   assetCategory?: string        // 资产分类：us_stock / gold / dividend
 }

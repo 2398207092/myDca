@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { searchHoldings, createHolding, getDividendInfo } from '@/api/holding'
 import type { HoldingSearchResult, DividendInfo } from '@/api/holding'
@@ -35,6 +35,14 @@ const isFetchingDividend = ref(false)
 // Submit state
 const isSubmitting = ref(false)
 const error = ref('')
+
+// 算法说明气泡
+const showAlgorithmHelp = ref(false)
+function handleClickOutside(e: MouseEvent) {
+  if (showAlgorithmHelp.value) showAlgorithmHelp.value = false
+}
+onMounted(() => document.addEventListener('click', handleClickOutside))
+onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
 // Step availability
 const step2Active = computed(() => selectedHolding.value !== null)
@@ -281,7 +289,33 @@ const estimatedAnnualDividend = computed(() => {
               <button @click="costAlgorithm='diluted_only'" :class="costAlgorithm==='diluted_only' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[5px] rounded font-body font-medium text-xs transition-all">摊薄成本</button>
               <button @click="costAlgorithm='weighted_avg'" :class="costAlgorithm==='weighted_avg' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[5px] rounded font-body font-medium text-xs transition-all">加权平均</button>
             </div>
-            <span class="material-symbols-outlined text-text-tertiary text-[18px]">help</span>
+            <!-- 帮助图标 + 气泡 -->
+            <div class="relative" @click.stop="showAlgorithmHelp = !showAlgorithmHelp">
+              <span class="material-symbols-outlined text-text-tertiary text-[18px] cursor-pointer hover:text-brand transition-colors">help</span>
+              <Transition name="fade">
+                <div v-if="showAlgorithmHelp"
+                     class="absolute right-0 top-8 w-64 bg-card-bg rounded-xl p-md card-shadow border border-border-light z-50"
+                     @click.stop>
+                  <div class="space-y-3">
+                    <div>
+                      <p class="font-body text-xs font-medium text-text-primary mb-1">分红摊薄</p>
+                      <p class="font-body text-[11px] text-text-tertiary leading-relaxed">收到的分红会冲减持仓成本，成本越来越低，息率越来越高。适合长期收息视角。</p>
+                    </div>
+                    <div>
+                      <p class="font-body text-xs font-medium text-text-primary mb-1">摊薄成本</p>
+                      <p class="font-body text-[11px] text-text-tertiary leading-relaxed">只看买入卖出净额，分红不参与成本计算。折中方案，息率相对保守。</p>
+                    </div>
+                    <div>
+                      <p class="font-body text-xs font-medium text-text-primary mb-1">加权平均</p>
+                      <p class="font-body text-[11px] text-text-tertiary leading-relaxed">只看买入总金额和总份额，不考虑卖出和分红。最保守，成本永远为正。</p>
+                    </div>
+                  </div>
+                  <div class="mt-2 pt-2 border-t border-border-light">
+                    <p class="font-body text-[10px] text-text-tertiary">默认使用「分红摊薄」，可在持仓详情页随时切换</p>
+                  </div>
+                </div>
+              </Transition>
+            </div>
           </div>
           <!-- 成本输入 -->
           <div>
@@ -384,3 +418,10 @@ const estimatedAnnualDividend = computed(() => {
     </main>
   </div>
 </template>
+
+<style scoped>
+.fade-enter-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.fade-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
+.fade-enter-from,
+.fade-leave-to { opacity: 0; transform: translateY(-4px); }
+</style>

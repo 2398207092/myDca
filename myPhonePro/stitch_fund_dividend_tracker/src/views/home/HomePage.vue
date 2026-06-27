@@ -24,6 +24,12 @@ function formatShares(value: number | undefined | null): string {
   return `${value.toFixed(2)}份`
 }
 
+function dividendRateText(rate: number | undefined | null): string {
+  if (rate == null) return '--'
+  if (rate === -1) return '已收回'
+  return rate.toFixed(2) + '%'
+}
+
 const router = useRouter()
 const pageState = ref<'loading' | 'ready' | 'error'>('loading')
 const dashboard = ref<DashboardData | null>(null)
@@ -255,7 +261,10 @@ onActivated(loadData)
                 </div>
                 <div>
                   <p class="font-body text-[11px] text-text-tertiary">股息率</p>
-                  <p class="font-body text-xs font-medium text-brand tabular-nums">{{ holding.dividendRate ? holding.dividendRate.toFixed(2) + '%' : '--' }}</p>
+                  <p class="font-body text-xs font-medium tabular-nums"
+                     :class="holding.dividendRate === -1 ? 'text-success' : 'text-brand'">
+                    {{ dividendRateText(holding.dividendRate) }}
+                  </p>
                 </div>
               </div>
 

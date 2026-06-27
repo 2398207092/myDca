@@ -76,7 +76,8 @@ public class CostCalculator {
             case diluted_only:
                 return totalBuy.subtract(totalSell);
             case weighted_avg:
-                return totalBuy;
+                // 加权平均: 净投入 = 总买入 - 总卖出（不低于 0）
+                return totalBuy.subtract(totalSell).max(BigDecimal.ZERO);
             default:
                 return BigDecimal.ZERO;
         }
@@ -88,6 +89,10 @@ public class CostCalculator {
      */
     public BigDecimal calculateDividendRate(BigDecimal predictedDividendPerShare,
                                              BigDecimal costPerShare) {
+        if (costPerShare.compareTo(BigDecimal.ZERO) < 0) {
+            // 成本已收回（负成本），返回 -1 供前端特殊展示
+            return new BigDecimal("-1");
+        }
         if (costPerShare.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
         }
@@ -102,8 +107,10 @@ public class CostCalculator {
      */
     public BigDecimal calculatePriceDividendRate(BigDecimal predictedDividendPerShare,
                                                   BigDecimal latestPrice) {
-        if (latestPrice.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO;
+        if (latestPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            // 价格为零或负时，与负成本同理处理
+            if (latestPrice.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
+            return new BigDecimal("-1");
         }
         return predictedDividendPerShare.divide(latestPrice, 4, RoundingMode.HALF_UP)
                 .multiply(new BigDecimal("100"))
@@ -136,6 +143,49 @@ public class CostCalculator {
         BigDecimal remaining = netInvestment.subtract(totalDividend)
                 .max(BigDecimal.ZERO);
         return remaining.divide(predictedAnnualDividend, 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算复投模式下的预计回本年限
+     * 每年分红按当前净值再投资，份额逐年增加
+     * 假设净值不变（保守估算）
+     */
+    public BigDecimal calculateReinvestRecoveryYears(
+            BigDecimal netInvestment,
+            BigDecimal totalDividend,
+            BigDecimal predictedAnnualDividend,
+            BigDecimal shares,
+            BigDecimal navPrice) {
+
+        if (predictedAnnualDividend.compareTo(BigDecimal.ZERO) <= 0 || navPrice == null
+                || navPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.valueOf(999);
+        }
+
+        // 已收回部分直接扣减
+        BigDecimal remaining = netInvestment.subtract(totalDividend).max(BigDecimal.ZERO);
+        if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO; // 已回本
+        }
+
+        // 每年每份分红 = 预测年分红 / 当前份额
+        BigDecimal dividendPerShare = predictedAnnualDividend.divide(shares, 6, RoundingMode.HALF_UP);
+
+        BigDecimal cumulative = totalDividend; // 已累计分红
+        BigDecimal currentShares = shares;
+        int years = 0;
+
+        // 模拟递推，最多算 100 年
+        while (cumulative.compareTo(netInvestment) < 0 && years < 100) {
+            BigDecimal yearDividend = dividendPerShare.multiply(currentShares);
+            cumulative = cumulative.add(yearDividend);
+            // 分红再投资：新增份额 = 分红金额 / 净值
+            BigDecimal newShares = yearDividend.divide(navPrice, 6, RoundingMode.HALF_UP);
+            currentShares = currentShares.add(newShares);
+            years++;
+        }
+
+        return BigDecimal.valueOf(years);
     }
 
     /**
