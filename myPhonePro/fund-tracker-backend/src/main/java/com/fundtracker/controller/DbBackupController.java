@@ -18,6 +18,9 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class DbBackupController {
 
+    @Value("${spring.datasource.username}")
+    private String dbUser;
+
     @Value("${spring.datasource.password}")
     private String dbPassword;
 
@@ -38,7 +41,7 @@ public class DbBackupController {
                 "bash", "-c",
                 "mysqldump --single-transaction --default-character-set=utf8mb4 " +
                 "--add-drop-table --max-allowed-packet=512M --tz-utc --routines --triggers " +
-                "-u'root' -p'" + dbPassword + "' 'fund_tracker' " +
+                "-u'" + dbUser + "' -p'" + dbPassword + "' 'fund_tracker' " +
                 "2>/dev/null | sed 's/\\/\\*!50013 DEFINER[^*]*\\*\\///g; s/ DEFINER=[^ ]* / /g; s/DEFINER=[^ ]*//g' " +
                 "| gzip > '" + outPath + "'"
             );
@@ -48,18 +51,18 @@ public class DbBackupController {
 
             if (!finished) {
                 process.destroyForcibly();
-                return ApiResponse.error(500, "备份超时");
+                return ResponseEntity.status(500).body(ApiResponse.error(500, "备份超时"));
             }
 
             int exitCode = process.exitValue();
             if (exitCode != 0) {
-                return ApiResponse.error(500, "mysqldump 执行失败，退出码: " + exitCode);
+                return ResponseEntity.status(500).body(ApiResponse.error(500, "mysqldump 执行失败，退出码: " + exitCode));
             }
 
             // 检查文件大小
             long fileSize = Files.size(tempFile.toPath());
             if (fileSize < 100) {
-                return ApiResponse.error(500, "备份文件异常（太小），请检查数据库连接");
+                return ResponseEntity.status(500).body(ApiResponse.error(500, "备份文件异常（太小），请检查数据库连接"));
             }
 
             // 返回文件流
@@ -73,7 +76,7 @@ public class DbBackupController {
             return new ResponseEntity<>(resource, headers, HttpStatus.OK);
 
         } catch (Exception e) {
-            return ApiResponse.error(500, "备份失败: " + e.getMessage());
+            return ResponseEntity.status(500).body(ApiResponse.error(500, "备份失败: " + e.getMessage()));
         } finally {
             // 注意：这里不能删，因为 response 还没写完；由 JVM 的 File.deleteOnExit 或临时目录清理
             if (tempFile != null) {
