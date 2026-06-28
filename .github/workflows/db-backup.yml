@@ -32,12 +32,12 @@ jobs:
               --single-transaction \
               --default-character-set=utf8mb4 \
               --add-drop-table \
-              --skip-definer \
               --max-allowed-packet=512M \
               --tz-utc \
               --routines \
               --triggers \
-              -u"${DB_USER}" -p"${DB_PASS}" "${DB_NAME}" \
+              -u"${DB_USER}" -p"${DB_PASS}" "${DB_NAME}" 2>/dev/null \
+              | sed 's/\/\*!50013 DEFINER[^*]*\*\///g; s/ DEFINER=[^ ]* / /g; s/DEFINER=[^ ]*//g' \
               | gzip > "${BACKUP_FILE}"
 
             echo "=== 2. 克隆/拉取备份仓库 ==="
