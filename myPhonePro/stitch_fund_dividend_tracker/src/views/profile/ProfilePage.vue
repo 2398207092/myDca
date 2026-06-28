@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import type { PageState } from '@/types'
 import { getProfile, getSettings } from '@/api/user'
 import { listExchangeRates, refreshExchangeRates } from '@/api/exchangeRate'
+import { getToken } from '@/api/request'
 import type { UserProfile, UserSettings } from '@/api/user'
 import type { ExchangeRateItem } from '@/api/exchangeRate'
 import PageStateView from '@/components/shared/PageState.vue'
@@ -18,6 +19,42 @@ const avatarError = ref(false)
 const showPhoneModal = ref(false)
 const showDataInfoModal = ref(false)
 const showContactModal = ref(false)
+const isBackingUp = ref(false)
+
+async function handleDbBackup() {
+  isBackingUp.value = true
+  try {
+    const token = getToken()
+    const res = await fetch('/api/admin/db/backup', {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.message || `请求失败: ${res.status}`)
+    }
+    // 从 Content-Disposition 解析文件名
+    const disposition = res.headers.get('Content-Disposition') || ''
+    const match = disposition.match(/filename="?([^";\n]+)"?/)
+    const filename = match ? match[1] : `fund_tracker_${new Date().toISOString().slice(0, 10)}.sql.gz`
+
+    // 下载文件
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    alert('✅ 数据库备份成功，已下载到本地')
+  } catch (e: any) {
+    alert('❌ 备份失败: ' + (e.message || '未知错误'))
+  } finally {
+    isBackingUp.value = false
+  }
+}
 
 function onAvatarError() {
   avatarError.value = true
@@ -245,6 +282,24 @@ onMounted(() => {
             <span
               class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform"
             >chevron_right</span>
+          </div>
+          <!-- 备份数据库 -->
+          <div
+            class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group"
+            @click="handleDbBackup"
+          >
+            <div class="flex items-center gap-md">
+              <span class="material-symbols-outlined text-text-secondary">database</span>
+              <span class="font-body text-sm font-medium text-text-primary">
+                {{ isBackingUp ? '正在备份...' : '备份数据库' }}
+              </span>
+            </div>
+            <span v-if="!isBackingUp"
+              class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform"
+            >chevron_right</span>
+            <span v-else
+              class="material-symbols-outlined text-brand animate-spin"
+            >refresh</span>
           </div>
           <!-- Contact -->
           <div
