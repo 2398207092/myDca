@@ -69,7 +69,7 @@ public class DataAuditor {
      * 市值对账：市值应等于 份额 × 最新价
      */
     private void auditMarketValue(List<String> errors) {
-        for (Holding h : holdingRepository.findByDeletedFalse()) {
+        for (Holding h : holdingRepository.findByDeletedFalseOrderByMarketValueDesc()) {
             if (h.getLatestPrice() == null || h.getLatestPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
@@ -129,7 +129,7 @@ public class DataAuditor {
      * 份额对账：持仓份额 = 所有买入份额 - 所有卖出份额
      */
     private void auditHoldingShares(List<String> errors) {
-        for (Holding h : holdingRepository.findByDeletedFalse()) {
+        for (Holding h : holdingRepository.findByDeletedFalseOrderByMarketValueDesc()) {
             List<Transaction> txs = transactionRepository.findByHoldingId(h.getId());
             BigDecimal buyShares = BigDecimal.ZERO;
             BigDecimal sellShares = BigDecimal.ZERO;
@@ -175,7 +175,7 @@ public class DataAuditor {
      * 成本息率异常检测：超过 30% 或为负
      */
     private void auditDividendRate(List<String> warnings) {
-        for (Holding h : holdingRepository.findByDeletedFalse()) {
+        for (Holding h : holdingRepository.findByDeletedFalseOrderByMarketValueDesc()) {
             BigDecimal rate = h.getDividendRate();
             if (rate != null && (rate.compareTo(new BigDecimal("30")) > 0 || rate.compareTo(BigDecimal.ZERO) < 0)) {
                 warnings.add(String.format(
