@@ -358,7 +358,18 @@ public class HoldingService {
         }
 
         String fundCode = holding.getCode();
-        List<FundDividendRecord> records = fundDividendRecordRepository.findByFundCodeOrderByExDateDesc(fundCode);
+        List<FundDividendRecord> allRecords = fundDividendRecordRepository.findByFundCodeOrderByExDateDesc(fundCode);
+
+        // 只取近 3 年的记录，排除异常旧数据
+        LocalDate cutoff = LocalDate.now().minusYears(3);
+        List<FundDividendRecord> records = allRecords.stream()
+                .filter(r -> r.getExDate() != null && !r.getExDate().isBefore(cutoff))
+                .collect(Collectors.toList());
+
+        if (records.isEmpty() && !allRecords.isEmpty()) {
+            // 如果近3年没记录但总记录不为空，可能是数据太久远，用全部记录
+            records = allRecords;
+        }
 
         if (records.isEmpty()) {
             // 没有分红记录，尝试抓取
