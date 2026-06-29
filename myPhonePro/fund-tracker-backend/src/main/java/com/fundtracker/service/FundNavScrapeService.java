@@ -66,8 +66,8 @@ public class FundNavScrapeService {
             Pattern itemPattern = Pattern.compile("\"x\":(\\d+),\"y\":([\\d.]+)");
             Matcher itemMatcher = itemPattern.matcher(arrayContent);
 
-            // 计算 5 年前的时间戳
-            long fiveYearsAgo = System.currentTimeMillis() - 5L * 365 * 24 * 3600 * 1000;
+            // 计算 1 年前的时间戳
+            long oneYearAgo = System.currentTimeMillis() - 1L * 365 * 24 * 3600 * 1000;
 
             List<FundNavRecord> toSave = new ArrayList<>();
             String latestX = null, latestY = null;
@@ -77,8 +77,8 @@ public class FundNavScrapeService {
                 String yStr = itemMatcher.group(2);
                 long timestamp = Long.parseLong(xStr);
 
-                // 只记录最近5年
-                if (timestamp < fiveYearsAgo) {
+                // 只记录最近1年
+                if (timestamp < oneYearAgo) {
                     continue;
                 }
 
@@ -187,6 +187,8 @@ public class FundNavScrapeService {
             // 检查数据库中最新的日期
             Optional<FundNavRecord> latestInDb = navRecordRepository.findTopByFundCodeOrderByNavDateDesc(fundCode);
             LocalDate maxDateInDb = latestInDb.map(FundNavRecord::getNavDate).orElse(null);
+            // 1 年前时间戳，用于首次写入时限制数据量
+            long oneYearAgo = System.currentTimeMillis() - 1L * 365 * 24 * 3600 * 1000;
 
             List<FundNavRecord> toSave = new ArrayList<>();
             String latestX = null, latestY = null;
@@ -194,8 +196,14 @@ public class FundNavScrapeService {
             while (itemMatcher.find()) {
                 String xStr = itemMatcher.group(1);
                 String yStr = itemMatcher.group(2);
+                long timestamp = Long.parseLong(xStr);
 
-                LocalDate navDate = Instant.ofEpochMilli(Long.parseLong(xStr))
+                // 如果 DB 为空，只写近 1 年的数据
+                if (maxDateInDb == null && timestamp < oneYearAgo) {
+                    continue;
+                }
+
+                LocalDate navDate = Instant.ofEpochMilli(timestamp)
                         .atZone(ZoneId.systemDefault())
                         .toLocalDate();
                 BigDecimal unitNav = new BigDecimal(yStr);
@@ -236,7 +244,7 @@ public class FundNavScrapeService {
     public void fetchIfEmpty(String fundCode) {
         List<FundNavRecord> existing = navRecordRepository.findByFundCodeOrderByNavDateDesc(fundCode);
         if (existing.isEmpty()) {
-            log.info("基金 {} 净值数据为空，开始抓取最近5年数据", fundCode);
+            log.info("基金 {} 净值数据为空，开始抓取最近1年数据", fundCode);
             fetchAndSaveNavRecords(fundCode);
         } else {
             log.info("基金 {} 已有 {} 条净值记录，跳过首次拉取", fundCode, existing.size());
