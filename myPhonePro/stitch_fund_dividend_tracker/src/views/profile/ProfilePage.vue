@@ -96,10 +96,6 @@ function goToTools() {
   router.push('/profile/tools')
 }
 
-function goToSettings() {
-  router.push('/metrics/settings')
-}
-
 function goToExpenseSettings() {
   router.push('/coverage/settings')
 }
@@ -147,7 +143,7 @@ onMounted(() => {
       <section class="mb-lg">
         <div
           class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 flex items-center gap-md cursor-pointer active:scale-[0.98] transition-transform"
-          @click="goToSettings"
+          @click="goToTools"
         >
           <div class="relative shrink-0">
             <img
