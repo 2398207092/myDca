@@ -1,5 +1,4 @@
 import { get } from './request'
-import type { AuditDatesResp, AuditContentResp } from '@/types/audit'
 
 /**
  * 获取有审计日志的日期列表
