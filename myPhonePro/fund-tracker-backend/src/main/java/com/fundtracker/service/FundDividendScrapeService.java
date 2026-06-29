@@ -42,33 +42,49 @@ public class FundDividendScrapeService {
     @Transactional
     public int scrapeAndSave(String fundCode) {
         try {
-            String url = String.format(FHSP_URL, fundCode);
-            log.info("开始抓取分红数据: {}", url);
-
-            Document doc = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                    .timeout(10000)
-                    .get();
-
-            // 查找分红送配详情表格
-            List<FundDividendRecord> records = parseDividendTable(doc, fundCode);
-
-            if (records.isEmpty()) {
-                log.warn("{} 未找到分红数据", fundCode);
-                return 0;
-            }
-
-            // 增量保存
+            // 分页抓取：部分老基金分红记录较多，页面会分页
             int saved = 0;
-            for (FundDividendRecord record : records) {
-                if (!recordRepository.existsByFundCodeAndExDate(fundCode, record.getExDate())) {
-                    record.setId(UUID.randomUUID().toString());
-                    recordRepository.save(record);
-                    saved++;
+            int page = 1;
+            boolean hasMore = true;
+
+            while (hasMore && page <= 10) {
+                String url = String.format(FHSP_URL, fundCode) + (page > 1 ? "?page=" + page : "");
+                log.info("开始抓取分红数据: {} (第{}页)", url, page);
+
+                Document doc = Jsoup.connect(url)
+                        .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                        .timeout(10000)
+                        .get();
+
+                // 查找分红送配详情表格
+                List<FundDividendRecord> pageRecords = parseDividendTable(doc, fundCode);
+
+                if (pageRecords.isEmpty()) {
+                    // 当前页无数据 → 全部抓完
+                    break;
                 }
+
+                // 增量保存
+                for (FundDividendRecord record : pageRecords) {
+                    if (!recordRepository.existsByFundCodeAndExDate(fundCode, record.getExDate())) {
+                        record.setId(UUID.randomUUID().toString());
+                        recordRepository.save(record);
+                        saved++;
+                    }
+                }
+
+                // 检查是否有下一页（找页面底部的分页链接）
+                hasMore = !doc.select("a:contains(下一页)").isEmpty()
+                        || !doc.select("a.page_next").isEmpty()
+                        || pageRecords.size() >= 20; // 如果一页有20条以上，尝试继续
+                page++;
             }
 
-            log.info("{} 分红抓取完成: 共{}条, 新增{}条", fundCode, records.size(), saved);
+            if (saved > 0) {
+                log.info("{} 分红抓取完成: 共新增{}条 (翻页{}页)", fundCode, saved, page - 1);
+            } else {
+                log.info("{} 分红数据已是最新", fundCode);
+            }
             return saved;
 
         } catch (Exception e) {
@@ -359,10 +375,14 @@ public class FundDividendScrapeService {
 
             try {
                 // 0: 年份, 1: 权益登记日, 2: 除息日, 3: 每份分红, 4: 分红发放日
+                // 仅统计现金分红，排除送股、转增等非现金数据
+                String cellText = cells.get(3).text();
+                if (!cellText.contains("派现金")) continue;
+
                 Integer year = parseInt(cells.get(0).text());
                 LocalDate regDate = parseDate(cells.get(1).text());
                 LocalDate exDate = parseDate(cells.get(2).text());
-                BigDecimal perShare = parseBigDecimal(cells.get(3).text());
+                BigDecimal perShare = parseBigDecimal(cellText);
                 LocalDate payDate = parseDate(cells.get(4).text());
 
                 if (exDate == null) continue;
