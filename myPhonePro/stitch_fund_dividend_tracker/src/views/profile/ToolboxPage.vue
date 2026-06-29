@@ -83,7 +83,7 @@ const tools = [
             <div class="flex items-center gap-md">
               <span
                 class="material-symbols-outlined text-brand"
-                :style="{ fontVariationSettings: tool.id === 'audit' ? '\"FILL\" 1' : '' }"
+                :class="{ 'fill-icon': tool.id === 'audit' }"
               >{{ tool.icon }}</span>
               <div>
                 <p class="font-body text-sm font-medium text-text-primary">{{ tool.label }}</p>
