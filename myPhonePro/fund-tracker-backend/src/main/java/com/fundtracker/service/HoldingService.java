@@ -66,8 +66,8 @@ public class HoldingService {
         // 计算累计已获分红（基于已到账分红事件）
         calculateTotalDividendReceived(holding);
         
-        // 重新计算相关指标（成本息率、回本进度等）
-        recalculateHoldingMetrics(holding);
+        // 重新计算衍生指标（成本息率、回本进度等），skipCostRecalc=true 避免覆盖用户手动设置的成本
+        recalculateHoldingMetrics(holding, true);
         
         holding = holdingRepository.save(holding);
         
@@ -333,6 +333,8 @@ public class HoldingService {
             if (netInvestment.compareTo(BigDecimal.ZERO) == 0 && totalBuy.compareTo(BigDecimal.ZERO) == 0) {
                 netInvestment = holding.getCost();
             }
+            // 同步写入 netInvestment，避免后续查询时被覆盖
+            holding.setNetInvestment(netInvestment);
         } else {
             // 交易模式：从交易记录重新计算一切
             costPerShare = costCalculator.calculateCostPerShare(
