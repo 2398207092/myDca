@@ -45,9 +45,9 @@ class HoldingServiceTest {
         costCalculator = new CostCalculator();
         holdingService = new HoldingService(
                 holdingRepository, transactionRepository,
-                fundDividendRecordRepository, dividendEventRepository,
-                fundDividendScrapeService, fundNavScrapeService,
-                costCalculator
+                costCalculator, fundDividendScrapeService,
+                fundNavScrapeService, fundDividendRecordRepository,
+                dividendEventRepository
         );
     }
 
