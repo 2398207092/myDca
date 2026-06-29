@@ -20,4 +20,18 @@ export default defineConfig({
       },
     },
   },
+  test: {
+    // Vitest 配置：jsdom 模拟浏览器环境
+    environment: 'jsdom',
+    globals: true,
+    include: ['tests/**/*.test.ts'],
+    // 模拟 localStorage 等浏览器 API
+    setupFiles: ['./tests/setup.ts'],
+    // 使用 Vite 的路径别名
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    },
+  },
 })
