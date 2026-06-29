@@ -176,8 +176,8 @@ class HoldingServiceTest {
         holdingService.recalculateHoldingMetrics(holding);
 
         // 无交易时 netInvestment = holding.getCost() = 10000
-        assertEquals(new BigDecimal("10000"), holding.getNetInvestment());
-        assertEquals(new BigDecimal("10000.00"), holding.getCost());
+        assertEquals(0, new BigDecimal("10000").compareTo(holding.getNetInvestment()));
+        assertEquals(0, new BigDecimal("10000.00").compareTo(holding.getCost()));
     }
 
     @Test

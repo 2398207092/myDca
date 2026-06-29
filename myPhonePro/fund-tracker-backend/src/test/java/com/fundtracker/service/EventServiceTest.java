@@ -4,6 +4,7 @@ import com.fundtracker.exception.BusinessException;
 import com.fundtracker.model.entity.DividendEvent;
 import com.fundtracker.model.entity.Holding;
 import com.fundtracker.model.enums.EventStatus;
+import com.fundtracker.model.enums.EventType;
 import com.fundtracker.repository.DividendEventRepository;
 import com.fundtracker.repository.HoldingRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +43,7 @@ class EventServiceTest {
         DividendEvent event = DividendEvent.builder()
                 .id("evt-1")
                 .holdingId("h-1")
+                .type(EventType.payout)
                 .amount(new BigDecimal("500"))
                 .status(EventStatus.pending)
                 .build();
@@ -72,6 +74,7 @@ class EventServiceTest {
         DividendEvent event = DividendEvent.builder()
                 .id("evt-1")
                 .holdingId("h-1")
+                .type(EventType.payout)
                 .amount(BigDecimal.ZERO)
                 .status(EventStatus.pending)
                 .build();
