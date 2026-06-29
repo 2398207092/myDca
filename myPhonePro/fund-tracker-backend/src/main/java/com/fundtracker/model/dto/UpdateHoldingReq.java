@@ -8,7 +8,6 @@ public class UpdateHoldingReq {
     private String name;
     private String costAlgorithm;
     private BigDecimal shares;
-    private BigDecimal cost;
-    private BigDecimal marketValue;
+    private BigDecimal costPerShare;
     private String assetCategory;
 }

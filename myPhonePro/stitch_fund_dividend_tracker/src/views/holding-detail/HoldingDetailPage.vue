@@ -242,18 +242,18 @@ function showDividendHistory() {
 
 function showEditHolding() {
   if (!holding.value) return
+  editName.value = holding.value.name
   editShares.value = holding.value.shares
-  editCost.value = holding.value.cost
-  editMarketValue.value = holding.value.marketValue
+  editCostPerShare.value = holding.value.costPerShare
   editAlgorithm.value = (holding.value.costAlgorithm as 'diluted' | 'diluted_only' | 'weighted_avg') || 'diluted'
   editCategory.value = holding.value.assetCategory || ''
   showEditSheet.value = true
 }
 
 const showEditSheet = ref(false)
+const editName = ref('')
 const editShares = ref(0)
-const editCost = ref(0)
-const editMarketValue = ref(0)
+const editCostPerShare = ref(0)
 const editAlgorithm = ref<'diluted' | 'diluted_only' | 'weighted_avg'>('diluted')
 const editCategory = ref('')
 const editSaving = ref(false)
@@ -263,9 +263,9 @@ async function saveEditHolding() {
   editSaving.value = true
   try {
     const req: UpdateHoldingReq = {
+      name: editName.value || undefined,
       shares: editShares.value,
-      cost: editCost.value,
-      marketValue: editMarketValue.value,
+      costPerShare: editCostPerShare.value,
       costAlgorithm: editAlgorithm.value,
       assetCategory: editCategory.value || undefined,
     }
@@ -647,6 +647,11 @@ onMounted(loadData)
 
           <h3 class="font-body text-md font-medium text-text-primary mb-md">编辑持仓</h3>
 
+          <!-- Name -->
+          <label class="font-body text-xs text-text-tertiary mb-sm block">名称</label>
+          <input v-model="editName" type="text"
+                 class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none mb-lg transition-colors focus:ring-2 focus:ring-brand" />
+
           <!-- Cost Algorithm -->
            <label class="font-body text-xs text-text-tertiary mb-sm block">成本算法</label>
            <div class="flex gap-sm mb-lg">
@@ -665,14 +670,9 @@ onMounted(loadData)
           <input v-model.number="editShares" type="number" step="0.01" min="0"
                  class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none mb-lg transition-colors focus:ring-2 focus:ring-brand" />
 
-          <!-- Cost -->
-          <label class="font-body text-xs text-text-tertiary mb-sm block">总成本 (¥)</label>
-          <input v-model.number="editCost" type="number" step="0.01" min="0"
-                 class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none mb-lg transition-colors focus:ring-2 focus:ring-brand" />
-
-          <!-- Market Value -->
-          <label class="font-body text-xs text-text-tertiary mb-sm block">总市值 (¥)</label>
-          <input v-model.number="editMarketValue" type="number" step="0.01" min="0"
+          <!-- Cost Per Share -->
+          <label class="font-body text-xs text-text-tertiary mb-sm block">每份成本 (¥)</label>
+          <input v-model.number="editCostPerShare" type="number" step="0.0001" min="0"
                  class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none mb-lg transition-colors focus:ring-2 focus:ring-brand" />
 
           <!-- Asset Category -->

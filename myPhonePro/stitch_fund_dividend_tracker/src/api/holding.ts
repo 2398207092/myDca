@@ -47,8 +47,7 @@ export interface UpdateHoldingReq {
   name?: string
   costAlgorithm?: string
   shares?: number
-  cost?: number
-  marketValue?: number
+  costPerShare?: number
   assetCategory?: string
 }
 

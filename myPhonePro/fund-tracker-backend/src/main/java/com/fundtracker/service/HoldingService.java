@@ -219,9 +219,19 @@ public class HoldingService {
         if (req.getCostAlgorithm() != null) {
             holding.setCostAlgorithm(CostAlgorithm.valueOf(req.getCostAlgorithm()));
         }
-        if (req.getShares() != null) holding.setShares(req.getShares());
-        if (req.getCost() != null) holding.setCost(req.getCost());
-        if (req.getMarketValue() != null) holding.setMarketValue(req.getMarketValue());
+        if (req.getShares() != null) {
+            holding.setShares(req.getShares());
+            // 份额变了，联动更新市值 = 份额 × 最新净值（如果有的话）
+            updateMarketValueFromLatestPrice(holding);
+        }
+        if (req.getCostPerShare() != null) {
+            holding.setCostPerShare(req.getCostPerShare());
+            // 总成本 = 份额 × 每份成本
+            BigDecimal totalCost = holding.getShares()
+                    .multiply(req.getCostPerShare())
+                    .setScale(2, RoundingMode.HALF_UP);
+            holding.setCost(totalCost);
+        }
         if (req.getAssetCategory() != null) holding.setAssetCategory(req.getAssetCategory());
 
         // 重新计算相关指标
@@ -229,6 +239,22 @@ public class HoldingService {
 
         holding = holdingRepository.save(holding);
         return toDTO(holding);
+    }
+
+    /**
+     * 用最新净值 × 份额 更新市值；如果没有最新净值，用每份成本兜底
+     */
+    private void updateMarketValueFromLatestPrice(Holding holding) {
+        BigDecimal price = holding.getLatestPrice();
+        if (price != null && price.compareTo(BigDecimal.ZERO) > 0) {
+            holding.setMarketValue(holding.getShares()
+                    .multiply(price)
+                    .setScale(2, RoundingMode.HALF_UP));
+        } else if (holding.getCostPerShare() != null && holding.getCostPerShare().compareTo(BigDecimal.ZERO) > 0) {
+            holding.setMarketValue(holding.getShares()
+                    .multiply(holding.getCostPerShare())
+                    .setScale(2, RoundingMode.HALF_UP));
+        }
     }
 
     @Transactional
@@ -310,12 +336,9 @@ public class HoldingService {
                 predictedDividendPerShare, costPerShare
         );
 
-        // 计算股价息率（用市值反推最新价格）
-        BigDecimal latestPrice = BigDecimal.ZERO;
-        if (currentShares.compareTo(BigDecimal.ZERO) > 0) {
-            latestPrice = holding.getMarketValue()
-                    .divide(currentShares, 4, RoundingMode.HALF_UP);
-        }
+        // 计算股价息率（用最新净值）
+        BigDecimal latestPrice = holding.getLatestPrice() != null ?
+                holding.getLatestPrice() : BigDecimal.ZERO;
         BigDecimal priceDividendRate = costCalculator.calculatePriceDividendRate(
                 predictedDividendPerShare, latestPrice
         );
@@ -435,6 +458,17 @@ public class HoldingService {
     }
 
     private HoldingDTO toDTO(Holding holding) {
+        // 市值 = 份额 × 最新净值（计算值，不读缓存）
+        BigDecimal marketValue;
+        if (holding.getLatestPrice() != null && holding.getLatestPrice().compareTo(BigDecimal.ZERO) > 0) {
+            marketValue = holding.getShares()
+                    .multiply(holding.getLatestPrice())
+                    .setScale(2, RoundingMode.HALF_UP);
+        } else {
+            // 无净值时用成本兜底
+            marketValue = holding.getCost() != null ? holding.getCost() : BigDecimal.ZERO;
+        }
+
         return HoldingDTO.builder()
                 .id(holding.getId())
                 .name(holding.getName())
@@ -444,7 +478,7 @@ public class HoldingService {
                 .shares(holding.getShares())
                 .costPerShare(holding.getCostPerShare())
                 .cost(holding.getCost())
-                .marketValue(holding.getMarketValue())
+                .marketValue(marketValue)
                 .latestPrice(holding.getLatestPrice())
                 .priceDate(holding.getPriceDate())
                 .predictedDividend(holding.getPredictedDividend())
