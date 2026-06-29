@@ -98,6 +98,15 @@ public class TransactionService {
 
         // 重新计算持仓指标
         holdingService.recalculateHoldingMetrics(holding);
+
+        // 用已有最新价更新市值（确保市值与份额一致，即使后续净值刷新失败）
+        if (holding.getLatestPrice() != null && holding.getLatestPrice().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal marketValue = holding.getShares()
+                    .multiply(holding.getLatestPrice())
+                    .setScale(2, RoundingMode.HALF_UP);
+            holding.setMarketValue(marketValue);
+        }
+
         holdingRepository.save(holding);
 
         // 刷新最新净值，更新市值
@@ -160,6 +169,12 @@ public class TransactionService {
         // 重新计算预测分红和指标
         holdingService.calculatePredictedDividend(holding);
         holdingService.recalculateHoldingMetrics(holding);
+        // 用已有最新价更新市值
+        if (holding.getLatestPrice() != null && holding.getLatestPrice().compareTo(BigDecimal.ZERO) > 0) {
+            holding.setMarketValue(holding.getShares()
+                    .multiply(holding.getLatestPrice())
+                    .setScale(2, RoundingMode.HALF_UP));
+        }
         holdingRepository.save(holding);
 
         return toDTO(tx);
@@ -196,6 +211,12 @@ public class TransactionService {
         recalculateSharesFromScratch(holding);
         holdingService.calculatePredictedDividend(holding);
         holdingService.recalculateHoldingMetrics(holding);
+        // 用已有最新价更新市值
+        if (holding.getLatestPrice() != null && holding.getLatestPrice().compareTo(BigDecimal.ZERO) > 0) {
+            holding.setMarketValue(holding.getShares()
+                    .multiply(holding.getLatestPrice())
+                    .setScale(2, RoundingMode.HALF_UP));
+        }
         holdingRepository.save(holding);
     }
 
