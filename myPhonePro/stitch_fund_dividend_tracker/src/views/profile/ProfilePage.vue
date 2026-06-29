@@ -92,6 +92,10 @@ async function handleRefresh() {
   }
 }
 
+function goToTools() {
+  router.push('/profile/tools')
+}
+
 function goToSettings() {
   router.push('/metrics/settings')
 }
@@ -128,7 +132,7 @@ onMounted(() => {
         <span class="material-symbols-outlined text-brand text-2xl">eco</span>
         <h1 class="font-body text-md font-medium text-text-primary">种树</h1>
       </div>
-      <button @click="goToSettings" class="w-10 h-10 flex items-center justify-center active:opacity-80 transition-opacity">
+      <button @click="goToTools" class="w-10 h-10 flex items-center justify-center active:opacity-80 transition-opacity">
         <span class="material-symbols-outlined text-text-secondary">settings</span>
       </button>
     </header>

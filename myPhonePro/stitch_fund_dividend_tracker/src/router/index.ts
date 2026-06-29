@@ -59,6 +59,12 @@ const router = createRouter({
       meta: { level: 2 },
     },
     {
+      path: '/profile/tools',
+      name: 'profile-tools',
+      component: () => import('@/views/profile/ToolboxPage.vue'),
+      meta: { level: 2 },
+    },
+    {
       path: '/metrics/settings',
       name: 'metric-settings',
       component: () => import('@/views/metrics/MetricSettings.vue'),
