@@ -350,7 +350,7 @@ public class HoldingService {
     /**
      * 计算预测年分红：基于基金历史分红记录，通过频率识别计算年均每份分红，再乘以持有份额
      */
-    private void calculatePredictedDividend(Holding holding) {
+    public void calculatePredictedDividend(Holding holding) {
         // 仅对基金/ETF类型计算分红
         if (holding.getType() != HoldingType.fund && holding.getType() != HoldingType.ETF) {
             holding.setPredictedDividend(BigDecimal.ZERO);

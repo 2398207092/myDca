@@ -93,6 +93,9 @@ public class TransactionService {
                 break;
         }
 
+        // 重新计算预测分红（份额变化后需要重新计算）
+        holdingService.calculatePredictedDividend(holding);
+
         // 重新计算持仓指标
         holdingService.recalculateHoldingMetrics(holding);
         holdingRepository.save(holding);
@@ -154,7 +157,8 @@ public class TransactionService {
 
         // 从所有交易重新计算份额
         recalculateSharesFromScratch(holding);
-        // 重新计算成本等指标
+        // 重新计算预测分红和指标
+        holdingService.calculatePredictedDividend(holding);
         holdingService.recalculateHoldingMetrics(holding);
         holdingRepository.save(holding);
 
@@ -190,6 +194,7 @@ public class TransactionService {
         Holding holding = holdingRepository.findByIdAndDeletedFalse(holdingId)
                 .orElseThrow(BusinessException::holdingNotFound);
         recalculateSharesFromScratch(holding);
+        holdingService.calculatePredictedDividend(holding);
         holdingService.recalculateHoldingMetrics(holding);
         holdingRepository.save(holding);
     }
