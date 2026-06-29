@@ -42,7 +42,7 @@ stop.bat
 # WorkBuddy
 .workbuddy/
 
-# Project docs
-docs/
+# Project docs (keep algorithm reports)
+# docs/  # temporarily disabled to track algorithm docs
 overview.md
 *.bat
