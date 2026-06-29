@@ -35,6 +35,9 @@ public class ManualAsset {
     private String note;
 
     @Column(nullable = false)
+    private boolean isPrimary; // 是否为主现金账户，自动记账默认操作此账户
+
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 
     @Column(nullable = false)

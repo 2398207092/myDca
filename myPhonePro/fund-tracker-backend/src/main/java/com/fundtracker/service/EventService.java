@@ -25,6 +25,7 @@ public class EventService {
 
     private final DividendEventRepository eventRepository;
     private final HoldingRepository holdingRepository;
+    private final ManualAssetService manualAssetService;
 
     public List<DividendEventDTO> listEvents(String holdingId, String month,
                                               String dateFrom, String dateTo,
@@ -107,6 +108,13 @@ public class EventService {
                         holding.setTotalDividendReceived(
                                 holding.getTotalDividendReceived().add(distributeAmount));
                         holdingRepository.save(holding);
+                        // 分红到账，增加现金
+                        try {
+                            manualAssetService.adjustCash(holding.getId(), distributeAmount);
+                            log.info("分红到账: {} 现金 +{}", holding.getName(), distributeAmount);
+                        } catch (Exception e) {
+                            log.warn("分红到账调整现金失败: {}", e.getMessage());
+                        }
                     });
         }
 

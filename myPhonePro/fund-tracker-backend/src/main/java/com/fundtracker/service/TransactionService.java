@@ -27,6 +27,7 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final HoldingRepository holdingRepository;
     private final HoldingService holdingService;
+    private final ManualAssetService manualAssetService;
     private final FundNavScrapeService fundNavScrapeService;
 
     public List<TransactionDTO> listTransactions(String holdingId, String type,
@@ -108,6 +109,17 @@ public class TransactionService {
         }
 
         holdingRepository.save(holding);
+
+        // 调整现金余额
+        try {
+            if (type == TransactionType.buy || type == TransactionType.reinvest) {
+                manualAssetService.adjustCash(holding.getId(), total.negate());
+            } else if (type == TransactionType.sell) {
+                manualAssetService.adjustCash(holding.getId(), total);
+            }
+        } catch (Exception e) {
+            log.warn("交易后调整现金失败: {}", e.getMessage());
+        }
 
         // 刷新最新净值，更新市值
         try {
@@ -203,7 +215,22 @@ public class TransactionService {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(BusinessException::transactionNotFound);
         String holdingId = transaction.getHoldingId();
+        BigDecimal txTotal = transaction.getTotal();
+        TransactionType txType = transaction.getType();
+
+        // 删除前先获取交易信息，用于反向调整现金
         transactionRepository.delete(transaction);
+
+        // 反向调整现金
+        try {
+            if (txType == TransactionType.buy || txType == TransactionType.reinvest) {
+                manualAssetService.adjustCash(holdingId, txTotal); // 删除买入 → 加回现金
+            } else if (txType == TransactionType.sell) {
+                manualAssetService.adjustCash(holdingId, txTotal.negate()); // 删除卖出 → 扣减现金
+            }
+        } catch (Exception e) {
+            log.warn("删除交易后调整现金失败: {}", e.getMessage());
+        }
 
         // 删除后重新计算份额和指标
         Holding holding = holdingRepository.findByIdAndDeletedFalse(holdingId)

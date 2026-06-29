@@ -18,6 +18,7 @@ public class ManualAssetDTO {
     private BigDecimal amount;
     private String currency;
     private String note;
+    private boolean isPrimary;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

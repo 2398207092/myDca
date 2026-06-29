@@ -235,14 +235,29 @@ async function saveCategory() {
 }
 
 // Manual asset CRUD
+const currentBalance = ref(0)
+
 function openAddSheet(type: 'cash' | 'crypto') {
   editingAssetId.value = null
+  currentBalance.value = 0
   assetForm.value = { name: '', type, amount: 0, note: '' }
   showAssetSheet.value = true
 }
 
+function parseAmountInput(input: string | number): number {
+  const str = String(input).trim()
+  if (str.startsWith('+') || str.startsWith('-')) {
+    const delta = parseFloat(str)
+    if (isNaN(delta)) return -1
+    return currentBalance.value + delta
+  }
+  const abs = parseFloat(str)
+  return isNaN(abs) ? -1 : abs
+}
+
 function openEditSheet(asset: ManualAssetItem) {
   editingAssetId.value = asset.id
+  currentBalance.value = asset.amount
   assetForm.value = {
     name: asset.name,
     type: asset.type as 'cash' | 'crypto',
@@ -253,14 +268,20 @@ function openEditSheet(asset: ManualAssetItem) {
 }
 
 async function saveAsset() {
-  if (!assetForm.value.name || assetForm.value.amount <= 0) return
+  const finalAmount = parseAmountInput(assetForm.value.amount)
+  if (finalAmount < 0) {
+    if (!window.confirm('现金余额将变为负数（¥' + finalAmount.toFixed(2) + '），是否继续？')) {
+      return
+    }
+  }
+  if (!assetForm.value.name) return
   savingAsset.value = true
   try {
     if (editingAssetId.value) {
       const req: UpdateManualAssetReq = {
         name: assetForm.value.name,
         type: assetForm.value.type,
-        amount: assetForm.value.amount,
+        amount: finalAmount,
         note: assetForm.value.note || undefined,
       }
       const updated = await updateManualAsset(editingAssetId.value, req)
@@ -270,7 +291,7 @@ async function saveAsset() {
       const req: CreateManualAssetReq = {
         name: assetForm.value.name,
         type: assetForm.value.type,
-        amount: assetForm.value.amount,
+        amount: finalAmount,
         note: assetForm.value.note || undefined,
       }
       const created = await createManualAsset(req)
@@ -917,7 +938,7 @@ async function doDelete() {
             </div>
             <div>
               <label class="font-body text-xs text-text-tertiary block mb-1">金额 (元)</label>
-              <input v-model.number="assetForm.amount" type="number" step="0.01" min="0" placeholder="0.00"
+              <input v-model="assetForm.amount" type="text" placeholder="0.00 或 +5000 或 -3000"
                      class="w-full px-md py-3 bg-card-alt rounded-lg text-text-primary outline-none font-body text-sm transition-colors focus:ring-2 focus:ring-brand" />
             </div>
             <div>
