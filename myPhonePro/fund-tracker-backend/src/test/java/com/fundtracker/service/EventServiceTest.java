@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -44,6 +45,7 @@ class EventServiceTest {
                 .id("evt-1")
                 .holdingId("h-1")
                 .type(EventType.payout)
+                .date(LocalDate.of(2026, 6, 29))
                 .amount(new BigDecimal("500"))
                 .status(EventStatus.pending)
                 .build();
@@ -75,6 +77,7 @@ class EventServiceTest {
                 .id("evt-1")
                 .holdingId("h-1")
                 .type(EventType.payout)
+                .date(LocalDate.of(2026, 6, 29))
                 .amount(BigDecimal.ZERO)
                 .status(EventStatus.pending)
                 .build();

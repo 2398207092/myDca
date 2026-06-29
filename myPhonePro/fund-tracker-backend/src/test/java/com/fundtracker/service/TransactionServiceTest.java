@@ -144,7 +144,7 @@ class TransactionServiceTest {
                 .quantity(new BigDecimal("100"))
                 .price(new BigDecimal("10"))
                 .fee(new BigDecimal("5"))
-                .total(new BigDecimal("1005"))
+                .total(new BigDecimal("1005.00"))
                 .build();
 
         Holding holding = Holding.builder()
@@ -173,7 +173,7 @@ class TransactionServiceTest {
                 .quantity(new BigDecimal("100"))
                 .price(new BigDecimal("15"))
                 .fee(BigDecimal.ZERO)
-                .total(new BigDecimal("1500"))
+                .total(new BigDecimal("1500.00"))
                 .build();
 
         Holding holding = Holding.builder()
