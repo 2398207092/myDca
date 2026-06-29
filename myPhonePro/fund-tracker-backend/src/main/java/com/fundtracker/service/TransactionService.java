@@ -110,15 +110,11 @@ public class TransactionService {
 
         holdingRepository.save(holding);
 
-        // 调整现金余额
-        try {
-            if (type == TransactionType.buy || type == TransactionType.reinvest) {
-                manualAssetService.adjustCash(holding.getId(), total.negate());
-            } else if (type == TransactionType.sell) {
-                manualAssetService.adjustCash(holding.getId(), total);
-            }
-        } catch (Exception e) {
-            log.warn("交易后调整现金失败: {}", e.getMessage());
+        // 调整现金余额（异常会触发 @Transactional 回滚，交易也不创建）
+        if (type == TransactionType.buy || type == TransactionType.reinvest) {
+            manualAssetService.adjustCash(holding.getId(), total.negate());
+        } else if (type == TransactionType.sell) {
+            manualAssetService.adjustCash(holding.getId(), total);
         }
 
         // 刷新最新净值，更新市值
@@ -221,15 +217,11 @@ public class TransactionService {
         // 删除前先获取交易信息，用于反向调整现金
         transactionRepository.delete(transaction);
 
-        // 反向调整现金
-        try {
-            if (txType == TransactionType.buy || txType == TransactionType.reinvest) {
-                manualAssetService.adjustCash(holdingId, txTotal); // 删除买入 → 加回现金
-            } else if (txType == TransactionType.sell) {
-                manualAssetService.adjustCash(holdingId, txTotal.negate()); // 删除卖出 → 扣减现金
-            }
-        } catch (Exception e) {
-            log.warn("删除交易后调整现金失败: {}", e.getMessage());
+        // 反向调整现金（异常会触发 @Transactional 回滚）
+        if (txType == TransactionType.buy || txType == TransactionType.reinvest) {
+            manualAssetService.adjustCash(holdingId, txTotal); // 删除买入 → 加回现金
+        } else if (txType == TransactionType.sell) {
+            manualAssetService.adjustCash(holdingId, txTotal.negate()); // 删除卖出 → 扣减现金
         }
 
         // 删除后重新计算份额和指标
