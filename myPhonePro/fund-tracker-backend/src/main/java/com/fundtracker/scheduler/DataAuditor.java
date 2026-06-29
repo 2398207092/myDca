@@ -44,6 +44,7 @@ public class DataAuditor {
         auditMarketValue(errors);
         auditCashFlow(errors, warnings);
         auditHoldingShares(errors);
+        auditCostConsistency(errors);
         auditDividendOutliers(warnings);
         auditDividendRate(warnings);
         auditStaleDividendEvents(warnings);
@@ -181,6 +182,37 @@ public class DataAuditor {
                 warnings.add(String.format(
                         "成本息率异常 [%s] dividendRate=%s%% predictedDividend=%s cost=%s",
                         h.getName(), rate, h.getPredictedDividend(), h.getCost()));
+            }
+        }
+    }
+
+    /**
+     * P0: 成本一致性 — 手动设置的 costPerShare 与交易推算的加权均价偏差 > 50%
+     * 抓到编辑持仓导致成本错乱的情况
+     */
+    private void auditCostConsistency(List<String> errors) {
+        for (Holding h : holdingRepository.findByDeletedFalseOrderByMarketValueDesc()) {
+            if (h.getCostPerShare() == null || h.getCostPerShare().compareTo(BigDecimal.ZERO) == 0) continue;
+
+            List<Transaction> txs = transactionRepository.findByHoldingId(h.getId());
+            BigDecimal totalBuy = BigDecimal.ZERO;
+            BigDecimal totalBuyShares = BigDecimal.ZERO;
+            for (Transaction tx : txs) {
+                if (tx.getType() == TransactionType.buy || tx.getType() == TransactionType.reinvest) {
+                    totalBuy = totalBuy.add(tx.getTotal() != null ? tx.getTotal() : BigDecimal.ZERO);
+                    totalBuyShares = totalBuyShares.add(tx.getQuantity());
+                }
+            }
+            if (totalBuyShares.compareTo(BigDecimal.ZERO) == 0) continue;
+
+            BigDecimal txAvgCost = totalBuy.divide(totalBuyShares, 4, RoundingMode.HALF_UP);
+            BigDecimal ratio = h.getCostPerShare().divide(txAvgCost, 2, RoundingMode.HALF_UP);
+            if (ratio.compareTo(new BigDecimal("0.5")) < 0
+                    || ratio.compareTo(new BigDecimal("1.5")) > 0) {
+                errors.add(String.format(
+                        "成本不一致 [%s] 手动每份成本=%s vs 交易均价=%s，偏差=%.0f%%",
+                        h.getName(), h.getCostPerShare(), txAvgCost,
+                        ratio.subtract(BigDecimal.ONE).multiply(new BigDecimal("100"))));
             }
         }
     }

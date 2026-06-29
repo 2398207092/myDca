@@ -215,17 +215,21 @@ public class HoldingService {
         Holding holding = holdingRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(BusinessException::holdingNotFound);
 
+        boolean sharesOrCostChanged = false;
+
         if (req.getName() != null) holding.setName(req.getName());
         if (req.getCostAlgorithm() != null) {
             holding.setCostAlgorithm(CostAlgorithm.valueOf(req.getCostAlgorithm()));
         }
         if (req.getShares() != null) {
             holding.setShares(req.getShares());
+            sharesOrCostChanged = true;
             // 份额变了，联动更新市值 = 份额 × 最新净值（如果有的话）
             updateMarketValueFromLatestPrice(holding);
         }
         if (req.getCostPerShare() != null) {
             holding.setCostPerShare(req.getCostPerShare());
+            sharesOrCostChanged = true;
             // 总成本 = 份额 × 每份成本
             BigDecimal totalCost = holding.getShares()
                     .multiply(req.getCostPerShare())
@@ -234,8 +238,9 @@ public class HoldingService {
         }
         if (req.getAssetCategory() != null) holding.setAssetCategory(req.getAssetCategory());
 
-        // 重新计算相关指标
-        recalculateHoldingMetrics(holding);
+        // 如果份额或每份成本被手动改了，跳过交易记录推算的成本，直接用用户输入值
+        // 只重算衍生指标（息率、回本年限等）
+        recalculateHoldingMetrics(holding, sharesOrCostChanged);
 
         holding = holdingRepository.save(holding);
         return toDTO(holding);
@@ -272,6 +277,14 @@ public class HoldingService {
     }
 
     public void recalculateHoldingMetrics(Holding holding) {
+        recalculateHoldingMetrics(holding, false);
+    }
+
+    /**
+     * 重新计算持仓指标
+     * @param skipCostRecalc 是否跳过从交易记录推算成本（编辑持仓手动设置了份额/每份成本时为 true）
+     */
+    public void recalculateHoldingMetrics(Holding holding, boolean skipCostRecalc) {
         // 获取该持仓的所有交易
         List<Transaction> transactions = transactionRepository.findByHoldingId(holding.getId());
 
@@ -302,26 +315,48 @@ public class HoldingService {
         BigDecimal totalDividend = holding.getTotalDividendReceived();
         BigDecimal currentShares = holding.getShares();
 
-        // 计算每股成本
-        BigDecimal costPerShare = costCalculator.calculateCostPerShare(
-                holding.getCostAlgorithm(),
-                totalBuy, totalSell, totalDividend,
-                totalBuyShares, currentShares
-        );
+        BigDecimal costPerShare;
+        BigDecimal netInvestment;
+        BigDecimal totalCost;
 
-        // 计算净投入
-        BigDecimal netInvestment = costCalculator.calculateNetInvestment(
-                holding.getCostAlgorithm(),
-                totalBuy, totalSell, totalDividend
-        );
+        if (skipCostRecalc) {
+            // 编辑持仓模式：保持用户手动设置的每份成本和总成本，不覆盖
+            costPerShare = holding.getCostPerShare() != null ?
+                    holding.getCostPerShare() : BigDecimal.ZERO;
+            totalCost = holding.getCost() != null ?
+                    holding.getCost() : BigDecimal.ZERO;
+            // 净投入也从交易记录计算（不受编辑持仓影响）
+            netInvestment = costCalculator.calculateNetInvestment(
+                    holding.getCostAlgorithm(),
+                    totalBuy, totalSell, totalDividend
+            );
+            if (netInvestment.compareTo(BigDecimal.ZERO) == 0 && totalBuy.compareTo(BigDecimal.ZERO) == 0) {
+                netInvestment = holding.getCost();
+            }
+        } else {
+            // 交易模式：从交易记录重新计算一切
+            costPerShare = costCalculator.calculateCostPerShare(
+                    holding.getCostAlgorithm(),
+                    totalBuy, totalSell, totalDividend,
+                    totalBuyShares, currentShares
+            );
 
-        // 计算总成本
-        BigDecimal totalCost = costCalculator.calculateTotalCost(costPerShare, currentShares);
+            netInvestment = costCalculator.calculateNetInvestment(
+                    holding.getCostAlgorithm(),
+                    totalBuy, totalSell, totalDividend
+            );
 
-        // 如果没有交易，初始净投入 = 创建时的成本
-        if (netInvestment.compareTo(BigDecimal.ZERO) == 0 && totalBuy.compareTo(BigDecimal.ZERO) == 0) {
-            netInvestment = holding.getCost();
-            totalCost = holding.getCost();
+            totalCost = costCalculator.calculateTotalCost(costPerShare, currentShares);
+
+            // 如果没有交易，初始净投入 = 创建时的成本
+            if (netInvestment.compareTo(BigDecimal.ZERO) == 0 && totalBuy.compareTo(BigDecimal.ZERO) == 0) {
+                netInvestment = holding.getCost();
+                totalCost = holding.getCost();
+            }
+
+            holding.setCostPerShare(costPerShare);
+            holding.setCost(totalCost);
+            holding.setNetInvestment(netInvestment);
         }
 
         // 计算预测每股分红（基于预测年分红 / 份额）
@@ -360,14 +395,24 @@ public class HoldingService {
         );
 
         // 更新持仓指标
-        holding.setCostPerShare(costPerShare);
-        holding.setCost(totalCost);
-        holding.setNetInvestment(netInvestment);
         holding.setDividendRate(dividendRate);
         holding.setPriceDividendRate(priceDividendRate);
         holding.setDividendRecoveryRate(recoveryRate);
         holding.setEstimatedRecoveryYears(recoveryYears);
         holding.setReinvestRecoveryYears(reinvestYears);
+
+        // 一致性自检：手动 costPerShare 与交易推算值的偏差
+        if (skipCostRecalc && totalBuyShares.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal txAvgCost = totalBuy.divide(totalBuyShares, 4, RoundingMode.HALF_UP);
+            if (costPerShare.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal ratio = costPerShare.divide(txAvgCost, 2, RoundingMode.HALF_UP);
+                if (ratio.compareTo(new BigDecimal("0.1")) < 0
+                        || ratio.compareTo(new BigDecimal("10")) > 0) {
+                    log.warn("⚠️ 成本异常 [{}] 手动设置每份成本={} vs 交易加权均价={}，偏差={}倍",
+                            holding.getName(), costPerShare, txAvgCost, ratio);
+                }
+            }
+        }
     }
 
     /**
