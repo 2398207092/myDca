@@ -134,6 +134,7 @@ public class DataSeeder implements CommandLineRunner {
                 .shares(shares).cost(BigDecimal.ZERO)
                 .costPerShare(BigDecimal.ZERO)
                 .marketValue(BigDecimal.ZERO)
+                .latestPrice(BigDecimal.ZERO)
                 .predictedDividend(predictedDividend)
                 .dividendRate(BigDecimal.ZERO)
                 .priceDividendRate(BigDecimal.ZERO)
@@ -141,6 +142,7 @@ public class DataSeeder implements CommandLineRunner {
                 .netInvestment(BigDecimal.ZERO)
                 .dividendRecoveryRate(BigDecimal.ZERO)
                 .estimatedRecoveryYears(BigDecimal.ZERO)
+                .reinvestRecoveryYears(BigDecimal.ZERO)
                 .color(color).deleted(false)
                 .build();
     }
