@@ -33,7 +33,7 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: 47.108.64.108
+          host: 8.137.19.116
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: 'myPhonePro/stitch_fund_dividend_tracker/dist/'

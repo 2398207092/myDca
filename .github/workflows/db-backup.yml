@@ -14,7 +14,7 @@ jobs:
       - name: Backup MySQL and push to private repo
         uses: appleboy/ssh-action@v1.2.1
         with:
-          host: 47.108.64.108
+          host: 8.137.19.116
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |

@@ -36,7 +36,7 @@ echo Push OK!
 echo.
 echo [4/4] Deploying on server...
 echo.
-ssh admin@47.108.64.108 "cd ~ && ./deploy.sh"
+ssh root@8.137.19.116 "cd ~ && ./deploy.sh"
 if %errorlevel% neq 0 (
     echo [ERROR] Server deploy failed!
     pause
@@ -45,7 +45,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo ============================================
-echo   All done! Refresh http://47.108.64.108
+echo   All done! Refresh http://8.137.19.116
 echo ============================================
 echo.
 pause

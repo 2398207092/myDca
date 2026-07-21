@@ -14,7 +14,9 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "transactions")
+@Table(name = "transactions", indexes = {
+    @Index(name = "idx_transactions_holding_id", columnList = "holdingId")
+})
 public class Transaction {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
