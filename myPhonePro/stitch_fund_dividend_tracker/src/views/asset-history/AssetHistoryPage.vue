@@ -8,6 +8,7 @@ import {
   getHoldingSeries,
   getHoldingDiff,
   getAnnualizedReturn,
+  triggerSnapshot,
   type TotalAssetSeries,
   type HoldingSeries,
   type HoldingDiff,
@@ -37,6 +38,10 @@ const holdingDiff = ref<HoldingDiff | null>(null)
 const annualized = ref<AnnualizedReturn | null>(null)
 const holdingTab = ref<'value' | 'shares'>('value')
 const holdingLoading = ref(false)
+
+// 手动记录快照
+const snapshotting = ref(false)
+const snapshotToast = ref('')
 
 // ECharts 实例
 let totalChart: any = null
@@ -79,6 +84,15 @@ function fmtDate(dateStr: string): string {
 // 当前选中的持仓
 const currentHolding = computed(() => holdings.value[selectedIdx.value] || null)
 
+// vs上期实际间隔天数（current.date - previous.date，无 previous 时为 null）
+const diffDays = computed(() => {
+  const diff = holdingDiff.value
+  if (!diff || !diff.current || !diff.previous) return null
+  const cur = new Date(diff.current.date).getTime()
+  const prev = new Date(diff.previous.date).getTime()
+  return Math.round((cur - prev) / (1000 * 60 * 60 * 24))
+})
+
 // 总资产当前值
 const totalCurrentValue = computed(() => {
   if (!totalData.value || totalData.value.series.length === 0) return ''
@@ -89,6 +103,14 @@ const totalCurrentValue = computed(() => {
 })
 
 // ========== ECharts 构建 ==========
+// 根据数据点数量动态计算 X 轴标签间隔，避免标签密集重叠
+function computeLabelInterval(count: number): number {
+  if (count <= 7) return 0
+  if (count <= 15) return 1
+  if (count <= 30) return 2
+  return Math.floor(count / 10)
+}
+
 function buildOption(data: number[], xLabels: string[], color: string) {
   return {
     grid: { left: 44, right: 8, top: 12, bottom: 24 },
@@ -107,7 +129,7 @@ function buildOption(data: number[], xLabels: string[], color: string) {
       data: xLabels,
       axisLine: { lineStyle: { color: '#E8E7E5' } },
       axisTick: { show: true, length: 4, lineStyle: { color: '#C8C7C5' } },
-      axisLabel: { color: '#A09E9B', fontSize: 9, interval: 0 },
+      axisLabel: { color: '#A09E9B', fontSize: 9, interval: computeLabelInterval(xLabels.length) },
     },
     yAxis: {
       type: 'value',
@@ -148,9 +170,49 @@ function buildOption(data: number[], xLabels: string[], color: string) {
   }
 }
 
+function ensureTotalChart() {
+  // 图表容器不存在（v-if=false / loading 中）时，销毁旧实例避免内存泄漏
+  if (!totalChartRef.value) {
+    if (totalChart) { totalChart.dispose(); totalChart = null }
+    return
+  }
+  if (!(window as any).echarts) return
+  // v-if 重建 DOM 时，旧实例绑定的 DOM 已脱离文档，需 dispose 后重建
+  if (totalChart && totalChart.getDom() !== totalChartRef.value) {
+    totalChart.dispose()
+    totalChart = null
+  }
+  if (!totalChart) {
+    totalChart = (window as any).echarts.init(totalChartRef.value)
+  }
+}
+
+function ensureHoldingChart() {
+  if (!holdingChartRef.value) {
+    if (holdingChart) { holdingChart.dispose(); holdingChart = null }
+    return
+  }
+  if (!(window as any).echarts) return
+  if (holdingChart && holdingChart.getDom() !== holdingChartRef.value) {
+    holdingChart.dispose()
+    holdingChart = null
+  }
+  if (!holdingChart) {
+    holdingChart = (window as any).echarts.init(holdingChartRef.value)
+  }
+}
+
 function renderTotalChart() {
+  ensureTotalChart()
   if (!totalChart || !totalData.value) return
   const series = totalData.value.series
+  if (!series || series.length === 0) {
+    // 空数据时销毁图表实例，模板用 v-if 显示"暂无数据"占位
+    // 注意：不能用 setOption 传空数组，会导致 ECharts 内部状态损坏
+    totalChart.dispose()
+    totalChart = null
+    return
+  }
   const labels = series.map(p => fmtDate(p.date))
   let data: number[]
   if (totalTab.value === 'value') data = series.map(p => p.totalMarketValue)
@@ -160,8 +222,14 @@ function renderTotalChart() {
 }
 
 function renderHoldingChart() {
+  ensureHoldingChart()
   if (!holdingChart || !holdingSeries.value) return
   const series = holdingSeries.value.series
+  if (!series || series.length === 0) {
+    holdingChart.dispose()
+    holdingChart = null
+    return
+  }
   const labels = series.map(p => fmtDate(p.date))
   let data: number[]
   const color = holdingColor(holdingSeries.value.holding.assetCategory)
@@ -190,14 +258,19 @@ async function loadHoldingData() {
       annualized.value = mockAnnualized(idx)
     } else {
       const id = currentHolding.value.id
-      const [series, diff, ann] = await Promise.all([
+      const results = await Promise.allSettled([
         getHoldingSeries(id, range.value),
         getHoldingDiff(id),
         getAnnualizedReturn(id),
       ])
-      holdingSeries.value = series
-      holdingDiff.value = diff
-      annualized.value = ann
+      holdingSeries.value = results[0].status === 'fulfilled' ? results[0].value : null
+      holdingDiff.value = results[1].status === 'fulfilled' ? results[1].value : null
+      annualized.value = results[2].status === 'fulfilled' ? results[2].value : null
+      // 记录失败的请求（不影响其他数据展示）
+      const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+      if (failures.length > 0) {
+        console.warn('部分持仓数据加载失败:', failures.map(f => f.reason))
+      }
     }
   } catch (e: any) {
     console.error('加载持仓数据失败:', e)
@@ -221,14 +294,16 @@ async function loadAll() {
       holdings.value = await listHoldings()
     }
     await loadTotalData()
-    await nextTick()
-    renderTotalChart()
     await loadHoldingData()
   } catch (e: any) {
     console.error('加载数据失败:', e)
     errorMsg.value = e.message || '加载失败'
   } finally {
     loading.value = false
+    // 必须在 loading=false（Content v-if 渲染出图表容器）后再 nextTick + render
+    await nextTick()
+    renderTotalChart()
+    renderHoldingChart()
   }
 }
 
@@ -236,6 +311,23 @@ async function loadAll() {
 function selectRange(r: HistoryRange) {
   range.value = r
   loadAll()
+}
+
+// 手动记录快照
+async function handleSnapshot() {
+  if (snapshotting.value) return
+  snapshotting.value = true
+  try {
+    await triggerSnapshot()
+    snapshotToast.value = '已记录 ✓'
+    await loadAll()
+  } catch (e: any) {
+    snapshotToast.value = '失败，重试'
+    console.error('记录快照失败:', e)
+  } finally {
+    snapshotting.value = false
+    setTimeout(() => { snapshotToast.value = '' }, 2000)
+  }
 }
 
 // 切换总资产 Tab
@@ -262,17 +354,9 @@ function goHome() { router.push({ name: 'home' }) }
 
 // ========== 生命周期 ==========
 onMounted(async () => {
-  await loadAll()
-  await nextTick()
-  if (totalChartRef.value && (window as any).echarts) {
-    totalChart = (window as any).echarts.init(totalChartRef.value)
-    renderTotalChart()
-  }
-  if (holdingChartRef.value && (window as any).echarts) {
-    holdingChart = (window as any).echarts.init(holdingChartRef.value)
-    renderHoldingChart()
-  }
   window.addEventListener('resize', handleResize)
+  await loadAll()
+  // loadAll 内部已调用 render，render 会 lazy init chart
 })
 
 onUnmounted(() => {
@@ -403,6 +487,16 @@ function mockAnnualized(idx: number): AnnualizedReturn {
           @click="selectRange(r)">
           {{ r === 'month' ? '近 30 天' : r === 'quarter' ? '近 90 天' : '全部' }}
         </button>
+        <!-- 手动记录快照 -->
+        <button
+          class="shrink-0 w-10 flex items-center justify-center rounded-lg text-text-secondary bg-card-bg border border-border-light active:scale-[0.96] transition-all"
+          :class="snapshotting ? 'opacity-60' : ''"
+          :disabled="snapshotting"
+          @click="handleSnapshot">
+          <span v-if="snapshotting" class="material-symbols-outlined animate-spin text-base">progress_activity</span>
+          <span v-else-if="snapshotToast" class="text-xs font-medium text-brand">{{ snapshotToast }}</span>
+          <span v-else class="material-symbols-outlined text-base">add_a_photo</span>
+        </button>
       </section>
 
       <!-- 总资产图表 -->
@@ -420,7 +514,8 @@ function mockAnnualized(idx: number): AnnualizedReturn {
           <span class="text-sm font-bold whitespace-nowrap text-brand font-display">{{ totalCurrentValue }}</span>
         </div>
         <!-- 图表 -->
-        <div ref="totalChartRef" style="width: 100%; height: 180px;"></div>
+        <div v-if="totalData.series.length > 0" ref="totalChartRef" style="width: 100%; height: 180px;"></div>
+        <div v-else class="flex items-center justify-center text-text-tertiary text-xs" style="height: 180px;">暂无快照数据</div>
         <!-- 摘要 -->
         <div class="flex items-center gap-4 pt-3 border-t border-border-light mt-2">
           <div class="flex items-center gap-1">
@@ -467,13 +562,14 @@ function mockAnnualized(idx: number): AnnualizedReturn {
               {{ t === 'value' ? '市值走势' : '份额走势' }}
             </button>
           </div>
-          <span class="text-sm font-bold whitespace-nowrap text-brand font-display">
+          <span v-if="holdingSeries.series.length > 0" class="text-sm font-bold whitespace-nowrap text-brand font-display">
             {{ holdingTab === 'value'
               ? fmtMoney(holdingSeries.series[holdingSeries.series.length - 1]?.marketValue)
               : `${holdingSeries.series[holdingSeries.series.length - 1]?.shares.toLocaleString()} 份` }}
           </span>
         </div>
-        <div ref="holdingChartRef" style="width: 100%; height: 160px;"></div>
+        <div v-if="holdingSeries.series.length > 0" ref="holdingChartRef" style="width: 100%; height: 160px;"></div>
+        <div v-else class="flex items-center justify-center text-text-tertiary text-xs" style="height: 160px;">暂无快照数据</div>
       </section>
 
       <!-- 持仓加载中 -->
@@ -485,7 +581,9 @@ function mockAnnualized(idx: number): AnnualizedReturn {
       <section v-if="holdingDiff && annualized" class="bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40 space-y-lg">
         <!-- vs 上期 -->
         <div>
-          <h2 class="text-sm font-bold text-text-primary mb-3 font-display">较上一个 5 天</h2>
+          <h2 class="text-sm font-bold text-text-primary mb-3 font-display">
+            {{ diffDays === null ? 'vs 上期' : `较上期（${diffDays} 天）` }}
+          </h2>
           <div class="grid grid-cols-2 gap-3">
             <div class="rounded-lg p-3" :class="holdingDiff.marketValueChange >= 0 ? 'bg-brand-light' : 'bg-error/10'">
               <p class="text-[11px] text-text-secondary mb-1">市值变化</p>
@@ -514,8 +612,14 @@ function mockAnnualized(idx: number): AnnualizedReturn {
               </template>
             </div>
             <div>
-              <p class="text-text-tertiary mb-1">本期 ({{ fmtDate(holdingDiff.current.date) }})</p>
-              <p class="text-text-primary font-medium whitespace-nowrap">{{ fmtMoney(holdingDiff.current.marketValue) }} / {{ holdingDiff.current.shares.toLocaleString() }} 份</p>
+              <template v-if="holdingDiff.current">
+                <p class="text-text-tertiary mb-1">本期 ({{ fmtDate(holdingDiff.current.date) }})</p>
+                <p class="text-text-primary font-medium whitespace-nowrap">{{ fmtMoney(holdingDiff.current.marketValue) }} / {{ holdingDiff.current.shares.toLocaleString() }} 份</p>
+              </template>
+              <template v-else>
+                <p class="text-text-tertiary mb-1">本期</p>
+                <p class="text-text-secondary font-medium whitespace-nowrap">暂无数据</p>
+              </template>
             </div>
           </div>
         </div>

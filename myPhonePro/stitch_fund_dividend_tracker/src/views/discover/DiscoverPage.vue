@@ -408,7 +408,7 @@ async function doDelete() {
           <div class="flex items-center gap-3">
             <button class="flex items-center gap-1 font-body text-xs text-text-tertiary/40 group"
                     @click="goToHistory">
-              <span class="material-symbols-outlined text-[14px] group-hover:text-text-tertiary/80 transition-colors">history</span>
+              <span class="material-symbols-outlined flex h-[13px] text-[14px] group-hover:text-text-tertiary/80 transition-colors">history</span>
               <span class="group-hover:text-text-tertiary/80 transition-colors">资产历史</span>
             </button>
             <span class="flex items-center gap-1 font-body text-xs text-text-tertiary/40 group cursor-pointer"

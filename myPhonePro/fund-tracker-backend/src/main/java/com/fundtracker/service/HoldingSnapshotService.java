@@ -236,7 +236,17 @@ public class HoldingSnapshotService {
     public HoldingDiffDTO getHoldingDiff(String holdingId) {
         List<HoldingSnapshot> top2 = holdingSnapshotRepository.findTop2ByHoldingIdOrderBySnapshotDateDesc(holdingId);
         if (top2.isEmpty()) {
-            throw BusinessException.invalidParam("该持仓暂无快照记录");
+            // 无快照时不抛异常，返回空响应（与 getHoldingSeries 返回空 series 行为一致）
+            return HoldingDiffDTO.builder()
+                    .holdingId(holdingId)
+                    .current(null)
+                    .previous(null)
+                    .marketValueChange(BigDecimal.ZERO)
+                    .marketValueChangePct(BigDecimal.ZERO)
+                    .sharesChange(BigDecimal.ZERO)
+                    .sharesChangePct(BigDecimal.ZERO)
+                    .pctOfTotalChange(BigDecimal.ZERO)
+                    .build();
         }
         HoldingSnapshot current = top2.get(0);
         HoldingSnapshot previous = top2.size() >= 2 ? top2.get(1) : null;
