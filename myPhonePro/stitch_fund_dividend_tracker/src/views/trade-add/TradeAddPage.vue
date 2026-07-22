@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { createTransaction } from '@/api/transaction'
 import { listHoldings } from '@/api/holding'
 import type { HoldingItem } from '@/api/holding'
 
+const route = useRoute()
 const router = useRouter()
 
 // Holdings data
@@ -115,7 +116,13 @@ async function loadHoldings() {
     holdings.value = await listHoldings()
     formState.value = 'ready'
     if (holdings.value.length > 0) {
-      selectedHoldingId.value = holdings.value[0].id
+      // 优先使用路由传入的 holdingId
+      const presetId = route.query.holdingId as string
+      if (presetId && holdings.value.some(h => h.id === presetId)) {
+        selectedHoldingId.value = presetId
+      } else {
+        selectedHoldingId.value = holdings.value[0].id
+      }
     }
   } catch (e) {
     formState.value = 'ready'

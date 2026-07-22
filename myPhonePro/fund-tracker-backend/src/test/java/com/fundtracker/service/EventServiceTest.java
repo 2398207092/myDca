@@ -30,12 +30,15 @@ class EventServiceTest {
     @Mock private DividendEventRepository eventRepository;
     @Mock private HoldingRepository holdingRepository;
     @Mock private ManualAssetService manualAssetService;
+    @Mock private TransactionService transactionService;
+    @Mock private FundNavScrapeService fundNavScrapeService;
 
     private EventService eventService;
 
     @BeforeEach
     void setUp() {
-        eventService = new EventService(eventRepository, holdingRepository, manualAssetService);
+        eventService = new EventService(eventRepository, holdingRepository, manualAssetService,
+                transactionService, fundNavScrapeService);
     }
 
     @Test

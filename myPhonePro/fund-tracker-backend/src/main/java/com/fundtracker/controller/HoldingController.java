@@ -72,6 +72,12 @@ public class HoldingController {
         return ApiResponse.success("分类更新成功", holdingService.updateHoldingCategory(id, req));
     }
 
+    @PutMapping("/{id}/dividend-reinvest")
+    public ApiResponse<HoldingDTO> updateDividendReinvest(@PathVariable String id,
+                                                           @RequestBody UpdateDividendReinvestReq req) {
+        return ApiResponse.success("复投设置更新成功", holdingService.updateDividendReinvest(id, req));
+    }
+
     @GetMapping("/search")
     public ApiResponse<List<HoldingSearchResult>> searchHoldings(
             @RequestParam String keyword) {

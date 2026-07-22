@@ -90,8 +90,10 @@ export interface HoldingItem {
   dividendRecoveryRate: number  // 分红回本进度（0-100）
   estimatedRecoveryYears: number // 预计回本年限
   reinvestRecoveryYears: number  // 复投模式预计回本年限
+  costPerShare?: number       // 成本单价
   color: string                 // 标识色，如 "#FF7A45"
   assetCategory?: string        // 资产分类：us_stock / gold / dividend
+  dividendReinvest?: boolean    // 分红复投开关
 }
 
 /** 获取持仓列表 - 请求参数 */
@@ -164,6 +166,7 @@ export interface DividendEventItem {
   amount: number      // 分红金额（元）
   status: 'pending' | 'distributed' | 'cancelled'
   description: string // 事件描述文字
+  participated: boolean // true=已参与(按份额算金额)，false=未参与(金额为0)
 }
 
 /** 获取分红事件列表 - 请求参数 */

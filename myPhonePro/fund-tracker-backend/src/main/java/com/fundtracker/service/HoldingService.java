@@ -504,6 +504,16 @@ public class HoldingService {
         return toDTO(holding);
     }
 
+    @Transactional
+    public HoldingDTO updateDividendReinvest(String id, UpdateDividendReinvestReq req) {
+        Holding holding = holdingRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(BusinessException::holdingNotFound);
+        holding.setDividendReinvest(req.getDividendReinvest());
+        holding = holdingRepository.save(holding);
+        log.info("更新持仓 {} 分红复投: {}", holding.getName(), req.getDividendReinvest());
+        return toDTO(holding);
+    }
+
     private HoldingDTO toDTO(Holding holding) {
         // 市值 = 份额 × 最新净值（计算值，不读缓存）
         BigDecimal marketValue;
@@ -538,6 +548,7 @@ public class HoldingService {
                 .reinvestRecoveryYears(holding.getReinvestRecoveryYears())
                 .color(holding.getColor())
                 .assetCategory(holding.getAssetCategory())
+                .dividendReinvest(holding.getDividendReinvest())
                 .build();
     }
 }

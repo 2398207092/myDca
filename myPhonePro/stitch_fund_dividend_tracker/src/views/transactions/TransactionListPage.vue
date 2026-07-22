@@ -1,24 +1,36 @@
 <script setup lang="ts">
-import { ref, computed, onActivated } from 'vue'
+import { ref, watch, onActivated } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { listTransactions, updateTransaction, deleteTransaction, type TransactionItem, type UpdateTransactionReq } from '@/api/transaction'
 
 const route = useRoute()
 const router = useRouter()
-const holdingId = computed(() => route.params.id as string || route.query.holdingId as string)
 
 const loading = ref(true)
 const transactions = ref<TransactionItem[]>([])
 
-onActivated(async () => {
+async function loadTransactions(holdingId: string) {
+  if (!holdingId) return
   loading.value = true
   try {
-    transactions.value = await listTransactions(holdingId.value)
+    transactions.value = await listTransactions(holdingId)
   } catch (e) {
     console.error('加载交易明细失败', e)
   } finally {
     loading.value = false
   }
+}
+
+// 最稳健的模式：监听路由参数变化加载数据（与 HoldingDetailPage 一致）
+// 覆盖：全新挂载（immediate）、路由参数切换、KeepAlive 重新进入
+watch(() => route.params.id as string | undefined, (newId) => {
+  if (newId) loadTransactions(newId)
+}, { immediate: true })
+
+// KeepAlive 缓存重新激活时的兜底
+onActivated(() => {
+  const id = route.params.id as string || route.query.holdingId as string
+  if (id) loadTransactions(id)
 })
 
 // === 交易操作弹窗 ===
@@ -84,7 +96,7 @@ async function doEdit() {
     await updateTransaction(tx.id, req)
     showEditSheet.value = false
     // 重新加载列表
-    transactions.value = await listTransactions(holdingId.value)
+    transactions.value = await listTransactions(route.params.id as string)
   } catch (e: any) {
     error.value = e.message || '保存失败'
   } finally {
@@ -99,7 +111,7 @@ async function doDeleteTx() {
     await deleteTransaction(tx.id)
     showDeleteConfirm.value = false
     selectedTx.value = null
-    transactions.value = await listTransactions(holdingId.value)
+    transactions.value = await listTransactions(route.params.id as string)
   } catch (e: any) {
     console.error('删除失败:', e)
     showDeleteConfirm.value = false
@@ -134,7 +146,7 @@ function goHome() {
 }
 
 function goAddTrade() {
-  router.push({ name: 'trade-add', query: { holdingId: holdingId.value } })
+  router.push({ name: 'trade-add', query: { holdingId: route.params.id as string } })
 }
 </script>
 

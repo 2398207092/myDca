@@ -40,6 +40,7 @@ export interface DividendEvent {
   amount: number
   status: DividendEventStatus
   description: string
+  participated: boolean
 }
 
 // === 交易 ===

@@ -86,4 +86,8 @@ public class Holding {
 
     @Column(length = 20)
     private String assetCategory; // us_stock / gold / dividend / null=未分类
+
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    @Builder.Default
+    private Boolean dividendReinvest = false;
 }

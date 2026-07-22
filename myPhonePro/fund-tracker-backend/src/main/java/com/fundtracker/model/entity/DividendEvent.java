@@ -43,4 +43,7 @@ public class DividendEvent {
 
     @Column(length = 500)
     private String description;
+
+    @Column(nullable = false)
+    private Boolean participated;
 }

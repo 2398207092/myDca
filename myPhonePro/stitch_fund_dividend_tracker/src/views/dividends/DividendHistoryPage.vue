@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { listEvents, type DividendEventItem } from '@/api/event'
+import { listEvents, markDistributed, convertEventToReinvest, type DividendEventItem } from '@/api/event'
 
 const route = useRoute()
 const router = useRouter()
@@ -10,8 +10,41 @@ const holdingId = route.params.id as string
 const loading = ref(true)
 const events = ref<DividendEventItem[]>([])
 
+const participatedEvents = computed(() =>
+  events.value.filter(e => e.participated)
+)
+
+const convertingId = ref<string | null>(null)
+const distributingId = ref<string | null>(null)
+
+async function handleConvertToReinvest(eventId: string) {
+  convertingId.value = eventId
+  try {
+    await convertEventToReinvest(eventId)
+    events.value = await listEvents({ holdingId })
+    closeActionSheet()
+  } catch (e) {
+    console.error('转为复投失败', e)
+  } finally {
+    convertingId.value = null
+  }
+}
+
+async function handleMarkDistributed(eventId: string) {
+  distributingId.value = eventId
+  try {
+    await markDistributed(eventId)
+    events.value = await listEvents({ holdingId })
+    closeActionSheet()
+  } catch (e) {
+    console.error('标记到账失败', e)
+  } finally {
+    distributingId.value = null
+  }
+}
+
 const totalDividend = computed(() =>
-  events.value
+  participatedEvents.value
     .filter(e => e.status === 'distributed')
     .reduce((sum, e) => sum + (e.amount || 0), 0)
 )
@@ -25,6 +58,20 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+// === 操作弹窗 ===
+const selectedEvent = ref<DividendEventItem | null>(null)
+const showActionSheet = ref(false)
+
+function showEventActions(ev: DividendEventItem) {
+  selectedEvent.value = ev
+  showActionSheet.value = true
+}
+
+function closeActionSheet() {
+  showActionSheet.value = false
+  selectedEvent.value = null
+}
 
 function formatAmount(n: number): string {
   return `¥ ${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -71,7 +118,7 @@ function goHome() {
       </div>
 
       <!-- Empty -->
-      <div v-else-if="events.length === 0" class="flex flex-col items-center justify-center py-32 gap-md">
+      <div v-else-if="participatedEvents.length === 0" class="flex flex-col items-center justify-center py-32 gap-md">
         <span class="text-5xl block text-text-tertiary/40">📋</span>
         <p class="font-body text-sm text-text-secondary">暂无分红记录</p>
       </div>
@@ -85,8 +132,9 @@ function goHome() {
         </div>
 
         <div class="space-y-xs">
-          <div v-for="ev in events" :key="ev.id"
-               class="flex items-center justify-between bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 transition-colors">
+          <div v-for="ev in participatedEvents" :key="ev.id"
+               class="flex items-center justify-between bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 transition-colors cursor-pointer active:scale-[0.98]"
+               @click="showEventActions(ev)">
             <!-- Left -->
             <div class="flex items-center gap-md">
               <div class="w-10 h-10 rounded-full flex items-center justify-center"
@@ -105,17 +153,81 @@ function goHome() {
 
             <!-- Right -->
             <div class="text-right">
-              <p class="font-body text-sm font-medium" :class="ev.status === 'distributed' ? 'text-text-primary' : 'text-text-secondary'">
-                {{ formatAmount(ev.amount) }}
-              </p>
-              <span class="inline-block px-sm py-0.5 rounded-full font-body text-xs mt-xs"
-                    :class="statusLabel(ev.status).class">
-                {{ statusLabel(ev.status).text }}
-              </span>
+              <template v-if="ev.participated">
+                <p class="font-body text-sm font-medium" :class="ev.status === 'distributed' ? 'text-text-primary' : 'text-text-secondary'">
+                  {{ formatAmount(ev.amount) }}
+                </p>
+              </template>
+              <p v-else class="font-body text-xs text-text-tertiary/50 mt-1">未参与</p>
+              <div class="flex items-center gap-1 justify-end mt-xs">
+                <span class="inline-block px-sm py-0.5 rounded-full font-body text-xs"
+                      :class="statusLabel(ev.status).class">
+                  {{ statusLabel(ev.status).text }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </template>
     </main>
+
+    <!-- === Action Sheet === -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showActionSheet" class="fixed inset-0 z-[100] bg-black/40" @click="closeActionSheet"></div>
+      </Transition>
+      <Transition name="slide-up">
+        <div v-if="showActionSheet && selectedEvent"
+             class="fixed bottom-0 left-0 right-0 z-[110] bg-card-bg rounded-t-2xl px-gutter py-lg shadow-overlay">
+          <div class="w-10 h-1 bg-border-light rounded-full mx-auto mb-lg"></div>
+          <!-- Event info -->
+          <div class="text-center mb-md">
+            <p class="font-body text-sm text-text-primary">{{ selectedEvent.date }}</p>
+            <p class="font-body text-xs text-text-tertiary mt-xs">{{ selectedEvent.description }}</p>
+            <p class="font-display text-lg font-semibold text-text-primary mt-sm">{{ formatAmount(selectedEvent.amount) }}</p>
+          </div>
+
+          <!-- pending → 标记到账 -->
+          <button v-if="selectedEvent.status === 'pending'"
+                  class="w-full flex items-center gap-md px-md py-lg rounded-xl hover:bg-card-alt transition-colors"
+                  :disabled="distributingId === selectedEvent.id"
+                  @click="handleMarkDistributed(selectedEvent.id)">
+            <span class="material-symbols-outlined text-brand">check_circle</span>
+            <span class="font-body text-sm font-medium text-text-primary">
+              {{ distributingId === selectedEvent.id ? '标记中...' : '标记为已到账' }}
+            </span>
+          </button>
+
+          <!-- distributed → 转为复投 -->
+          <button v-if="selectedEvent.status === 'distributed'"
+                  class="w-full flex items-center gap-md px-md py-lg rounded-xl hover:bg-card-alt transition-colors"
+                  :disabled="convertingId === selectedEvent.id"
+                  @click="handleConvertToReinvest(selectedEvent.id)">
+            <span class="material-symbols-outlined text-brand">autorenew</span>
+            <span class="font-body text-sm font-medium text-text-primary">
+              {{ convertingId === selectedEvent.id ? '转换中...' : '转为复投' }}
+            </span>
+          </button>
+
+          <!-- 取消 -->
+          <button class="w-full mt-md h-12 rounded-xl bg-card-alt text-text-secondary font-body font-medium text-md transition-colors active:scale-[0.98]"
+                  @click="closeActionSheet">
+            取消
+          </button>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+.fade-enter-active { transition: opacity 0.2s ease; }
+.fade-leave-active { transition: opacity 0.15s ease; }
+.fade-enter-from,
+.fade-leave-to { opacity: 0; }
+
+.slide-up-enter-active { transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
+.slide-up-leave-active { transition: transform 0.2s ease; }
+.slide-up-enter-from { transform: translateY(100%); }
+.slide-up-leave-to { transform: translateY(100%); }
+</style>

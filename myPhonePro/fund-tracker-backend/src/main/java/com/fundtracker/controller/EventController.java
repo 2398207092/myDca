@@ -45,6 +45,11 @@ public class EventController {
         return ApiResponse.success("已到账", eventService.markDistributed(id));
     }
 
+    @PostMapping("/{id}/convert-to-reinvest")
+    public ApiResponse<DividendEventDTO> convertToReinvest(@PathVariable String id) {
+        return ApiResponse.success("已转为复投", eventService.convertToReinvest(id));
+    }
+
     @PutMapping("/{id}/cancel")
     public ApiResponse<CancelEventResp> cancelEvent(@PathVariable String id) {
         return ApiResponse.success(eventService.cancelEvent(id));

@@ -114,6 +114,14 @@ public class FundDividendScrapeService {
     }
 
     /**
+     * 删除指定分红记录
+     */
+    @Transactional
+    public void deleteRecord(String recordId) {
+        recordRepository.deleteById(recordId);
+    }
+
+    /**
      * 从数据库获取指定基金的最新除权日
      */
     public Optional<LocalDate> getLatestExDate(String fundCode) {

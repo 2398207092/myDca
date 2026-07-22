@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onActivated, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getHolding, getForecast, deleteHolding, updateHolding } from '@/api/holding'
+import { getHolding, getForecast, deleteHolding, updateHolding, updateDividendReinvest } from '@/api/holding'
 import { listTransactions } from '@/api/transaction'
 import { listDcaPlans } from '@/api/dca'
 import type { HoldingItem, ForecastData, UpdateHoldingReq } from '@/api/holding'
@@ -240,6 +240,22 @@ function showDividendHistory() {
   router.push({ name: 'dividend-history', params: { id: route.params.id } })
 }
 
+const reinvestSaving = ref(false)
+
+async function toggleDividendReinvest() {
+  if (!holding.value || reinvestSaving.value) return
+  reinvestSaving.value = true
+  try {
+    const newVal = !holding.value.dividendReinvest
+    const updated = await updateDividendReinvest(route.params.id as string, newVal)
+    if (holding.value) holding.value.dividendReinvest = updated.dividendReinvest
+  } catch (e) {
+    console.error('更新复投设置失败', e)
+  } finally {
+    reinvestSaving.value = false
+  }
+}
+
 function showEditHolding() {
   if (!holding.value) return
   editName.value = holding.value.name
@@ -301,6 +317,11 @@ function handleRetry() {
 }
 
 onMounted(loadData)
+
+// KeepAlive 缓存重新激活时刷新数据
+onActivated(() => {
+  loadData()
+})
 </script>
 
 <template>
@@ -531,6 +552,27 @@ onMounted(loadData)
             <span class="text-brand text-sm">📈</span>
             <span class="font-body text-xs text-text-tertiary">预计未来五年分红总额将增长{{ trendPercentage }}%</span>
           </div>
+        </div>
+      </section>
+
+      <!-- 分红复投开关 -->
+      <section v-if="hasDividends" class="bg-card-bg rounded-xl p-md card-shadow border border-border-light/40">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-body text-sm font-medium text-text-primary">分红复投</h3>
+            <p class="font-body text-xs text-text-tertiary mt-0.5">开启后，分红到账时自动买入该标的份额</p>
+          </div>
+          <button
+            class="relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ml-3"
+            :class="holding?.dividendReinvest ? 'bg-brand' : 'bg-card-alt'"
+            :disabled="reinvestSaving"
+            @click="toggleDividendReinvest"
+          >
+            <span
+              class="absolute top-[2px] w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"
+              :class="holding?.dividendReinvest ? 'left-[22px]' : 'left-[2px]'"
+            />
+          </button>
         </div>
       </section>
 

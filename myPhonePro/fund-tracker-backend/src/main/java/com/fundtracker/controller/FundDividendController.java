@@ -52,4 +52,13 @@ public class FundDividendController {
     public ApiResponse<List<FundDividendRecord>> getDividendRecords(@PathVariable String code) {
         return ApiResponse.success(scrapeService.getRecords(code));
     }
+
+    /**
+     * 删除指定分红记录（用于清理抓取异常的数据）
+     */
+    @DeleteMapping("/dividends/{recordId}")
+    public ApiResponse<Map<String, Object>> deleteDividendRecord(@PathVariable String recordId) {
+        scrapeService.deleteRecord(recordId);
+        return ApiResponse.success(Map.of("deleted", true));
+    }
 }

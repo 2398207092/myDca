@@ -9,12 +9,15 @@ const level1Pages = new Set(['home', 'calendar', 'discover', 'profile'])
 const showBottomNav = computed(() => {
   return level1Pages.has(String(route.name))
 })
+
+// 二级详情页排除 KeepAlive 缓存，使用组件名（PascalCase）而非路由名
+const excludePages = ['HoldingDetailPage', 'DividendHistoryPage', 'TransactionListPage']
 </script>
 
 <template>
   <div class="min-h-screen bg-page-bg">
     <router-view v-slot="{ Component }">
-      <KeepAlive>
+      <KeepAlive :exclude="excludePages">
         <component :is="Component" />
       </KeepAlive>
     </router-view>

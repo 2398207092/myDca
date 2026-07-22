@@ -499,12 +499,15 @@ function goToHolding(holdingId: string) {
                       <p class="font-body text-xs text-text-tertiary mt-0.5 truncate">{{ event.description }}</p>
                     </div>
                     <div class="text-right shrink-0 ml-2">
-                      <p
-                        class="font-body text-sm font-medium"
-                        :class="event.type === 'payout' ? 'text-brand' : 'text-text-primary'"
-                      >
-                        ¥{{ event.amount.toFixed(2) }}
-                      </p>
+                      <template v-if="event.participated">
+                        <p
+                          class="font-body text-sm font-medium"
+                          :class="event.type === 'payout' ? 'text-brand' : 'text-text-primary'"
+                        >
+                          ¥{{ event.amount.toFixed(2) }}
+                        </p>
+                      </template>
+                      <p v-else class="font-body text-xs text-text-tertiary/50 mt-1">未参与</p>
                       <span
                         class="font-body text-[10px] px-1.5 py-0.5 rounded mt-1 inline-block"
                         :class="eventTypeStyles[event.type].badgeClass"
@@ -567,20 +570,20 @@ function goToHolding(holdingId: string) {
           <template v-else-if="annualData">
             <!-- Summary Cards -->
             <section class="grid grid-cols-4 gap-[6px]">
-              <div class="bg-card-bg p-[10px] rounded-xl card-shadow border border-border-light/40 flex flex-col items-center text-center border-t-2 border-border-light">
-                <p class="font-body text-[11px] text-text-tertiary/60">全年</p>
+              <div class="bg-card-bg p-[10px] rounded-xl card-shadow border border-border-light/40 flex flex-col items-center text-center border-t-2 border-brand">
+                <p class="font-body text-[11px] text-text-tertiary/60">全年分红</p>
                 <p class="text-[18px] font-display font-medium text-text-primary mt-1">¥{{ annualData.summary.totalDividend.toFixed(0) }}</p>
               </div>
               <div class="bg-card-bg p-[10px] rounded-xl card-shadow border border-border-light/40 flex flex-col items-center text-center border-t-2 border-border-light">
-                <p class="font-body text-[11px] text-text-tertiary/60">笔数</p>
+                <p class="font-body text-[11px] text-text-tertiary/60">派息笔数</p>
                 <p class="text-[18px] font-display font-medium text-text-primary mt-1">{{ annualData.summary.totalPayoutCount }}</p>
               </div>
               <div class="bg-card-bg p-[10px] rounded-xl card-shadow border border-border-light/40 flex flex-col items-center text-center border-t-2 border-border-light">
-                <p class="font-body text-[11px] text-text-tertiary/60">基金</p>
+                <p class="font-body text-[11px] text-text-tertiary/60">参与基金</p>
                 <p class="text-[18px] font-display font-medium text-text-primary mt-1">{{ annualData.summary.fundCount }}</p>
               </div>
               <div class="bg-card-bg p-[10px] rounded-xl card-shadow border border-border-light/40 flex flex-col items-center text-center border-t-2 border-border-light">
-                <p class="font-body text-[11px] text-text-tertiary/60">最多</p>
+                <p class="font-body text-[11px] text-text-tertiary/60">峰值月</p>
                 <p class="text-[18px] font-display font-medium text-text-primary mt-1">{{ annualData.summary.peakMonth }}</p>
               </div>
             </section>
@@ -608,37 +611,59 @@ function goToHolding(holdingId: string) {
               </div>
             </section>
 
-            <!-- Fund Ranking -->
-            <section class="bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40 space-y-md">
-              <h3 class="font-body text-sm font-medium text-text-primary">基金分红排行</h3>
-
-              <div
-                v-for="(fund, i) in annualData.fundRanks"
-                :key="i"
-                class="flex items-center gap-3"
-              >
-                <span
-                  class="w-5 h-5 rounded-full flex items-center justify-center font-body text-[10px] shrink-0"
-                  :class="i === 0 ? 'bg-brand text-white' : i === 1 ? 'bg-card-alt text-text-secondary' : i === 2 ? 'bg-card-alt text-text-secondary' : 'text-text-tertiary/40'"
-                >
-                  {{ fund.rank }}
-                </span>
-                <div class="flex-1 min-w-0">
-                  <p class="font-body text-[13px] font-medium text-text-primary truncate">{{ fund.holdingName }}</p>
-                  <div class="h-2 bg-progress-bg rounded overflow-hidden mt-1">
-                    <div
-                      class="h-full rounded transition-all duration-500"
-                      :class="fund.amount > 0 ? 'bg-brand-light' : 'bg-progress-bg'"
-                      :style="{ width: fund.percentage + '%' }"
-                    />
+            <!-- Next Dividend + Fund Ranking -->
+            <section class="grid grid-cols-1 gap-md">
+              <!-- Next Dividend Card -->
+              <div v-if="nextDividend.holdingName !== '--'" class="bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40">
+                <h3 class="font-body text-sm font-medium text-text-primary mb-md">预计下次分红</h3>
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full bg-brand-light flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-brand text-lg">payments</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-body text-sm font-medium text-text-primary">{{ nextDividend.holdingName }}</p>
+                    <p class="font-body text-xs text-text-tertiary mt-0.5">
+                      {{ nextDividend.daysRemaining > 0 ? nextDividend.daysRemaining + '天后' : '今日' }}
+                    </p>
+                  </div>
+                  <div class="text-right shrink-0">
+                    <p class="font-display text-lg font-semibold text-brand">¥{{ nextDividend.amount.toFixed(0) }}</p>
                   </div>
                 </div>
-                <span class="font-body text-[13px] font-medium text-brand shrink-0">¥{{ fund.amount.toFixed(0) }}</span>
               </div>
 
-              <div v-if="annualData.fundRanks.length === 0" class="flex flex-col items-center py-8">
-                <span class="text-3xl block mb-1">📊</span>
-                <p class="font-body text-sm text-text-tertiary">暂无分红数据</p>
+              <!-- Fund Ranking -->
+              <div class="bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40 space-y-md">
+                <h3 class="font-body text-sm font-medium text-text-primary">基金分红排行</h3>
+
+                <div
+                  v-for="(fund, i) in annualData.fundRanks"
+                  :key="i"
+                  class="flex items-center gap-3"
+                >
+                  <span
+                    class="w-5 h-5 rounded-full flex items-center justify-center font-body text-[10px] shrink-0"
+                    :class="i === 0 ? 'bg-brand text-white' : i === 1 ? 'bg-card-alt text-text-secondary' : i === 2 ? 'bg-card-alt text-text-secondary' : 'text-text-tertiary/40'"
+                  >
+                    {{ fund.rank }}
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-body text-[13px] font-medium text-text-primary truncate">{{ fund.holdingName }}</p>
+                    <div class="h-2 bg-progress-bg rounded overflow-hidden mt-1">
+                      <div
+                        class="h-full rounded transition-all duration-500"
+                        :class="fund.amount > 0 ? 'bg-brand-light' : 'bg-progress-bg'"
+                        :style="{ width: fund.percentage + '%' }"
+                      />
+                    </div>
+                  </div>
+                  <span class="font-body text-[13px] font-medium text-brand shrink-0">¥{{ fund.amount.toFixed(0) }}</span>
+                </div>
+
+                <div v-if="annualData.fundRanks.length === 0" class="flex flex-col items-center py-8">
+                  <span class="text-3xl block mb-1">📊</span>
+                  <p class="font-body text-sm text-text-tertiary">暂无分红数据</p>
+                </div>
               </div>
             </section>
           </template>

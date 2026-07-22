@@ -105,6 +105,10 @@ export async function updateHoldingCategory(id: string, assetCategory: string): 
   return put<HoldingItem>(`/holdings/${id}/category`, { assetCategory })
 }
 
+export async function updateDividendReinvest(id: string, dividendReinvest: boolean): Promise<HoldingItem> {
+  return put<HoldingItem>(`/holdings/${id}/dividend-reinvest`, { dividendReinvest })
+}
+
 export interface HoldingChangeDetail {
   holdingId: string
   name: string

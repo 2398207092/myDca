@@ -48,6 +48,10 @@ export async function markDistributed(id: string): Promise<DividendEventItem> {
   return put<DividendEventItem>(`/events/${id}/distribute`)
 }
 
+export async function convertEventToReinvest(id: string): Promise<DividendEventItem> {
+  return post<DividendEventItem>(`/events/${id}/convert-to-reinvest`)
+}
+
 export async function cancelEvent(id: string): Promise<CancelEventResp> {
   return put<CancelEventResp>(`/events/${id}/cancel`)
 }

@@ -111,7 +111,8 @@ public class TransactionService {
         holdingRepository.save(holding);
 
         // 调整现金余额（异常会触发 @Transactional 回滚，交易也不创建）
-        if (type == TransactionType.buy || type == TransactionType.reinvest) {
+        // 注意：reinvest 不涉及现金（分红已到账，直接转份额）
+        if (type == TransactionType.buy) {
             manualAssetService.adjustCash(holding.getId(), total.negate());
         } else if (type == TransactionType.sell) {
             manualAssetService.adjustCash(holding.getId(), total);
@@ -237,6 +238,37 @@ public class TransactionService {
                     .setScale(2, RoundingMode.HALF_UP));
         }
         holdingRepository.save(holding);
+    }
+
+    /**
+     * 获取指定持仓的首笔交易日期
+     */
+    public LocalDate getFirstTransactionDate(String holdingId) {
+        return transactionRepository.findEarliestTransactionDateByHoldingId(holdingId)
+                .orElse(null);
+    }
+
+    /**
+     * 计算指定持仓在特定日期的实时份额
+     * 遍历该持仓所有交易（按日期升序），累加到目标日期为止
+     */
+    public BigDecimal calculateSharesAtDate(String holdingId, LocalDate date) {
+        List<Transaction> allTx = transactionRepository.findByHoldingIdOrderByDateAsc(holdingId);
+        BigDecimal shares = BigDecimal.ZERO;
+        for (Transaction t : allTx) {
+            if (t.getDate().isAfter(date)) break;
+            switch (t.getType()) {
+                case buy:
+                case reinvest:
+                case bonus_share:
+                    shares = shares.add(t.getQuantity());
+                    break;
+                case sell:
+                    shares = shares.subtract(t.getQuantity());
+                    break;
+            }
+        }
+        return shares.max(BigDecimal.ZERO);
     }
 
     private TransactionDTO toDTO(Transaction tx) {
