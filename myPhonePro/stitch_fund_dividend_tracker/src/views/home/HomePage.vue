@@ -123,7 +123,7 @@ onActivated(loadData)
                 </div>
                 <!-- 品牌色背景块 -->
                 <div class="bg-brand-light/60 rounded-lg px-5 py-1 inline-block">
-                  <p class="font-display text-3xl text-brand font-semibold tabular-nums">{{ formatMoney(dashboard?.predictedAnnualDividend) }}</p>
+                  <p class="font-display text-[40px] text-brand font-semibold tabular-nums leading-none">{{ formatMoney(dashboard?.predictedAnnualDividend) }}</p>
                 </div>
                 <!-- 右侧装饰竖线 -->
                 <div class="flex items-center gap-[3px] ml-3">
@@ -229,7 +229,7 @@ onActivated(loadData)
               <div class="flex items-center gap-md mb-sm">
                 <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: holding.color }"></span>
                 <div class="flex-1 min-w-0">
-                  <p class="font-body text-sm font-medium text-text-primary truncate">{{ holding.name }}</p>
+                  <p class="font-body text-lg font-medium text-text-primary truncate">{{ holding.name }}</p>
                   <p class="font-body text-xs text-text-tertiary">{{ holding.code }}</p>
                 </div>
                 <div class="text-right shrink-0">

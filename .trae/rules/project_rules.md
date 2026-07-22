@@ -5,7 +5,7 @@
 当用户说"你有什么想法？"、"你的看法"、"说说你的思路"等类似表达时，AI 必须先**复述用户的需求/问题 + 给出方案/思路/看法**，等待用户确认后再开始开发。不得跳过确认步骤直接动手改代码。目的是确保双方理解一致，避免做无用功。
 
 ## 项目概述
-一个个人基金投资管理工具，功能包括：添加/管理基金持仓、记录交易、追踪分红、查看成本收益指标。
+一个个人基金投资管理工具，功能包括：持仓管理、交易记录、分红追踪、成本收益指标、定投计划自动化、现金记账、分红预测、个人总资产概览、数据审计与对账。
 
 - **前端**：Vue 3 (Composition API + `<script setup lang="ts">`) + Vue Router 4 + Vite + TypeScript + Tailwind CSS + Material Symbols 图标
 - **后端**：Spring Boot 3.2.0 + Spring Data JPA + Hibernate + MySQL 8.0 + Maven
@@ -15,80 +15,197 @@
 系统禁用了 PowerShell 脚本执行策略，必须使用 `-ExecutionPolicy Bypass`：
 ```powershell
 # 后端
-cd fund-tracker-backend && mvn spring-boot:run
+cd myPhonePro/fund-tracker-backend && mvn spring-boot:run
 
 # 前端（新开终端）
-powershell -ExecutionPolicy Bypass -Command "cd 'stitch_fund_dividend_tracker'; npm run dev"
+powershell -ExecutionPolicy Bypass -Command "cd 'myPhonePro/stitch_fund_dividend_tracker'; npm run dev"
 ```
 
 ## 构建命令
-- 后端：`cd fund-tracker-backend && mvn clean compile`
-- 前端（需要时）：`npm run build`
+- 后端：`cd myPhonePro/fund-tracker-backend && mvn clean compile`
+- 前端（需要时）：`cd myPhonePro/stitch_fund_dividend_tracker && npm run build`
 
 ## 缓存/编译注意事项
 - 后端如果修改了 Repository 方法签名（如 `void` → `int`），需要 `mvn clean compile` 强制重新编译，否则 Spring Boot 运行时抛出 `Unresolved compilation problems`（利用了旧 .class 文件）
 - 前端 `<KeepAlive>` 缓存组件后，Vite HMR 可能无法正确热更新生命周期钩子（如 `onMounted` → `onActivated`），需要浏览器硬刷新
 
+## 服务器性能配置（2核 2G）
+- **HikariCP 连接池**：`maximum-pool-size: 5`、`minimum-idle: 2`、`connection-timeout: 5000`、`idle-timeout: 300000`（`application.yml` 中 `spring.datasource.hikari`）
+- **JVM 启动参数**：`-Xmx384m -Xms256m`（在 `pom.xml` 的 `spring-boot-maven-plugin` 中通过 `<jvmArguments>` 配置）
+- **JPA 索引**：
+  - `idx_transactions_holding_id` on `Transaction.holdingId`
+  - `idx_holdings_deleted` on `Holding.deleted`
+  - 通过实体类 `@Table(indexes = @Index(...))` 声明
+
 ## 代码结构
 
-### 前端 (`stitch_fund_dividend_tracker/src/`)
+### 前端 (`myPhonePro/stitch_fund_dividend_tracker/src/`)
 ```
-├── api/
-│   ├── request.ts          # API 请求封装（基于 fetch），检查 json.code !== 200 时抛异常
-│   ├── transaction.ts      # 交易 CRUD API
-│   ├── metrics.ts          # 指标配置中心（11 个指标定义，localStorage 读写）
-│   └── ...                 # holding, dividend 等 API
+├── api/                            # API 请求层（17 个模块）
+│   ├── request.ts                  # 基于 fetch 的请求封装，json.code !== 200 时抛异常
+│   ├── auth.ts                     # 认证（获取/刷新 Token）
+│   ├── holding.ts / transaction.ts # 持仓 / 交易 CRUD
+│   ├── event.ts / dca.ts           # 分红事件 / 定投计划
+│   ├── dashboard.ts / insight.ts   # 首页看板 / 月度洞察
+│   ├── assetOverview.ts / manualAsset.ts  # 总资产概览 / 手动资产
+│   ├── fund.ts / exchangeRate.ts   # 基金数据 / 汇率
+│   ├── coverage.ts / expense.ts    # 分红覆盖类目 / 生活开销
+│   ├── audit.ts / metrics.ts       # 审计日志 / 指标配置
+│   └── user.ts                     # 用户信息与设置
+├── components/
+│   ├── dca/                        # 定投相关弹窗组件
+│   │   ├── DcaCreateSheet.vue      # 定投计划创建弹窗
+│   │   └── DcaExecuteSheet.vue     # 定投执行弹窗
+│   └── shared/                     # 通用组件
+│       ├── AppHeader.vue           # 顶部导航（含层级控制）
+│       ├── BottomNav.vue           # 底部导航栏
+│       ├── DividendCard.vue        # 分红卡片
+│       └── PageState.vue           # 页面状态（loading/empty/error）
 ├── router/
-│   └── index.ts            # 路由配置，meta.level 控制导航层级
+│   └── index.ts                    # 路由配置，meta.level 控制导航层级
+├── types/
+│   ├── api.ts                      # API 响应类型
+│   └── index.ts                    # 业务类型
+├── data/
+│   └── mock.ts                     # Mock 数据
+├── assets/styles/
+│   └── main.css                    # 全局样式
 ├── views/
-│   ├── home/HomePage.vue           # 首页：持仓列表 + 指标卡片，onActivated + KeepAlive
-│   ├── holding-detail/HoldingDetailPage.vue  # 持仓详情：指标仪表盘 + 三个功能入口
-│   ├── trade-add/TradeAddPage.vue            # 添加交易页（买入/卖出/送股/复投）
-│   ├── transactions/TransactionListPage.vue  # 交易明细列表 + 编辑/删除弹窗
-│   ├── dividend-records/*                    # 分红记录页
-│   └── metrics/MetricSettings.vue            # 指标设置页（实时预览，最多选6项）
-├── App.vue                # 根组件，KeepAlive + 导航栏控制
-├── main.ts                # 入口
-└── style.css              # 全局样式 + Tailwind 配置
+│   ├── home/HomePage.vue                  # 首页（level 1）：持仓列表 + 指标卡片
+│   ├── calendar/CalendarPage.vue          # 分红日历（level 1）
+│   ├── discover/DiscoverPage.vue          # 个人总资产概览（level 1）
+│   ├── profile/{ProfilePage,ToolboxPage}.vue  # 我的 + 工具箱（level 1）
+│   ├── holding-add/HoldingAddPage.vue     # 添加标的（level 2）
+│   ├── holding-detail/HoldingDetailPage.vue  # 持仓详情（level 2）
+│   ├── trade-add/TradeAddPage.vue         # 添加交易（level 2）
+│   ├── transactions/TransactionListPage.vue  # 交易明细列表（level 2）
+│   ├── dividends/DividendHistoryPage.vue  # 分红历史（level 2）
+│   ├── coverage/{CoveragePage,SettingsPage,AddExpenseModal}.vue  # 分红覆盖（level 2）
+│   ├── dca/DcaPlanDetailPage.vue          # 定投计划详情（level 2）
+│   └── metrics/MetricSettings.vue         # 指标设置（level 2，实时预览，最多选6项）
+├── App.vue                         # 根组件，KeepAlive + 导航栏控制
+├── main.ts                         # 入口
+└── env.d.ts                        # Vite 环境变量类型
 ```
 
-### 后端 (`fund-tracker-backend/src/main/java/com/fundtracker/`)
+### 后端 (`myPhonePro/fund-tracker-backend/src/main/java/com/fundtracker/`)
 ```
-├── controller/             # REST Controller 层
-│   ├── HoldingController.java
-│   ├── TransactionController.java
-│   └── ...
-├── service/
+├── FundTrackerApplication.java      # 启动入口
+├── config/                          # Spring 配置
+│   ├── AuthInterceptor.java         # Token 认证拦截器
+│   ├── CorsConfig.java              # 跨域配置
+│   ├── DataInitializer.java         # 启动时初始化种子 Token、默认用户等
+│   └── WebConfig.java               # 注册 AuthInterceptor，拦截 /api/**
+├── controller/                      # REST Controller 层（17 个）
+│   ├── AssetOverviewController.java # 总资产概览
+│   ├── AuditLogController.java      # 审计日志
+│   ├── AuthController.java          # 认证
+│   ├── CoverageCategoryController.java  # 分红覆盖类目
+│   ├── DashboardController.java     # 首页看板
+│   ├── DbBackupController.java      # 数据库备份
+│   ├── DcaPlanController.java       # 定投计划
+│   ├── DividendRecordController.java    # 分红记录
+│   ├── EventController.java         # 分红事件
+│   ├── ExchangeRateController.java  # 汇率
+│   ├── FundDividendController.java  # 基金分红数据
+│   ├── HoldingController.java       # 持仓
+│   ├── InsightController.java       # 月度洞察
+│   ├── LiveExpenseController.java   # 生活开销
+│   ├── ManualAssetController.java   # 手动资产（现金/BTC）
+│   ├── TransactionController.java   # 交易记录
+│   ├── UserController.java          # 用户信息与设置
+│   └── ValueChangeController.java   # 资产变动
+├── service/                         # 业务服务层（24 个）
 │   ├── HoldingService.java          # 持仓核心逻辑：创建/删除（物理级联）、成本重算
 │   ├── TransactionService.java      # 交易 CRUD + 份额重算（recalculateSharesFromScratch）
 │   ├── CostCalculator.java          # 三种成本算法实现
-│   └── ...
+│   ├── DcaPlanService.java          # 定投计划 + DcaScheduler 定时执行
+│   ├── EventService.java            # 分红事件生命周期
+│   ├── DividendRecordService.java   # 分红记录同步
+│   ├── DividendInfoService.java     # 分红信息查询
+│   ├── DividendEventSyncService.java    # 分红事件同步
+│   ├── FundDividendScrapeService.java   # 抓取天天基金分红数据
+│   ├── FundNavScrapeService.java    # 抓取基金净值
+│   ├── FundSearchService.java       # 基金代码搜索
+│   ├── ForecastService.java         # 分红预测
+│   ├── ManualAssetService.java      # 手动资产 + adjustCash 现金记账
+│   ├── AssetOverviewService.java    # 总资产汇总 + 快照
+│   ├── DashboardService.java        # 首页看板
+│   ├── InsightService.java          # 月度洞察
+│   ├── ValueChangeService.java      # 资产变动
+│   ├── CoverageCategoryService.java # 分红覆盖类目
+│   ├── LiveExpenseService.java      # 生活开销
+│   ├── ExchangeRateService.java     # 汇率
+│   ├── AuthService.java             # Token 发放
+│   ├── UserService.java             # 用户信息
+│   └── TradingCalendar.java         # 交易日历（读取 holidays.json）
+├── scheduler/                       # 定时任务
+│   ├── DataAuditor.java             # 每日数据审计（6 条规则）
+│   ├── DcaScheduler.java            # 定投计划定时执行
+│   └── FundDividendScheduler.java   # 基金分红数据定时同步
 ├── model/
-│   ├── entity/                      # JPA 实体
-│   │   ├── Holding.java (持仓)
-│   │   ├── Transaction.java (交易)
-│   │   └── ...
-│   ├── dto/                         # 请求/响应 DTO
-│   │   ├── CreateTransactionReq.java
-│   │   ├── UpdateTransactionReq.java
-│   │   └── ...
-│   └── enums/                       # 枚举
-│       ├── TransactionType.java (buy/sell/bonus_share/reinvest)
-│       └── CostAlgorithm.java (diluted/diluted_only/weighted_avg)
-├── repository/             # JPA Repository
+│   ├── entity/                      # JPA 实体（14 个）
+│   │   ├── Holding.java             # 持仓（含 assetCategory 字段）
+│   │   ├── Transaction.java         # 交易
+│   │   ├── DividendEvent.java       # 分红事件
+│   │   ├── FundDividendRecord.java  # 基金历史分红
+│   │   ├── FundNavRecord.java       # 基金历史净值
+│   │   ├── DcaPlan.java             # 定投计划
+│   │   ├── ManualAsset.java         # 手动资产（现金/BTC）
+│   │   ├── AssetSnapshot.java       # 每日资产快照
+│   │   ├── LiveExpense.java         # 生活开销
+│   │   ├── CoverageCategory.java    # 分红覆盖类目
+│   │   ├── ExchangeRate.java        # 汇率
+│   │   ├── UserProfile.java         # 用户信息
+│   │   ├── UserSettings.java        # 用户设置
+│   │   └── AuthToken.java           # 认证 Token
+│   ├── dto/                         # 请求/响应 DTO（40+ 个，按模块命名）
+│   └── enums/                       # 枚举（8 个）
+│       ├── TransactionType.java     # buy/sell/bonus_share/reinvest
+│       ├── CostAlgorithm.java       # diluted/diluted_only/weighted_avg
+│       ├── HoldingType.java         # fund/cny_asset/ETF/A股/港股/美股/自定义
+│       ├── EventType.java           # registration/ex_dividend/payout/announcement
+│       ├── EventStatus.java         # pending/distributed/cancelled
+│       ├── DcaFrequency.java        # daily/weekly/monthly/quarterly
+│       ├── ForecastHorizon.java     # 12m/5y
+│       └── MembershipType.java      # pro/free
+├── repository/                      # JPA Repository（14 个，与实体一一对应）
 ├── exception/
 │   ├── BusinessException.java       # 业务异常（含 holdingNotFound, transactionNotFound 等工厂方法）
 │   └── GlobalExceptionHandler.java  # 全局异常处理，BusinessException 返回 HTTP 200 + 业务 code
-└── ...
+└── resources/
+    ├── application.yml              # 配置（含 HikariCP、JVM 参数等）
+    ├── holidays.json                # 节假日数据（TradingCalendar 读取）
+    └── logback-spring.xml           # 日志配置
 ```
 
 ### 数据库 (`fund_tracker`)
 ```
-holdings          # 持仓表（当前 1 条正常数据）
-transactions      # 交易记录表
-dividend_events   # 用户自定义分红事件
-fund_dividend_records  # 基金历史分红数据
-fund_nav_records       # 基金历史净值数据
+# 持仓与交易
+holdings                  # 持仓（含 asset_category 字段）
+transactions              # 交易记录
+
+# 分红
+dividend_events           # 用户自定义分红事件
+fund_dividend_records     # 基金历史分红数据
+
+# 净值与汇率
+fund_nav_records          # 基金历史净值
+exchange_rates            # 汇率
+
+# 定投与现金
+dca_plans                 # 定投计划
+manual_assets             # 手动资产（现金/BTC）
+live_expenses             # 生活开销
+
+# 资产概览
+asset_snapshots           # 每日总资产快照
+coverage_categories       # 分红覆盖类目
+
+# 用户与认证
+user_profiles             # 用户信息
+user_settings             # 用户设置
+auth_tokens               # 认证 Token
 ```
 
 ## 关键业务规则
@@ -140,9 +257,10 @@ fund_nav_records       # 基金历史净值数据
 4. **成本算法前后端不匹配**：前端必须发送 `diluted` / `diluted_only` / `weighted_avg` 三个枚举值之一，不能使用 `undiluted` 或中文值。
 
 ## 认证机制
-- 后端使用基于固定 Token 的 HandlerInterceptor 认证（无 Spring Security）
+- 后端使用基于数据库 Token 的 HandlerInterceptor 认证（无 Spring Security）
 - `AuthInterceptor` 拦截 `/api/**`，白名单：`/api/auth/*`、`/api/funds/*`、`/api/holdings/dividend-info`
-- 固定 Token：`dev-token-2024`（配置文件 `application.yml` 中定义）
+- Token 存储在 `auth_tokens` 表，由 `DataInitializer` 在启动时初始化种子 Token `dev-token-2024`
+- 拦截器通过 `authTokenRepository.findByTokenAndActiveTrue(token)` 校验 Token 有效性 + 过期时间
 - 前端 `request.ts` 启动时自动调用 `GET /api/auth/token` 获取 Token 并存入 localStorage
 - 401 时自动重新获取 Token 并刷新页面
 

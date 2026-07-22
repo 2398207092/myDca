@@ -87,6 +87,10 @@ async function loadData() {
 
 onActivated(loadData)
 
+function goToHistory() {
+  router.push({ name: 'asset-history' })
+}
+
 // DCA plans overview
 const dcaPlans = ref<DcaPlanVO[]>([])
 
@@ -401,12 +405,18 @@ async function doDelete() {
         <!-- Header: label left, label · arrow right -->
         <div class="flex items-center justify-between mb-1">
           <span class="font-body text-xs text-text-tertiary">总资产 (元)</span>
-          <span class="flex items-center gap-1 font-body text-xs text-text-tertiary/40 group cursor-pointer"
-                @click="showValueDetail = true">
-            <span class="group-hover:text-text-tertiary/80 transition-colors">点击查看明细</span>
-            <span class="group-hover:text-text-tertiary/80 transition-colors">·</span>
-            <span class="text-[17px] leading-none group-hover:text-text-primary transition-colors">›</span>
-          </span>
+          <div class="flex items-center gap-3">
+            <button class="flex items-center gap-1 font-body text-xs text-text-tertiary/40 group"
+                    @click="goToHistory">
+              <span class="material-symbols-outlined text-[14px] group-hover:text-text-tertiary/80 transition-colors">history</span>
+              <span class="group-hover:text-text-tertiary/80 transition-colors">资产历史</span>
+            </button>
+            <span class="flex items-center gap-1 font-body text-xs text-text-tertiary/40 group cursor-pointer"
+                  @click="showValueDetail = true">
+              <span class="group-hover:text-text-tertiary/80 transition-colors">明细</span>
+              <span class="text-[17px] leading-none group-hover:text-text-primary transition-colors">›</span>
+            </span>
+          </div>
         </div>
 
         <!-- Total assets centered -->

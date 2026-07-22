@@ -15,7 +15,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.1
         with:
           host: 8.137.19.116
-          username: root
+          username: admin
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             set -e

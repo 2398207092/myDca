@@ -122,7 +122,7 @@ AuthToken
 1. 单用户设计，无多用户支持
 2. Service 职责过重（HoldingService 承担太多）
 3. 无接口幂等性保证
-4. 硬编码配置（Token、数据库密码、外部 URL）
+4. 认证 Token 硬编码（`dev-token-2024`），数据库密码已改为环境变量
 5. 类型定义分散重复
 6. 无单元测试和集成测试
 7. 前端无全局 loading/error 处理
@@ -130,7 +130,16 @@ AuthToken
 
 ---
 
-## 九、快速启动
+## 九、部署
+
+- 服务器: `8.137.19.116` (阿里云 2C2G)
+- SSH: `ssh admin@8.137.19.116`
+- 数据库: MySQL 8.0, 用户 `fundapp`, 库 `fund_tracker`
+- 后端: Java 17 `-Xmx384m -Xms256m`, systemd 服务 `fund-tracker`
+- Nginx: aa_nginx, 80 端口 → 前端静态文件 + `/api/` 代理到 8080
+- GitHub Actions: `deploy.yml` 自动部署前端 dist
+
+## 十、快速启动
 
 ```bash
 # 前端

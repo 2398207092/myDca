@@ -20,7 +20,7 @@
 | 层级 | 技术 |
 |------|------|
 | 后端 | Spring Boot 3.2 + MySQL 8 |
-| 前端 | Vue 3 + Vite + Tailwind CSS + Ionic |
+| 前端 | Vue 3 + Vite + Tailwind CSS + Material Symbols |
 | 部署 | 阿里云服务器 + GitHub Actions CI/CD |
 
 ---
@@ -44,9 +44,8 @@ myDca/
 │   ├── src/main/java/...                # Spring Boot 后端
 │   └── stitch_fund_dividend_tracker/    # Vue 前端
 ├── docs/                                # 文档
-│   ├── 财务算法分析报告.md
-│   ├── 功能提案_现金计算器与自动记账.md
-│   └── proposals/
+│   ├── project-quick-reference.md        # 项目速查表
+│   └── 财务算法分析报告.md
 ├── .github/workflows/                   # CI/CD
 │   ├── deploy.yml                        # 前端自动部署
 │   └── db-backup.yml                     # 数据库备份

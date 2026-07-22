@@ -88,6 +88,12 @@ const router = createRouter({
       component: () => import('@/views/dca/DcaPlanDetailPage.vue'),
       meta: { level: 2 },
     },
+    {
+      path: '/asset-history',
+      name: 'asset-history',
+      component: () => import('@/views/asset-history/AssetHistoryPage.vue'),
+      meta: { level: 2 },
+    },
   ],
 })
 

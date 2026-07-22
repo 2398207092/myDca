@@ -46,3 +46,10 @@ stop.bat
 # docs/  # temporarily disabled to track algorithm docs
 overview.md
 *.bat
+
+# AI 需求文档（仅供 AI 会话使用，不提交）
+后端AI交代词.md
+后端开发需求-持仓资产历史记录.md
+
+# 原型目录（设计稿，不提交）
+fund-tracker-discover-history/
