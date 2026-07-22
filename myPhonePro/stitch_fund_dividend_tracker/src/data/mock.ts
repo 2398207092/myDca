@@ -73,6 +73,7 @@ export const mockEvents: DividendEvent[] = [
     amount: 350,
     status: 'pending',
     description: '预计到账 350.00 元',
+    participated: false,
   },
   {
     id: 'e2',
@@ -83,6 +84,7 @@ export const mockEvents: DividendEvent[] = [
     amount: 0,
     status: 'pending',
     description: '发布2024年三季度分红预告',
+    participated: false,
   },
   {
     id: 'e3',
@@ -93,6 +95,7 @@ export const mockEvents: DividendEvent[] = [
     amount: 0,
     status: 'pending',
     description: '股权登记日',
+    participated: false,
   },
   {
     id: 'e4',
@@ -103,6 +106,7 @@ export const mockEvents: DividendEvent[] = [
     amount: 0,
     status: 'pending',
     description: '除权除息日',
+    participated: false,
   },
   {
     id: 'e5',
@@ -113,6 +117,7 @@ export const mockEvents: DividendEvent[] = [
     amount: 0,
     status: 'pending',
     description: '除权除息日',
+    participated: false,
   },
   {
     id: 'e6',
@@ -123,6 +128,7 @@ export const mockEvents: DividendEvent[] = [
     amount: 0,
     status: 'pending',
     description: '股权登记日',
+    participated: false,
   },
 ]
 

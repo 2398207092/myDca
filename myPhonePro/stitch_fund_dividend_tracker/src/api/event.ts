@@ -9,6 +9,7 @@ export interface DividendEventItem {
   amount: number
   status: string
   description: string
+  participated: boolean
 }
 
 export interface CreateEventReq {

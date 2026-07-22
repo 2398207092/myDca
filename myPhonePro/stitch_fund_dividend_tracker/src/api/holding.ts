@@ -22,6 +22,7 @@ export interface HoldingItem {
   reinvestRecoveryYears: number
   color: string
   assetCategory?: string
+  dividendReinvest?: boolean
 }
 
 export interface CreateHoldingReq {
