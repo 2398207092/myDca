@@ -342,8 +342,8 @@ public class HoldingSnapshotService {
             }
         }
 
-        // IRR 边界检查
-        if (txList.size() < 2 || holdingDays < 1) {
+        // IRR 边界检查：少于 2 笔交易、或持有不足 7 天（年化意义不大）
+        if (txList.size() < 2 || holdingDays < 7) {
             return AnnualizedReturnDTO.builder()
                     .holdingId(holdingId)
                     .annualizedReturn(null)
@@ -402,8 +402,35 @@ public class HoldingSnapshotService {
         double irr = calculateIRR(cashflows.stream().mapToDouble(Double::doubleValue).toArray(),
                 timeWeights.stream().mapToDouble(Double::doubleValue).toArray());
 
+        // IRR 未收敛（无解或现金流结构异常）→ 返回 null
+        if (Double.isNaN(irr)) {
+            return AnnualizedReturnDTO.builder()
+                    .holdingId(holdingId)
+                    .annualizedReturn(null)
+                    .totalInvested(totalInvested)
+                    .totalWithdrawn(totalWithdrawn)
+                    .currentValue(currentValue)
+                    .holdingDays(holdingDays)
+                    .firstTransactionDate(firstDate)
+                    .irr(null)
+                    .build();
+        }
+
         // 年化收益率 = (1 + irr)^(365/holdingDays) - 1
         double annualized = Math.pow(1 + irr, 365.0 / holdingDays) - 1;
+        // 合理性保护：年化超出 [-95%, 1000%] 视为异常（如短期负收益被指数放大到 -100%）
+        if (annualized < -0.95 || annualized > 10.0) {
+            return AnnualizedReturnDTO.builder()
+                    .holdingId(holdingId)
+                    .annualizedReturn(null)
+                    .totalInvested(totalInvested)
+                    .totalWithdrawn(totalWithdrawn)
+                    .currentValue(currentValue)
+                    .holdingDays(holdingDays)
+                    .firstTransactionDate(firstDate)
+                    .irr(null)
+                    .build();
+        }
         BigDecimal annualizedPct = BigDecimal.valueOf(annualized * 100).setScale(2, RoundingMode.HALF_UP);
         BigDecimal irrBd = BigDecimal.valueOf(irr).setScale(6, RoundingMode.HALF_UP);
 
@@ -423,19 +450,25 @@ public class HoldingSnapshotService {
      * 二分法求解 IRR。
      * @param cashflows 现金流数组，正数=流入，负数=流出
      * @param timeWeights 时间权重数组（年为单位，t=0 表示第一笔）
-     * @return IRR 原始值，如 0.0567 表示 5.67%
+     * @return IRR 原始值，如 0.0567 表示 5.67%；若未收敛返回 Double.NaN
      */
     private double calculateIRR(double[] cashflows, double[] timeWeights) {
-        double low = -0.99, high = 10.0, mid = 0;
+        double low = -0.999, high = 10.0, mid = 0;
+        double lastNpv = 0;
         for (int i = 0; i < 100; i++) {
             mid = (low + high) / 2;
             double npv = 0;
             for (int j = 0; j < cashflows.length; j++) {
                 npv += cashflows[j] / Math.pow(1 + mid, timeWeights[j]);
             }
+            lastNpv = npv;
             if (Math.abs(npv) < 0.01) break;
             if (npv > 0) low = mid;
             else high = mid;
+        }
+        // 收敛性检查：100 次迭代后 NPV 仍显著偏离 0，说明 IRR 无解或不稳定
+        if (Math.abs(lastNpv) > 0.01) {
+            return Double.NaN;
         }
         return mid;
     }
