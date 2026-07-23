@@ -132,8 +132,8 @@ AuthToken
 
 ## 九、部署
 
-- 服务器: `8.137.19.116` (阿里云 2C2G)
-- SSH: `ssh admin@8.137.19.116`
+- 服务器: 阿里云 2C2G（IP 存于 GitHub Secrets `SERVER_HOST` 或本地环境变量）
+- SSH: `ssh admin@${SERVER_HOST}`
 - 数据库: MySQL 8.0, 用户 `fundapp`, 库 `fund_tracker`
 - 后端: Java 17 `-Xmx384m -Xms256m`, systemd 服务 `fund-tracker`
 - Nginx: aa_nginx, 80 端口 → 前端静态文件 + `/api/` 代理到 8080

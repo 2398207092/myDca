@@ -38,13 +38,19 @@ public class DividendEventSyncService {
      */
     @Transactional
     public int syncEventsForFund(String fundCode) {
+        List<Holding> holdings = holdingRepository.findByCodeAndDeletedFalse(fundCode);
         List<FundDividendRecord> records = fundDividendRecordRepository.findByFundCodeOrderByExDateDesc(fundCode);
         if (records.isEmpty()) {
-            log.info("基金 {} 无分红记录，跳过同步", fundCode);
+            log.info("基金 {} 无分红记录，清理旧事件", fundCode);
+            for (Holding holding : holdings) {
+                int deleted = dividendEventRepository.deleteByHoldingId(holding.getId());
+                if (deleted > 0) {
+                    log.info("清理持仓 {} 的 {} 条旧分红事件", holding.getName(), deleted);
+                }
+            }
             return 0;
         }
 
-        List<Holding> holdings = holdingRepository.findByCodeAndDeletedFalse(fundCode);
         if (holdings.isEmpty()) {
             log.info("基金 {} 无有效持仓，跳过同步", fundCode);
             return 0;

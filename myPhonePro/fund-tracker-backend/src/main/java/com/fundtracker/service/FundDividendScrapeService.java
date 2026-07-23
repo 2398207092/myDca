@@ -34,6 +34,8 @@ public class FundDividendScrapeService {
 
     private static final String FHSP_URL = "https://fundf10.eastmoney.com/fhsp_%s.html";
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    // 拒绝明显不合理的历史分红日期（基金代码可能被复用，导致抓取到前一只基金的数据）
+    private static final LocalDate MIN_VALID_EX_DATE = LocalDate.of(2022, 1, 1);
 
     /**
      * 抓取指定基金的全部分红数据（增量更新）
@@ -393,7 +395,7 @@ public class FundDividendScrapeService {
                 BigDecimal perShare = parseBigDecimal(cellText);
                 LocalDate payDate = parseDate(cells.get(4).text());
 
-                if (exDate == null) continue;
+                if (exDate == null || exDate.isBefore(MIN_VALID_EX_DATE) || exDate.isAfter(LocalDate.now())) continue;
 
                 FundDividendRecord record = FundDividendRecord.builder()
                         .fundCode(fundCode)

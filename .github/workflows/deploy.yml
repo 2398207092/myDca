@@ -33,7 +33,7 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: 8.137.19.116
+          host: ${{ secrets.SERVER_HOST }}
           username: admin
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: 'myPhonePro/stitch_fund_dividend_tracker/dist/'
@@ -44,7 +44,7 @@ jobs:
       - name: Reload Nginx
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: 8.137.19.116
+          host: ${{ secrets.SERVER_HOST }}
           username: admin
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: sudo aa_nginx -s reload

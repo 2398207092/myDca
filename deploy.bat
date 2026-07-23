@@ -9,6 +9,14 @@ echo.
 
 cd /d "%~dp0"
 
+REM 从环境变量读取服务器 IP（防止敏感信息硬编码进 Git）
+if "%SERVER_HOST%"=="" (
+    echo [ERROR] SERVER_HOST environment variable not set.
+    echo Please set it in your user environment variables.
+    pause
+    exit /b 1
+)
+
 echo [1/4] Checking changes...
 echo.
 git status
@@ -36,7 +44,7 @@ echo Push OK!
 echo.
 echo [4/4] Deploying on server...
 echo.
-ssh admin@8.137.19.116 "cd ~ && ./deploy.sh"
+ssh admin@%SERVER_HOST% "cd ~ && ./deploy.sh"
 if %errorlevel% neq 0 (
     echo [ERROR] Server deploy failed!
     pause
@@ -45,7 +53,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo ============================================
-echo   All done! Refresh http://8.137.19.116
+echo   All done! Refresh http://%SERVER_HOST%
 echo ============================================
 echo.
 pause
