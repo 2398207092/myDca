@@ -32,7 +32,7 @@ public class DataInitializer implements CommandLineRunner {
                     .active(true)
                     .build();
             authTokenRepository.save(token);
-            System.out.println(">>> 已初始化默认 AuthToken: " + configuredToken);
+            System.out.println(">>> 已初始化默认 AuthToken (length=" + configuredToken.length() + ")");
         }
     }
 }

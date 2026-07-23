@@ -122,7 +122,7 @@ AuthToken
 1. 单用户设计，无多用户支持
 2. Service 职责过重（HoldingService 承担太多）
 3. 无接口幂等性保证
-4. 认证 Token 硬编码（`dev-token-2024`），数据库密码已改为环境变量
+4. 认证 Token 通过环境变量 `APP_AUTH_TOKEN` 注入（旧版种子 Token `dev-token-xxxx` 已废弃），数据库密码已改为环境变量
 5. 类型定义分散重复
 6. 无单元测试和集成测试
 7. 前端无全局 loading/error 处理

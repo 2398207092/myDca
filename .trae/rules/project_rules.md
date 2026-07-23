@@ -259,7 +259,7 @@ auth_tokens               # 认证 Token
 ## 认证机制
 - 后端使用基于数据库 Token 的 HandlerInterceptor 认证（无 Spring Security）
 - `AuthInterceptor` 拦截 `/api/**`，白名单：`/api/auth/*`、`/api/funds/*`、`/api/holdings/dividend-info`
-- Token 存储在 `auth_tokens` 表，由 `DataInitializer` 在启动时初始化种子 Token `dev-token-2024`
+- Token 存储在 `auth_tokens` 表，由 `DataInitializer` 在启动时初始化种子 Token（值由环境变量 `APP_AUTH_TOKEN` 注入，旧版 `dev-token-xxxx` 已废弃）
 - 拦截器通过 `authTokenRepository.findByTokenAndActiveTrue(token)` 校验 Token 有效性 + 过期时间
 - 前端 `request.ts` 启动时自动调用 `GET /api/auth/token` 获取 Token 并存入 localStorage
 - 401 时自动重新获取 Token 并刷新页面

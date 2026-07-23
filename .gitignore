@@ -26,6 +26,16 @@ Thumbs.db
 .env
 .env.local
 
+# Spring 本地配置（含真实 SMTP/DB 凭证）
+application-local.yml
+application-local.properties
+
+# 日志/归档
+*.zip
+*.tar.gz
+*.tar
+actions_logs_tmp/
+
 # Temp
 temp/
 cookie.txt
