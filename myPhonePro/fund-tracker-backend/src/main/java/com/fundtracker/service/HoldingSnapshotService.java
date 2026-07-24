@@ -57,7 +57,7 @@ public class HoldingSnapshotService {
     // ======================================================================
 
     /**
-     * 为所有未删除持仓生成今日快照。幂等：同一天同持仓不重复生成。
+     * 为所有未删除持仓生成今日快照。若当天已有快照，先删除再重建。
      */
     @Transactional
     public void snapshotAllHoldings() {
@@ -70,12 +70,14 @@ public class HoldingSnapshotService {
         // 当前总资产 = Σ持仓市值 + 现金 + BTC
         BigDecimal totalValue = computeTotalValue(holdings);
 
+        // 先清理当天旧快照（覆盖模式）
+        int deleted = holdingSnapshotRepository.deleteBySnapshotDate(today);
+        if (deleted > 0) {
+            log.info("已清理 {} 条今日快照", deleted);
+        }
+
         int created = 0;
         for (Holding h : holdings) {
-            // 幂等检查
-            if (holdingSnapshotRepository.findByHoldingIdAndSnapshotDate(h.getId(), today).isPresent()) {
-                continue;
-            }
             BigDecimal costBasis = h.getNetInvestment() == null ? BigDecimal.ZERO : h.getNetInvestment();
             BigDecimal marketValue = h.getMarketValue() == null ? BigDecimal.ZERO : h.getMarketValue();
             BigDecimal profitLoss = marketValue.subtract(costBasis);

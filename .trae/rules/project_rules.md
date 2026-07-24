@@ -28,6 +28,72 @@ powershell -ExecutionPolicy Bypass -Command "cd 'myPhonePro/stitch_fund_dividend
 ## 缓存/编译注意事项
 - 后端如果修改了 Repository 方法签名（如 `void` → `int`），需要 `mvn clean compile` 强制重新编译，否则 Spring Boot 运行时抛出 `Unresolved compilation problems`（利用了旧 .class 文件）
 - 前端 `<KeepAlive>` 缓存组件后，Vite HMR 可能无法正确热更新生命周期钩子（如 `onMounted` → `onActivated`），需要浏览器硬刷新
+- PowerShell 不支持 heredoc 语法（`<<'EOF'`），`git commit` 多行 message 用单行 `-m` 或写临时文件
+- PowerShell 脚本执行需 `-ExecutionPolicy Bypass`，嵌套调用时 `$` 变量会被外层吃掉，复杂脚本写到 `.ps1` 文件用 `-File` 参数执行
+
+## 敏感信息安全（硬约束，最高优先级）
+
+### 禁止硬编码
+- DB 密码、服务器 IP、邮箱授权码、API Token、私钥、手机号、AK/SK **一律不得出现在源码、commit message、注释、文档中**
+- 历史泄露已发生：MySQL 密码 `990428`/`MyFund@2026!`、服务器 IP `8.137.19.116`、邮箱授权码 `yduhefyykskiebdh`、`dev-token-2024` 曾被推送到 GitHub，虽已失效但不可重蹈覆辙
+
+### 必须用环境变量占位符
+`application.yml` 中所有敏感配置使用 `${VAR_NAME:DEFAULT}` 格式，默认值必须是无意义占位符（如 `CHANGE_ME`），非敏感默认值可用真实值（如 `fundapp`）：
+
+| 配置项 | 变量名 | 用途 |
+|--------|--------|------|
+| `spring.datasource.password` | `DB_PASSWORD` | 数据库密码 |
+| `spring.datasource.username` | `DB_USERNAME` | 数据库用户名（默认 `fundapp`）|
+| `spring.datasource.url` | `DB_URL` | JDBC 连接串 |
+| `app.auth.token` | `APP_AUTH_TOKEN` | 认证 Token |
+
+GitHub Actions 通过 Secrets 注入：
+- `SERVER_HOST` - 服务器 IP
+- `SERVER_SSH_KEY` - SSH 私钥
+- `DB_MYSQL_PASSWORD` - MySQL root 密码（备份用）
+- `DB_BACKUP_REPO` - 备份仓库 git 地址
+
+### .gitignore 必须覆盖
+```
+application-local.yml          # Spring 本地配置（含真实 SMTP/DB 凭证）
+application-local.properties
+*.zip / *.tar.gz / *.tar       # 日志/归档（曾导致 actions_logs.zip 被跟踪）
+actions_logs_tmp/
+```
+
+### 日志禁止打印
+- Token 明文、密码明文、授权码明文
+- `DataInitializer` 只能打印 `length=` 或脱敏前缀，不得 `println(configuredToken)`
+- `System.out.println` 在生产代码中慎用，优先用 SLF4J logger 并脱敏
+
+### 本地真实凭证
+- 放 `application-local.yml`（Spring Profile `local`），通过 `--spring.profiles.active=local` 激活
+- 该文件**必须**被 `.gitignore` 覆盖，永不入 git
+
+## 服务器安全加固（部署基线）
+
+### MySQL
+- `bind-address = 127.0.0.1`（禁止外网访问）
+- `mysqlx = OFF`（禁用 X Protocol 33060 端口）
+- 应用账号 `fundapp` 仅授权 `fund_tracker.*`，备份用 root 仅本地执行
+
+### firewalld
+封禁端口外网访问：`3306`（MySQL）、`8080`（后端）、`8888`（宝塔）、`33060`（MySQL X）
+仅开放 `22`（SSH）、`80/443`（Nginx）
+
+### SSH
+- `PermitRootLogin no`（禁 root 登录）
+- 优先用密钥认证
+- fail2ban：5 次失败登录 / 10 分钟内封禁 IP
+
+### systemd
+- `override.conf` 存放环境变量（`DB_PASSWORD`、`APP_AUTH_TOKEN` 等）
+- 文件权限 `600`，路径 `/etc/systemd/system/fund-tracker.service.d/override.conf`
+- 修改后执行 `sudo systemctl daemon-reload && sudo systemctl restart fund-tracker`
+
+### Workbench / 数据库连接
+- MySQL 已绑定 127.0.0.1，**禁止外网直连 3306**
+- Workbench 走 SSH 隧道（Standard TCP/IP over SSH）：SSH Host=服务器IP:22, MySQL Host=127.0.0.1, MySQL Port=3306
 
 ## 服务器性能配置（2核 2G）
 - **HikariCP 连接池**：`maximum-pool-size: 5`、`minimum-idle: 2`、`connection-timeout: 5000`、`idle-timeout: 300000`（`application.yml` 中 `spring.datasource.hikari`）
@@ -246,6 +312,24 @@ auth_tokens               # 认证 Token
 ### 交易总金额模式
 用户输入的是总金额（如 ¥1,230），前端计算 `perSharePrice = totalAmount / quantity` 后发送给后端。
 
+### 基金分红爬虫防伪规则（重要！）
+基金代码可能被复用（如 `016452` 曾是其他基金，后被纳指100复用），爬虫会拿到旧基金的分红数据，必须按日期严格过滤：
+
+- `FundDividendScrapeService` 抓取分红记录时**必须跳过**：
+  - `exDate < 基金成立日期`（旧基金遗留数据）
+  - `exDate > 今天`（未来异常数据）
+- `DividendEventSyncService` 在分红记录被清空时，**必须级联清理**已同步的旧 `DividendEvent`，避免脏事件残留
+- 历史案例：纳指100（016452）因未过滤，曾出现 12 条假分红记录，导致分红率显示异常
+
+### 年化收益率三层保护（HoldingSnapshotService）
+计算年化收益率时必须有三层保护，避免出现 -100% 等异常值：
+
+1. **持有天数阈值**：`holdingDays < 7` 返回 `null`（避免短期波动失真）
+2. **IRR 收敛检查**：100 次迭代后 `|NPV| > 0.01` 返回 `null`（未收敛，结果不可信）
+3. **结果钳制**：年化结果超出 `[-95%, 1000%]` 返回 `null`（异常值，不展示）
+
+任何一层不通过都返回 `null`，前端显示「—」或「持有时间过短」等提示。
+
 ## 常见问题处理
 
 1. **"持仓不存在"错误**：App.vue 的 KeepAlive 缓存导致切换不同持仓时不重新挂载组件。修复：使用 `watch(() => route.params.id, ...)` 监听路由变化。
@@ -263,6 +347,31 @@ auth_tokens               # 认证 Token
 - 拦截器通过 `authTokenRepository.findByTokenAndActiveTrue(token)` 校验 Token 有效性 + 过期时间
 - 前端 `request.ts` 启动时自动调用 `GET /api/auth/token` 获取 Token 并存入 localStorage
 - 401 时自动重新获取 Token 并刷新页面
+
+### Token 生命周期（DataInitializer + AuthService 双层兜底）
+- **DataInitializer（启动时）**：检查 `auth_tokens` 是否有 `active=true` 记录，无则用 `${APP_AUTH_TOKEN}` 插入新 Token。**若已有活跃 Token，不会插入新的**——这是切换 Token 时的关键陷阱
+- **AuthService（运行时兜底）**：`GET /api/auth/token` 接口在数据库无活跃 Token 时兜底生成：
+  - `APP_AUTH_TOKEN` 配置为真实值（非 `CHANGE_ME`/非空）→ 使用配置值
+  - 未配置或为 `CHANGE_ME` → 生成 `SecureRandom` 随机 Token（前缀 `ftk_` + 64 位 hex）
+  - **禁止**再用 `dev-token-` 弱前缀兜底
+- **日志脱敏**：`DataInitializer` 只能打印 `length=` 或脱敏前缀，不得 `println(configuredToken)`
+
+### 切换 Token 的标准操作流程（重要！）
+更换生产环境 Token 时**必须按顺序执行**，否则 DataInitializer 检测到活跃 Token 不会插入新的：
+
+1. 服务器更新 systemd `override.conf` 中的 `APP_AUTH_TOKEN` 环境变量
+2. `sudo systemctl daemon-reload`
+3. **让旧 Token 失效**（关键步骤）：
+   ```bash
+   mysql -u fundapp -p fund_tracker -e "UPDATE auth_tokens SET active = 0 WHERE token = '旧Token值';"
+   ```
+4. `sudo systemctl restart fund-tracker` → DataInitializer 检测到无活跃 Token，用新 `APP_AUTH_TOKEN` 插入
+5. 验证：`curl http://localhost:8080/api/auth/token` 应返回新 Token
+
+### 前端缓存兼容
+- 用户浏览器 localStorage 缓存旧 Token，切换后会 401 一次
+- `request.ts` 自动重新获取 Token 并刷新页面，无需用户操作
+- 若连续 401 不刷新：让用户清浏览器缓存或 Ctrl+F5 硬刷新
 
 ## 个人总资产概览（发现页面）
 `/discover` 页面是一个**个人总资产 dashboard**，汇总 5 类资产：
@@ -319,3 +428,30 @@ auth_tokens               # 认证 Token
 ## 前后端交互
 - 响应格式：统一 `ApiResponse<T>`，业务成功 `json.code === 200`，业务异常 `json.code !== 200` + `json.message`
 - 异常处理：`BusinessException` 返回 HTTP 200 + 业务 code，由前端根据 code 判断
+
+## 部署流程
+
+### 前端（自动化）
+- 推送 `main` 分支 → GitHub Actions `deploy.yml` 自动触发
+- 流程：`npm ci` → `npm run build` → scp 上传 `dist/` 到 `/www/wwwroot/fund-tracker/www/` → `sudo aa_nginx -s reload`
+- 本地一键部署脚本：`deploy.bat`（需设置 `SERVER_HOST` 环境变量）
+
+### 后端（手动）
+`deploy.sh` 只重启旧 JAR，**不会重新构建**。后端变更部署完整流程：
+
+1. 本地打包：`cd myPhonePro/fund-tracker-backend && mvn clean package -DskipTests`
+2. 上传 JAR：`scp target/fund-tracker-*.jar admin@${SERVER_HOST}:/home/admin/fund-tracker.jar`
+3. 服务器重启：`ssh admin@${SERVER_HOST} "cd ~ && ./deploy.sh"`
+4. 验证：`ssh admin@${SERVER_HOST} "sudo systemctl status fund-tracker --no-pager"`
+
+**环境变量变更时**（如修改 `APP_AUTH_TOKEN`、`DB_PASSWORD`）：
+- 先改 `/etc/systemd/system/fund-tracker.service.d/override.conf`
+- `sudo systemctl daemon-reload`
+- 若改了 `APP_AUTH_TOKEN`，需先让旧 Token 失效（见「认证机制」章节）
+- `sudo systemctl restart fund-tracker`
+
+### 数据库备份（自动化）
+- GitHub Actions `db-backup.yml` 每天 UTC 02:00（北京时间 10:00）自动执行
+- 流程：`mysqldump` 导出 → gzip 压缩 → 推送到私有备份仓库
+- 保留策略：备份仓库保留 30 天，`/tmp` 保留 3 天
+- 依赖 Secrets：`SERVER_HOST`、`SERVER_SSH_KEY`、`DB_MYSQL_PASSWORD`、`DB_BACKUP_REPO`

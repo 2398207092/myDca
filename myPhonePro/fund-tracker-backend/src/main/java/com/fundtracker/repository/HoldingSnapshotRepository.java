@@ -21,6 +21,9 @@ public interface HoldingSnapshotRepository extends JpaRepository<HoldingSnapshot
     // 查某日期的所有快照
     List<HoldingSnapshot> findBySnapshotDate(LocalDate date);
 
+    // 删除某日期的所有快照（覆盖模式用）
+    int deleteBySnapshotDate(LocalDate date);
+
     // 查某日期之后的所有快照（用于总资产走势）
     List<HoldingSnapshot> findBySnapshotDateAfterOrderBySnapshotDateAsc(LocalDate date);
 

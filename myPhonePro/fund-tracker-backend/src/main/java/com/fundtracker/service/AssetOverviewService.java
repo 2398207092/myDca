@@ -146,11 +146,11 @@ public class AssetOverviewService {
     @Transactional
     public void snapshotToday() {
         LocalDate today = LocalDate.now();
-        // 避免重复快照
-        if (assetSnapshotRepository.findByDate(today).isPresent()) {
-            log.info("今日快照已存在，跳过");
-            return;
-        }
+        // 先删除当天旧快照（覆盖模式）
+        assetSnapshotRepository.findByDate(today).ifPresent(s -> {
+            assetSnapshotRepository.delete(s);
+            log.info("已删除今日旧快照");
+        });
 
         AssetOverviewDTO overview = getOverview();
 

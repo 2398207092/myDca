@@ -85,6 +85,25 @@ async function loadData() {
   }
 }
 
+/** 静默刷新全部数据（不显示 loading 状态），用于编辑后的增量刷新 */
+async function silentRefresh() {
+  try {
+    const [ov, holdings, manualAssets, vc] = await Promise.all([
+      getAssetOverview(),
+      listHoldings(),
+      listManualAssets(),
+      getValueChange(),
+    ])
+    overview.value = ov
+    allHoldings.value = holdings
+    allManualAssets.value = manualAssets
+    valueChange.value = vc
+    loadDcaPlans()
+  } catch (e: any) {
+    console.error('静默刷新失败:', e)
+  }
+}
+
 onActivated(loadData)
 
 function goToHistory() {
@@ -197,9 +216,9 @@ async function saveBatchCategory() {
   try {
     const uncat = uncategorizedHoldings()
     await Promise.all(uncat.map(h => updateHoldingCategory(h.id, batchCategory.value)))
-    // Reload everything
-    await loadData()
-    showBatchCatSheet.value = false
+      // Reload everything silently
+      await silentRefresh()
+      showBatchCatSheet.value = false
   } catch (e: any) {
     console.error('批量分类失败:', e)
   } finally {
@@ -228,9 +247,8 @@ async function saveCategory() {
     const idx = allHoldings.value.findIndex(h => h.id === updated.id)
     if (idx >= 0) allHoldings.value[idx] = { ...allHoldings.value[idx], ...updated }
     showCatSheet.value = false
-    // Refresh overview to recalculate
-    const ov = await getAssetOverview()
-    overview.value = ov
+    // Refresh all data silently
+    await silentRefresh()
   } catch (e: any) {
     console.error('保存分类失败:', e)
   } finally {
@@ -302,9 +320,8 @@ async function saveAsset() {
       allManualAssets.value.push(created)
     }
     showAssetSheet.value = false
-    // Refresh overview
-    const ov = await getAssetOverview()
-    overview.value = ov
+    // Refresh all data silently
+    await silentRefresh()
   } catch (e: any) {
     console.error('保存资产失败:', e)
   } finally {
@@ -324,8 +341,8 @@ async function doDelete() {
     await deleteManualAsset(deletingAssetId.value)
     allManualAssets.value = allManualAssets.value.filter(a => a.id !== deletingAssetId.value)
     showDeleteConfirm.value = false
-    const ov = await getAssetOverview()
-    overview.value = ov
+    // Refresh all data silently
+    await silentRefresh()
   } catch (e: any) {
     console.error('删除失败:', e)
   }
