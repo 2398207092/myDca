@@ -46,8 +46,8 @@ public class FundDividendScheduler {
             log.info("需要刷新 {} 只基金的分红数据", fundCodes.size());
             int total = scrapeService.scrapeMultiple(fundCodes);
 
-            // 抓取完成后同步分红事件到日历
-            int synced = dividendEventSyncService.syncAllEvents();
+            // 抓取完成后同步分红事件到日历（定时任务无 userId，传 null 由内部从持仓获取）
+            int synced = dividendEventSyncService.syncAllEvents(null);
             log.info("===== 定时刷新完成，新增 {} 条分红记录，同步 {} 条分红事件 =====", total, synced);
             return total;
 

@@ -26,19 +26,15 @@ public class AuthInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        // /api/auth/* 无需认证
         String path = request.getRequestURI();
+
+        // /api/auth/* 无需认证（登录、注册、发验证码等）
         if (path.startsWith("/api/auth/")) {
             return true;
         }
 
-        // /api/funds/* 无需认证（分红数据刷新接口）
+        // /api/funds/* 无需认证（基金数据刷新接口）
         if (path.startsWith("/api/funds/")) {
-            return true;
-        }
-
-        // /api/holdings/dividend-info 无需认证（添加持仓时查询分红信息）
-        if (path.startsWith("/api/holdings/dividend-info")) {
             return true;
         }
 
@@ -61,12 +57,21 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
 
+        AuthToken validToken = authToken.get();
+
         // 检查是否过期
-        if (authToken.get().getExpiresAt() != null && authToken.get().getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (validToken.getExpiresAt() != null && validToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            validToken.setActive(false);
+            authTokenRepository.save(validToken);
             response.setStatus(401);
             response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":401,\"message\":\"Token 已过期\",\"data\":null}");
+            response.getWriter().write("{\"code\":401,\"message\":\"Token 已过期，请重新登录\",\"data\":null}");
             return false;
+        }
+
+        // 如果是用户 Token，将 userId 设置到请求属性中供 Controller 使用
+        if (validToken.getUserId() != null) {
+            request.setAttribute("userId", validToken.getUserId());
         }
 
         return true;

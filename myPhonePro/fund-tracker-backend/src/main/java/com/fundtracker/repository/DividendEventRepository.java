@@ -20,4 +20,15 @@ public interface DividendEventRepository extends JpaRepository<DividendEvent, St
     List<DividendEvent> findByHoldingIdAndTypeAndDate(String holdingId, EventType type, LocalDate date);
     int deleteByHoldingIdAndTypeAndDate(String holdingId, EventType type, LocalDate date);
     int deleteByHoldingId(String holdingId);
+
+    // UserId-filtered queries
+    List<DividendEvent> findByUserIdOrderByDateDesc(String userId);
+    List<DividendEvent> findByHoldingIdAndUserIdOrderByDateDesc(String holdingId, String userId);
+    List<DividendEvent> findByUserIdAndDateBetweenOrderByDate(String userId, LocalDate start, LocalDate end);
+    List<DividendEvent> findByDateBetweenAndUserIdOrderByDate(LocalDate start, LocalDate end, String userId);
+    List<DividendEvent> findByHoldingIdAndDateBetweenAndUserId(String holdingId, LocalDate start, LocalDate end, String userId);
+    List<DividendEvent> findByTypeAndStatusAndUserId(String type, String status, String userId);
+    List<DividendEvent> findByHoldingIdAndStatusAndUserId(String holdingId, EventStatus status, String userId);
+    List<DividendEvent> findByStatusAndUserId(EventStatus status, String userId);
+    List<DividendEvent> findByDateAndUserIdOrderByHoldingName(LocalDate date, String userId);
 }

@@ -46,6 +46,19 @@ export interface ApiError {
 
 // ===================== 用户模块 =====================
 
+/** 登录响应 */
+export interface LoginResp {
+  token: string
+  email: string
+  hasPassword: boolean
+}
+
+/** 用户信息（登录后） */
+export interface UserInfoResp {
+  email: string
+  hasPassword: boolean
+}
+
 /** 用户信息 */
 export interface UserInfo {
   id: string

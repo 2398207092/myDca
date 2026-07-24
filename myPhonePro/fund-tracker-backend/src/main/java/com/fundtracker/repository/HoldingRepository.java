@@ -3,6 +3,7 @@ package com.fundtracker.repository;
 import com.fundtracker.model.entity.Holding;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,4 +17,12 @@ public interface HoldingRepository extends JpaRepository<Holding, String> {
     List<Holding> findByCodeAndDeletedFalse(String code);
     @Query("SELECT DISTINCT h.code FROM Holding h WHERE h.deleted = false AND h.code IS NOT NULL")
     List<String> findDistinctCodesByDeletedFalse();
+
+    List<Holding> findByUserIdAndDeletedFalseOrderByMarketValueDesc(String userId);
+    List<Holding> findByUserIdAndAssetCategoryAndDeletedFalse(String userId, String assetCategory);
+    Optional<Holding> findByIdAndUserIdAndDeletedFalse(String id, String userId);
+    long countByUserIdIsNull();
+    List<Holding> findByUserIdAndTypeAndDeletedFalse(String userId, String type);
+    @Query("SELECT h FROM Holding h WHERE h.userId = :userId AND (h.name LIKE %:keyword% OR h.code LIKE %:keyword%) AND h.deleted = false")
+    List<Holding> findByUserIdAndNameOrCodeContainingAndDeletedFalse(@Param("userId") String userId, @Param("keyword") String keyword);
 }

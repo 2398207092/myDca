@@ -11,29 +11,39 @@ export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token)
 }
 
-/** Initialize auth token from backend on app startup */
-export async function initAuth(): Promise<void> {
-  if (getToken()) return // already have a token
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY)
+}
+
+/** 检查当前 Token 是否有效（已登录状态），无需跳转登录页 */
+export async function initAuth(): Promise<boolean> {
+  const token = getToken()
+  if (!token) return false
+
   try {
-    const res = await fetch(BASE_URL + '/auth/token', {
-      headers: { 'Content-Type': 'application/json' },
+    const res = await fetch(BASE_URL + '/auth/user-info', {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
     })
-    const json = await res.json()
-    if (json.code === 200 && json.data?.token) {
-      setToken(json.data.token)
+    if (!res.ok) {
+      clearToken()
+      return false
     }
-  } catch (e) {
-    console.warn('[Auth] 获取 Token 失败，请求可能返回 401:', e)
+    const json = await res.json()
+    return json.code === 200
+  } catch {
+    clearToken()
+    return false
   }
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     if (res.status === 401) {
-      localStorage.removeItem(TOKEN_KEY)
-      // Auto re-auth: try to get token and reload
-      await initAuth()
-      window.location.reload()
+      clearToken()
+      window.location.hash = '#/login'
       throw new Error('未认证')
     }
     const err = await res.json().catch(() => ({}))

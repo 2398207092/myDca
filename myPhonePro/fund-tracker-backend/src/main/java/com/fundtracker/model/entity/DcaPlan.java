@@ -23,6 +23,10 @@ public class DcaPlan {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
+    /** 数据归属用户 ID */
+    @Column(length = 36)
+    private String userId;
+
     @Column(nullable = false)
     private String holdingId;
 

@@ -1,24 +1,21 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
-import { getToken, setToken } from './api/request'
-import { fetchToken } from './api/auth'
+import { initAuth } from './api/request'
 import './assets/styles/main.css'
 
-// 启动时检查并初始化 Token
+// 启动时检查 Token 有效性
 async function initApp() {
-  if (!getToken()) {
-    try {
-      await fetchToken()
-      console.log('>>> Token 已初始化')
-    } catch (e) {
-      console.error('>>> Token 初始化失败:', e)
-    }
-  }
-
+  // 先挂载 App，让路由系统就绪
   const app = createApp(App)
   app.use(router)
   app.mount('#app')
+
+  // 再检查 Token，未登录则跳转
+  const loggedIn = await initAuth()
+  if (!loggedIn) {
+    router.push({ name: 'login' })
+  }
 }
 
 initApp()

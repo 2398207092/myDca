@@ -31,12 +31,12 @@ public class TransactionService {
     private final FundNavScrapeService fundNavScrapeService;
 
     public List<TransactionDTO> listTransactions(String holdingId, String type,
-                                                  String dateFrom, String dateTo) {
+                                                  String dateFrom, String dateTo, String userId) {
         List<Transaction> transactions;
         if (holdingId != null && !holdingId.isEmpty()) {
-            transactions = transactionRepository.findByHoldingIdOrderByDateDesc(holdingId);
+            transactions = transactionRepository.findByHoldingIdAndUserIdOrderByDateDesc(holdingId, userId);
         } else {
-            transactions = transactionRepository.findAll();
+            transactions = transactionRepository.findByUserIdOrderByDateDesc(userId);
         }
 
         return transactions.stream()
@@ -45,7 +45,7 @@ public class TransactionService {
     }
 
     @Transactional
-    public TransactionDTO createTransaction(CreateTransactionReq req) {
+    public TransactionDTO createTransaction(CreateTransactionReq req, String userId) {
         Holding holding = holdingRepository.findByIdAndDeletedFalse(req.getHoldingId())
                 .orElseThrow(BusinessException::holdingNotFound);
 
@@ -66,6 +66,7 @@ public class TransactionService {
         Transaction transaction = Transaction.builder()
                 .id(UUID.randomUUID().toString())
                 .holdingId(req.getHoldingId())
+                .userId(userId)
                 .type(type)
                 .date(LocalDate.parse(req.getDate()))
                 .quantity(req.getQuantity())
@@ -113,9 +114,9 @@ public class TransactionService {
         // 调整现金余额（异常会触发 @Transactional 回滚，交易也不创建）
         // 注意：reinvest 不涉及现金（分红已到账，直接转份额）
         if (type == TransactionType.buy) {
-            manualAssetService.adjustCash(holding.getId(), total.negate());
+            manualAssetService.adjustCash(holding.getId(), total.negate(), userId);
         } else if (type == TransactionType.sell) {
-            manualAssetService.adjustCash(holding.getId(), total);
+            manualAssetService.adjustCash(holding.getId(), total, userId);
         }
 
         // 刷新最新净值，更新市值
@@ -142,7 +143,7 @@ public class TransactionService {
     }
 
     @Transactional
-    public TransactionDTO updateTransaction(String id, UpdateTransactionReq req) {
+    public TransactionDTO updateTransaction(String id, UpdateTransactionReq req, String userId) {
         Transaction tx = transactionRepository.findById(id)
                 .orElseThrow(BusinessException::transactionNotFound);
         Holding holding = holdingRepository.findByIdAndDeletedFalse(tx.getHoldingId())
@@ -208,7 +209,7 @@ public class TransactionService {
     }
 
     @Transactional
-    public void deleteTransaction(String id) {
+    public void deleteTransaction(String id, String userId) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(BusinessException::transactionNotFound);
         String holdingId = transaction.getHoldingId();
@@ -220,9 +221,9 @@ public class TransactionService {
 
         // 反向调整现金（异常会触发 @Transactional 回滚）
         if (txType == TransactionType.buy || txType == TransactionType.reinvest) {
-            manualAssetService.adjustCash(holdingId, txTotal); // 删除买入 → 加回现金
+            manualAssetService.adjustCash(holdingId, txTotal, userId); // 删除买入 → 加回现金
         } else if (txType == TransactionType.sell) {
-            manualAssetService.adjustCash(holdingId, txTotal.negate()); // 删除卖出 → 扣减现金
+            manualAssetService.adjustCash(holdingId, txTotal.negate(), userId); // 删除卖出 → 扣减现金
         }
 
         // 删除后重新计算份额和指标

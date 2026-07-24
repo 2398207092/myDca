@@ -22,8 +22,8 @@ public class ValueChangeService {
     private final HoldingRepository holdingRepository;
     private final FundNavRecordRepository fundNavRecordRepository;
 
-    public ValueChangeDTO getValueChange() {
-        List<Holding> holdings = holdingRepository.findByDeletedFalseOrderByMarketValueDesc();
+    public ValueChangeDTO getValueChange(String userId) {
+        List<Holding> holdings = holdingRepository.findByUserIdAndDeletedFalseOrderByMarketValueDesc(userId);
         if (holdings.isEmpty()) {
             return ValueChangeDTO.builder()
                     .currentValue(BigDecimal.ZERO)

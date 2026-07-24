@@ -23,8 +23,8 @@ public class DashboardService {
     private final CoverageCategoryRepository coverageCategoryRepository;
     private final TransactionRepository transactionRepository;
 
-    public DashboardDTO getDashboard() {
-        List<Holding> holdings = holdingRepository.findByDeletedFalseOrderByMarketValueDesc();
+    public DashboardDTO getDashboard(String userId) {
+        List<Holding> holdings = holdingRepository.findByUserIdAndDeletedFalseOrderByMarketValueDesc(userId);
 
         // 计算预测年度分红总额
         BigDecimal predictedAnnualDividend = holdings.stream()
@@ -36,7 +36,7 @@ public class DashboardService {
                 BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
 
         // 覆盖类目数
-        List<CoverageCategory> categories = coverageCategoryRepository.findAll();
+        List<CoverageCategory> categories = coverageCategoryRepository.findByUserId(userId);
         long coveredCount = categories.stream()
                 .filter(c -> c.getPercentage().compareTo(BigDecimal.ZERO) > 0)
                 .count();

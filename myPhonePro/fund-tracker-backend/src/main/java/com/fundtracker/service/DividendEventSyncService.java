@@ -37,7 +37,7 @@ public class DividendEventSyncService {
      * - 首笔买入之后的分红 → participated=true, 按当时实时份额算金额
      */
     @Transactional
-    public int syncEventsForFund(String fundCode) {
+    public int syncEventsForFund(String fundCode, String userId) {
         List<Holding> holdings = holdingRepository.findByCodeAndDeletedFalse(fundCode);
         List<FundDividendRecord> records = fundDividendRecordRepository.findByFundCodeOrderByExDateDesc(fundCode);
         if (records.isEmpty()) {
@@ -58,6 +58,8 @@ public class DividendEventSyncService {
 
         int created = 0;
         for (Holding holding : holdings) {
+            // 定时任务无 userId 时使用持仓的 userId
+            String effectiveUserId = userId != null ? userId : holding.getUserId();
             LocalDate firstBuyDate = transactionService.getFirstTransactionDate(holding.getId());
 
             for (FundDividendRecord record : records) {
@@ -76,9 +78,9 @@ public class DividendEventSyncService {
                     participated = sharesAtDate.compareTo(BigDecimal.ZERO) > 0;
                 }
 
-                created += createEvent(holding, record, EventType.registration, record.getRegDate(), sharesAtDate, participated);
-                created += createEvent(holding, record, EventType.ex_dividend, record.getExDate(), sharesAtDate, participated);
-                created += createEvent(holding, record, EventType.payout, record.getPayDate(), sharesAtDate, participated);
+                created += createEvent(holding, record, EventType.registration, record.getRegDate(), sharesAtDate, participated, effectiveUserId);
+                created += createEvent(holding, record, EventType.ex_dividend, record.getExDate(), sharesAtDate, participated, effectiveUserId);
+                created += createEvent(holding, record, EventType.payout, record.getPayDate(), sharesAtDate, participated, effectiveUserId);
             }
         }
 
@@ -90,7 +92,7 @@ public class DividendEventSyncService {
      * 为所有持仓同步分红事件
      */
     @Transactional
-    public int syncAllEvents() {
+    public int syncAllEvents(String userId) {
         List<String> fundCodes = holdingRepository.findDistinctCodesByDeletedFalse();
         if (fundCodes.isEmpty()) {
             log.info("无有效持仓，跳过全量同步");
@@ -98,7 +100,7 @@ public class DividendEventSyncService {
         }
         int total = 0;
         for (String code : fundCodes) {
-            total += syncEventsForFund(code);
+            total += syncEventsForFund(code, userId);
         }
         log.info("全量同步完成，共新增 {} 条分红事件", total);
         return total;
@@ -108,10 +110,10 @@ public class DividendEventSyncService {
      * 为指定持仓ID同步分红事件
      */
     @Transactional
-    public int syncEventsForHolding(String holdingId) {
+    public int syncEventsForHolding(String holdingId, String userId) {
         Holding holding = holdingRepository.findByIdAndDeletedFalse(holdingId).orElse(null);
         if (holding == null || holding.getCode() == null) return 0;
-        return syncEventsForFund(holding.getCode());
+        return syncEventsForFund(holding.getCode(), userId);
     }
 
     /**
@@ -133,7 +135,7 @@ public class DividendEventSyncService {
      * participated=true → 按当时的实时份额计算金额
      * participated=false → 金额为 0（未参与该次分红，但保留记录）
      */
-    private int createEvent(Holding holding, FundDividendRecord record, EventType type, LocalDate date, BigDecimal sharesAtDate, boolean participated) {
+    private int createEvent(Holding holding, FundDividendRecord record, EventType type, LocalDate date, BigDecimal sharesAtDate, boolean participated, String userId) {
         if (date == null) return 0;
 
         BigDecimal amount = participated && record.getDividendPerShare() != null
@@ -150,6 +152,7 @@ public class DividendEventSyncService {
         DividendEvent event = DividendEvent.builder()
                 .id(UUID.randomUUID().toString())
                 .holdingId(holding.getId())
+                .userId(userId)
                 .holdingName(holding.getName())
                 .type(type)
                 .date(date)

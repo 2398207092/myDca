@@ -18,32 +18,33 @@ public class CoverageCategoryService {
 
     private final CoverageCategoryRepository repository;
 
-    public List<CoverageCategoryDTO> listAll() {
-        List<CoverageCategory> categories = repository.findAll();
+    public List<CoverageCategoryDTO> listAll(String userId) {
+        List<CoverageCategory> categories = repository.findByUserId(userId);
         if (categories.isEmpty()) {
             // 初始化默认数据
-            return initDefaults();
+            return initDefaults(userId);
         }
         return categories.stream().map(this::toDTO).collect(Collectors.toList());
     }
 
-    private List<CoverageCategoryDTO> initDefaults() {
+    private List<CoverageCategoryDTO> initDefaults(String userId) {
         CoverageCategory[] defaults = {
-                createCat("话费", "phone_android", 80, "#FF7A45"),
-                createCat("养车", "directions_car", 40, "#4CAF50"),
-                createCat("娱乐", "confirmation_number", 30, "#9C27B0"),
-                createCat("医药", "medical_services", 25, "#2196F3"),
-                createCat("午餐", "restaurant", 60, "#FF9800")
+                createCat("话费", "phone_android", 80, "#FF7A45", userId),
+                createCat("养车", "directions_car", 40, "#4CAF50", userId),
+                createCat("娱乐", "confirmation_number", 30, "#9C27B0", userId),
+                createCat("医药", "medical_services", 25, "#2196F3", userId),
+                createCat("午餐", "restaurant", 60, "#FF9800", userId)
         };
         for (CoverageCategory cat : defaults) {
             repository.save(cat);
         }
-        return repository.findAll().stream().map(this::toDTO).collect(Collectors.toList());
+        return repository.findByUserId(userId).stream().map(this::toDTO).collect(Collectors.toList());
     }
 
-    private CoverageCategory createCat(String name, String icon, int percentage, String color) {
+    private CoverageCategory createCat(String name, String icon, int percentage, String color, String userId) {
         return CoverageCategory.builder()
                 .id(UUID.randomUUID().toString())
+                .userId(userId)
                 .name(name)
                 .icon(icon)
                 .percentage(java.math.BigDecimal.valueOf(percentage))
@@ -52,7 +53,7 @@ public class CoverageCategoryService {
     }
 
     @Transactional
-    public CoverageCategoryDTO update(String id, UpdateCoverageCategoryReq req) {
+    public CoverageCategoryDTO update(String id, UpdateCoverageCategoryReq req, String userId) {
         CoverageCategory cat = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("类目不存在"));
         if (req.getName() != null) cat.setName(req.getName());

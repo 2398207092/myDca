@@ -2,6 +2,7 @@ package com.fundtracker.controller;
 
 import com.fundtracker.model.dto.*;
 import com.fundtracker.service.TransactionService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -20,27 +21,36 @@ public class TransactionController {
             @RequestParam(required = false) String holdingId,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String dateFrom,
-            @RequestParam(required = false) String dateTo) {
+            @RequestParam(required = false) String dateTo,
+            HttpServletRequest request) {
+        String userId = (String) request.getAttribute("userId");
         return ApiResponse.success(
-                transactionService.listTransactions(holdingId, type, dateFrom, dateTo));
+                transactionService.listTransactions(holdingId, type, dateFrom, dateTo, userId));
     }
 
     @PostMapping
     public ApiResponse<TransactionDTO> createTransaction(
-            @Valid @RequestBody CreateTransactionReq req) {
-        return ApiResponse.success("添加成功", transactionService.createTransaction(req));
+            @Valid @RequestBody CreateTransactionReq req,
+            HttpServletRequest request) {
+        String userId = (String) request.getAttribute("userId");
+        return ApiResponse.success("添加成功", transactionService.createTransaction(req, userId));
     }
 
     @PutMapping("/{id}")
     public ApiResponse<TransactionDTO> updateTransaction(
             @PathVariable String id,
-            @RequestBody UpdateTransactionReq req) {
-        return ApiResponse.success("更新成功", transactionService.updateTransaction(id, req));
+            @RequestBody UpdateTransactionReq req,
+            HttpServletRequest request) {
+        String userId = (String) request.getAttribute("userId");
+        return ApiResponse.success("更新成功", transactionService.updateTransaction(id, req, userId));
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<DeleteResp> deleteTransaction(@PathVariable String id) {
-        transactionService.deleteTransaction(id);
+    public ApiResponse<DeleteResp> deleteTransaction(
+            @PathVariable String id,
+            HttpServletRequest request) {
+        String userId = (String) request.getAttribute("userId");
+        transactionService.deleteTransaction(id, userId);
         return ApiResponse.success(new DeleteResp(true));
     }
 }

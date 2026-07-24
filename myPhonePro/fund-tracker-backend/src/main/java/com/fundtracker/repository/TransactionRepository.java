@@ -11,6 +11,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
     List<Transaction> findByHoldingIdOrderByDateDesc(String holdingId);
     List<Transaction> findByHoldingId(String holdingId);
     List<Transaction> findByHoldingIdOrderByDateAsc(String holdingId);
+    List<Transaction> findByUserIdOrderByDateDesc(String userId);
+    List<Transaction> findByHoldingIdAndUserIdOrderByDateDesc(String holdingId, String userId);
+    List<Transaction> findByHoldingIdAndUserIdOrderByDateAsc(String holdingId, String userId);
+    List<Transaction> findByHoldingIdAndUserId(String holdingId, String userId);
 
     @Query("SELECT MIN(t.date) FROM Transaction t WHERE t.holdingId IN :holdingIds")
     LocalDate findEarliestTransactionDateByHoldingIds(List<String> holdingIds);

@@ -50,4 +50,9 @@ public class BusinessException extends RuntimeException {
     public static BusinessException invalidParam(String message) {
         return new BusinessException(6002, message);
     }
+
+    /** 通用业务错误，用于登录/验证码等场景 */
+    public static BusinessException bizError(String message) {
+        return new BusinessException(7001, message);
+    }
 }

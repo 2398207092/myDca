@@ -39,20 +39,20 @@ public class HoldingService {
     private final FundDividendRecordRepository fundDividendRecordRepository;
     private final DividendEventRepository dividendEventRepository;
 
-    public List<HoldingDTO> listHoldings(String type, String keyword) {
+    public List<HoldingDTO> listHoldings(String userId, String type, String keyword) {
         List<Holding> holdings;
         if (type != null && !type.isEmpty()) {
-            holdings = holdingRepository.findByTypeAndDeletedFalse(type);
+            holdings = holdingRepository.findByUserIdAndTypeAndDeletedFalse(userId, type);
         } else if (keyword != null && !keyword.isEmpty()) {
-            holdings = holdingRepository.findByNameContainingOrCodeContainingAndDeletedFalse(keyword, keyword);
+            holdings = holdingRepository.findByUserIdAndNameOrCodeContainingAndDeletedFalse(userId, keyword);
         } else {
-            holdings = holdingRepository.findByDeletedFalseOrderByMarketValueDesc();
+            holdings = holdingRepository.findByUserIdAndDeletedFalseOrderByMarketValueDesc(userId);
         }
         return holdings.stream().map(this::toDTO).collect(Collectors.toList());
     }
 
-    public HoldingDTO getHolding(String id) {
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(id)
+    public HoldingDTO getHolding(String id, String userId) {
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(id, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
         
         // 对于基金/ETF类型，增量更新净值到数据库
@@ -117,7 +117,7 @@ public class HoldingService {
     }
 
     @Transactional
-    public HoldingDTO createHolding(CreateHoldingReq req) {
+    public HoldingDTO createHolding(String userId, CreateHoldingReq req) {
         // 检查代码是否已存在
         if (holdingRepository.existsByCodeAndDeletedFalse(req.getCode())) {
             throw BusinessException.holdingCodeExists();
@@ -159,6 +159,7 @@ public class HoldingService {
                 .reinvestRecoveryYears(BigDecimal.ZERO)
                 .color(color)
                 .assetCategory(req.getAssetCategory())
+                .userId(userId)
                 .deleted(false)
                 .build();
 
@@ -263,8 +264,8 @@ public class HoldingService {
     }
 
     @Transactional
-    public void deleteHolding(String id) {
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(id)
+    public void deleteHolding(String userId, String id) {
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(id, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
 
         // 物理级联删除：交易 → 分红事件 → 持仓
@@ -495,8 +496,8 @@ public class HoldingService {
     }
 
     @Transactional
-    public HoldingDTO updateHoldingCategory(String id, UpdateHoldingCategoryReq req) {
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(id)
+    public HoldingDTO updateHoldingCategory(String userId, String id, UpdateHoldingCategoryReq req) {
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(id, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
         holding.setAssetCategory(req.getAssetCategory());
         holding = holdingRepository.save(holding);
@@ -505,8 +506,8 @@ public class HoldingService {
     }
 
     @Transactional
-    public HoldingDTO updateDividendReinvest(String id, UpdateDividendReinvestReq req) {
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(id)
+    public HoldingDTO updateDividendReinvest(String userId, String id, UpdateDividendReinvestReq req) {
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(id, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
         holding.setDividendReinvest(req.getDividendReinvest());
         holding = holdingRepository.save(holding);

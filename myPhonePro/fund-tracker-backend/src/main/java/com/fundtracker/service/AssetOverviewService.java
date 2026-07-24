@@ -46,13 +46,13 @@ public class AssetOverviewService {
             "dividend", "红利"
     );
 
-    public AssetOverviewDTO getOverview() {
+    public AssetOverviewDTO getOverview(String userId) {
         // 计算各类资产金额
-        BigDecimal cashValue = manualAssetService.getTotalByType("cash");
-        BigDecimal cryptoValue = manualAssetService.getTotalByType("crypto");
-        BigDecimal usStockValue = getHoldingTotalByCategory("us_stock");
-        BigDecimal goldValue = getHoldingTotalByCategory("gold");
-        BigDecimal dividendValue = getHoldingTotalByCategory("dividend");
+        BigDecimal cashValue = manualAssetService.getTotalByType("cash", userId);
+        BigDecimal cryptoValue = manualAssetService.getTotalByType("crypto", userId);
+        BigDecimal usStockValue = getHoldingTotalByCategory("us_stock", userId);
+        BigDecimal goldValue = getHoldingTotalByCategory("gold", userId);
+        BigDecimal dividendValue = getHoldingTotalByCategory("dividend", userId);
 
         BigDecimal totalValue = cashValue.add(cryptoValue).add(usStockValue)
                 .add(goldValue).add(dividendValue);
@@ -63,7 +63,7 @@ public class AssetOverviewService {
         BigDecimal monthlyChange = BigDecimal.ZERO;
         BigDecimal monthlyChangePercent = BigDecimal.ZERO;
 
-        Optional<AssetSnapshot> latestSnapshot = assetSnapshotRepository.findTopByOrderByDateDesc();
+        Optional<AssetSnapshot> latestSnapshot = assetSnapshotRepository.findTopByUserIdOrderByDateDesc(userId);
         if (latestSnapshot.isPresent()) {
             BigDecimal prevTotal = latestSnapshot.get().getTotalValue();
             if (prevTotal.compareTo(BigDecimal.ZERO) > 0) {
@@ -73,7 +73,7 @@ public class AssetOverviewService {
 
                 // 查 7 天前的快照
                 LocalDate weekAgo = LocalDate.now().minusDays(7);
-                Optional<AssetSnapshot> weekAgoSnapshot = assetSnapshotRepository.findByDate(weekAgo);
+                Optional<AssetSnapshot> weekAgoSnapshot = assetSnapshotRepository.findByUserIdAndDate(userId, weekAgo).stream().findFirst();
                 if (weekAgoSnapshot.isPresent()) {
                     BigDecimal weekAgoTotal = weekAgoSnapshot.get().getTotalValue();
                     monthlyChange = totalValue.subtract(weekAgoTotal);
@@ -87,7 +87,7 @@ public class AssetOverviewService {
 
         // 构建分类明细
         List<AssetOverviewDTO.CategoryDetail> categories = buildCategoryDetails(
-                cashValue, cryptoValue, usStockValue, goldValue, dividendValue, totalValue);
+                cashValue, cryptoValue, usStockValue, goldValue, dividendValue, totalValue, userId);
 
         return AssetOverviewDTO.builder()
                 .totalValue(totalValue)
@@ -104,7 +104,7 @@ public class AssetOverviewService {
                 .build();
     }
 
-    public AssetHistoryDTO getHistory(String range) {
+    public AssetHistoryDTO getHistory(String range, String userId) {
         LocalDate startDate;
         if ("month".equals(range)) {
             startDate = LocalDate.now().minusDays(30);
@@ -112,7 +112,7 @@ public class AssetOverviewService {
             startDate = LocalDate.now().minusDays(7); // 默认 week
         }
 
-        List<AssetSnapshot> snapshots = assetSnapshotRepository.findByDateAfterOrderByDateAsc(startDate);
+        List<AssetSnapshot> snapshots = assetSnapshotRepository.findByUserIdAndDateAfterOrderByDateAsc(userId, startDate);
 
         List<AssetHistoryDTO.Point> series = snapshots.stream()
                 .map(s -> AssetHistoryDTO.Point.builder()
@@ -144,17 +144,18 @@ public class AssetOverviewService {
     }
 
     @Transactional
-    public void snapshotToday() {
+    public void snapshotToday(String userId) {
         LocalDate today = LocalDate.now();
         // 先删除当天旧快照（覆盖模式）
-        assetSnapshotRepository.findByDate(today).ifPresent(s -> {
+        assetSnapshotRepository.findByUserIdAndDate(userId, today).stream().findFirst().ifPresent(s -> {
             assetSnapshotRepository.delete(s);
             log.info("已删除今日旧快照");
         });
 
-        AssetOverviewDTO overview = getOverview();
+        AssetOverviewDTO overview = getOverview(userId);
 
         AssetSnapshot snapshot = AssetSnapshot.builder()
+                .userId(userId)
                 .date(today)
                 .totalValue(overview.getTotalValue())
                 .cashValue(overview.getCashValue())
@@ -175,8 +176,8 @@ public class AssetOverviewService {
         log.info("已生成今日资产快照: ¥{}", overview.getTotalValue());
     }
 
-    private BigDecimal getHoldingTotalByCategory(String category) {
-        List<Holding> holdings = holdingRepository.findByAssetCategoryAndDeletedFalse(category);
+    private BigDecimal getHoldingTotalByCategory(String category, String userId) {
+        List<Holding> holdings = holdingRepository.findByUserIdAndAssetCategoryAndDeletedFalse(userId, category);
         return holdings.stream()
                 .map(h -> h.getMarketValue() != null ? h.getMarketValue() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -184,15 +185,15 @@ public class AssetOverviewService {
 
     private List<AssetOverviewDTO.CategoryDetail> buildCategoryDetails(
             BigDecimal cashValue, BigDecimal cryptoValue, BigDecimal usStockValue,
-            BigDecimal goldValue, BigDecimal dividendValue, BigDecimal totalValue) {
+            BigDecimal goldValue, BigDecimal dividendValue, BigDecimal totalValue, String userId) {
 
         List<AssetOverviewDTO.CategoryDetail> details = new ArrayList<>();
 
-        details.add(buildCategory("cash", "现金", cashValue, totalValue));
-        details.add(buildCategory("crypto", "比特币", cryptoValue, totalValue));
-        details.add(buildCategory("us_stock", "美股", usStockValue, totalValue));
-        details.add(buildCategory("gold", "黄金", goldValue, totalValue));
-        details.add(buildCategory("dividend", "红利", dividendValue, totalValue));
+        details.add(buildCategory("cash", "现金", cashValue, totalValue, userId));
+        details.add(buildCategory("crypto", "比特币", cryptoValue, totalValue, userId));
+        details.add(buildCategory("us_stock", "美股", usStockValue, totalValue, userId));
+        details.add(buildCategory("gold", "黄金", goldValue, totalValue, userId));
+        details.add(buildCategory("dividend", "红利", dividendValue, totalValue, userId));
 
         return details.stream()
                 .filter(d -> d.getValue().compareTo(BigDecimal.ZERO) > 0)
@@ -201,7 +202,7 @@ public class AssetOverviewService {
     }
 
     private AssetOverviewDTO.CategoryDetail buildCategory(String type, String name,
-                                                           BigDecimal value, BigDecimal totalValue) {
+                                                           BigDecimal value, BigDecimal totalValue, String userId) {
         double percentage = 0;
         if (totalValue.compareTo(BigDecimal.ZERO) > 0) {
             percentage = value.multiply(BigDecimal.valueOf(100))
@@ -213,7 +214,7 @@ public class AssetOverviewService {
 
         // 对于基金类资产，列出具体持仓
         if ("us_stock".equals(type) || "gold".equals(type) || "dividend".equals(type)) {
-            List<Holding> holdings = holdingRepository.findByAssetCategoryAndDeletedFalse(type);
+            List<Holding> holdings = holdingRepository.findByUserIdAndAssetCategoryAndDeletedFalse(userId, type);
             for (Holding h : holdings) {
                 items.add(AssetOverviewDTO.HoldingItem.builder()
                         .id(h.getId())
@@ -225,7 +226,7 @@ public class AssetOverviewService {
 
         // 对于手动资产，列出明细
         if ("cash".equals(type) || "crypto".equals(type)) {
-            var manualAssets = manualAssetService.listManualAssets().stream()
+            var manualAssets = manualAssetService.listManualAssets(userId).stream()
                     .filter(a -> type.equals(a.getType()))
                     .collect(Collectors.toList());
             for (var a : manualAssets) {

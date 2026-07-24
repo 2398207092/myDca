@@ -35,7 +35,7 @@ public class EventService {
 
     public List<DividendEventDTO> listEvents(String holdingId, String month,
                                               String dateFrom, String dateTo,
-                                              String type, String status) {
+                                              String type, String status, String userId) {
         List<DividendEvent> events;
 
         if (month != null && !month.isEmpty()) {
@@ -47,20 +47,20 @@ public class EventService {
             LocalDate end = start.plusMonths(1).minusDays(1);
 
             if (holdingId != null && !holdingId.isEmpty()) {
-                events = eventRepository.findByHoldingIdAndDateBetween(holdingId, start, end);
+                events = eventRepository.findByHoldingIdAndDateBetweenAndUserId(holdingId, start, end, userId);
             } else {
-                events = eventRepository.findByDateBetweenOrderByDate(start, end);
+                events = eventRepository.findByDateBetweenAndUserIdOrderByDate(start, end, userId);
             }
         } else if (dateFrom != null && dateTo != null) {
-            events = eventRepository.findByDateBetweenOrderByDate(
-                    LocalDate.parse(dateFrom), LocalDate.parse(dateTo));
+            events = eventRepository.findByDateBetweenAndUserIdOrderByDate(
+                    LocalDate.parse(dateFrom), LocalDate.parse(dateTo), userId);
         } else if (holdingId != null) {
-            events = eventRepository.findByHoldingIdOrderByDateDesc(holdingId);
+            events = eventRepository.findByHoldingIdAndUserIdOrderByDateDesc(holdingId, userId);
         } else if (type != null && !type.isEmpty() && status != null && !status.isEmpty()) {
             // 同时有 type 和 status 时利用数据库过滤，避免 findAll()
-            events = eventRepository.findByTypeAndStatus(type, status);
+            events = eventRepository.findByTypeAndStatusAndUserId(type, status, userId);
         } else {
-            events = eventRepository.findAll();
+            events = eventRepository.findByUserIdOrderByDateDesc(userId);
         }
 
         return events.stream()
@@ -70,22 +70,23 @@ public class EventService {
                 .collect(Collectors.toList());
     }
 
-    public List<DividendEventDTO> getEventsByDate(String date) {
+    public List<DividendEventDTO> getEventsByDate(String date, String userId) {
         LocalDate localDate = LocalDate.parse(date);
-        return eventRepository.findByDateOrderByHoldingName(localDate)
+        return eventRepository.findByDateAndUserIdOrderByHoldingName(localDate, userId)
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public DividendEventDTO createEvent(CreateEventReq req) {
+    public DividendEventDTO createEvent(CreateEventReq req, String userId) {
         Holding holding = holdingRepository.findByIdAndDeletedFalse(req.getHoldingId())
                 .orElseThrow(BusinessException::holdingNotFound);
 
         DividendEvent event = DividendEvent.builder()
                 .id(UUID.randomUUID().toString())
                 .holdingId(req.getHoldingId())
+                .userId(userId)
                 .holdingName(holding.getName())
                 .type(EventType.valueOf(req.getType()))
                 .date(LocalDate.parse(req.getDate()))
@@ -99,7 +100,7 @@ public class EventService {
     }
 
     @Transactional
-    public DividendEventDTO markDistributed(String id) {
+    public DividendEventDTO markDistributed(String id, String userId) {
         DividendEvent event = eventRepository.findById(id)
                 .orElseThrow(BusinessException::eventNotFound);
 
@@ -145,7 +146,7 @@ public class EventService {
                                 reinvestReq.setPrice(price);
                                 reinvestReq.setFee(BigDecimal.ZERO);
                                 reinvestReq.setSource("dividend_reinvest");
-                                transactionService.createTransaction(reinvestReq);
+                                transactionService.createTransaction(reinvestReq, userId);
                                 log.info("分红复投: {} 金额 {}, NAV={}, 买入 {} 份",
                                         holding.getName(), distributeAmount, price, quantity);
                             } catch (Exception e) {
@@ -153,7 +154,7 @@ public class EventService {
                             }
                         } else {
                             // 现金模式：分红到账，增加现金
-                            manualAssetService.adjustCash(holding.getId(), distributeAmount);
+                            manualAssetService.adjustCash(holding.getId(), distributeAmount, holding.getUserId());
                             log.info("分红到账: {} 现金 +{}", holding.getName(), distributeAmount);
                         }
                     });
@@ -163,7 +164,7 @@ public class EventService {
     }
 
     @Transactional
-    public CancelEventResp cancelEvent(String id) {
+    public CancelEventResp cancelEvent(String id, String userId) {
         DividendEvent event = eventRepository.findById(id)
                 .orElseThrow(BusinessException::eventNotFound);
 
@@ -182,7 +183,7 @@ public class EventService {
     }
 
     @Transactional
-    public DividendEventDTO convertToReinvest(String id) {
+    public DividendEventDTO convertToReinvest(String id, String userId) {
         DividendEvent event = eventRepository.findById(id)
                 .orElseThrow(BusinessException::eventNotFound);
 
@@ -197,7 +198,7 @@ public class EventService {
         holdingRepository.findByIdAndDeletedFalse(event.getHoldingId())
                 .ifPresent(holding -> {
                     // 扣除之前加到现金里的分红金额
-                    manualAssetService.adjustCash(holding.getId(), amount.negate());
+                    manualAssetService.adjustCash(holding.getId(), amount.negate(), holding.getUserId());
                     log.info("分红转复投: {} 现金 -{}", holding.getName(), amount);
 
                     // 按最新净值买入份额
@@ -228,13 +229,13 @@ public class EventService {
                         reinvestReq.setPrice(price);
                         reinvestReq.setFee(BigDecimal.ZERO);
                         reinvestReq.setSource("dividend_reinvest");
-                        transactionService.createTransaction(reinvestReq);
+                        transactionService.createTransaction(reinvestReq, userId);
                         log.info("分红转复投: {} 金额 {}, NAV={}, 买入 {} 份",
                                 holding.getName(), amount, price, quantity);
                     } catch (Exception e) {
                         log.error("分红转复投买入失败: {}", e.getMessage());
                         // 买入失败时回滚现金扣除
-                        manualAssetService.adjustCash(holding.getId(), amount);
+                        manualAssetService.adjustCash(holding.getId(), amount, holding.getUserId());
                         throw new RuntimeException("复投买入失败", e);
                     }
                 });

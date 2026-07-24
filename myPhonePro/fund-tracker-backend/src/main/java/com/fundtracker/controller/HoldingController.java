@@ -5,6 +5,7 @@ import com.fundtracker.service.DividendInfoService;
 import com.fundtracker.service.ForecastService;
 import com.fundtracker.service.FundSearchService;
 import com.fundtracker.service.HoldingService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -23,19 +24,27 @@ public class HoldingController {
 
     @GetMapping
     public ApiResponse<List<HoldingDTO>> listHoldings(
+            HttpServletRequest request,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String keyword) {
-        return ApiResponse.success(holdingService.listHoldings(type, keyword));
+        String userId = (String) request.getAttribute("userId");
+        return ApiResponse.success(holdingService.listHoldings(userId, type, keyword));
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<HoldingDTO> getHolding(@PathVariable String id) {
-        return ApiResponse.success(holdingService.getHolding(id));
+    public ApiResponse<HoldingDTO> getHolding(
+            HttpServletRequest request,
+            @PathVariable String id) {
+        String userId = (String) request.getAttribute("userId");
+        return ApiResponse.success(holdingService.getHolding(id, userId));
     }
 
     @PostMapping
-    public ApiResponse<HoldingDTO> createHolding(@Valid @RequestBody CreateHoldingReq req) {
-        return ApiResponse.success("创建成功", holdingService.createHolding(req));
+    public ApiResponse<HoldingDTO> createHolding(
+            HttpServletRequest request,
+            @Valid @RequestBody CreateHoldingReq req) {
+        String userId = (String) request.getAttribute("userId");
+        return ApiResponse.success("创建成功", holdingService.createHolding(userId, req));
     }
 
     @PutMapping("/{id}")
@@ -45,8 +54,11 @@ public class HoldingController {
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<DeleteResp> deleteHolding(@PathVariable String id) {
-        holdingService.deleteHolding(id);
+    public ApiResponse<DeleteResp> deleteHolding(
+            HttpServletRequest request,
+            @PathVariable String id) {
+        String userId = (String) request.getAttribute("userId");
+        holdingService.deleteHolding(userId, id);
         return ApiResponse.success(new DeleteResp(true));
     }
 
@@ -67,15 +79,21 @@ public class HoldingController {
     }
 
     @PutMapping("/{id}/category")
-    public ApiResponse<HoldingDTO> updateHoldingCategory(@PathVariable String id,
-                                                          @Valid @RequestBody UpdateHoldingCategoryReq req) {
-        return ApiResponse.success("分类更新成功", holdingService.updateHoldingCategory(id, req));
+    public ApiResponse<HoldingDTO> updateHoldingCategory(
+            HttpServletRequest request,
+            @PathVariable String id,
+            @Valid @RequestBody UpdateHoldingCategoryReq req) {
+        String userId = (String) request.getAttribute("userId");
+        return ApiResponse.success("分类更新成功", holdingService.updateHoldingCategory(userId, id, req));
     }
 
     @PutMapping("/{id}/dividend-reinvest")
-    public ApiResponse<HoldingDTO> updateDividendReinvest(@PathVariable String id,
-                                                           @RequestBody UpdateDividendReinvestReq req) {
-        return ApiResponse.success("复投设置更新成功", holdingService.updateDividendReinvest(id, req));
+    public ApiResponse<HoldingDTO> updateDividendReinvest(
+            HttpServletRequest request,
+            @PathVariable String id,
+            @RequestBody UpdateDividendReinvestReq req) {
+        String userId = (String) request.getAttribute("userId");
+        return ApiResponse.success("复投设置更新成功", holdingService.updateDividendReinvest(userId, id, req));
     }
 
     @GetMapping("/search")

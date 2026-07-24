@@ -21,6 +21,10 @@ public class AuthToken {
     @Column(nullable = false, unique = true)
     private String token;
 
+    /** 关联的用户 ID，null 表示为旧版应用级 Token */
+    @Column(length = 36)
+    private String userId;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 

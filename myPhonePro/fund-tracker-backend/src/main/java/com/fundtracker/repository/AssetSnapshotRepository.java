@@ -10,4 +10,9 @@ public interface AssetSnapshotRepository extends JpaRepository<AssetSnapshot, St
     Optional<AssetSnapshot> findTopByOrderByDateDesc();
     Optional<AssetSnapshot> findByDate(LocalDate date);
     List<AssetSnapshot> findByDateAfterOrderByDateAsc(LocalDate date);
+
+    List<AssetSnapshot> findByUserIdOrderByDateAsc(String userId);
+    List<AssetSnapshot> findByUserIdAndDateAfterOrderByDateAsc(String userId, LocalDate date);
+    List<AssetSnapshot> findByUserIdAndDate(String userId, LocalDate date);
+    Optional<AssetSnapshot> findTopByUserIdOrderByDateDesc(String userId);
 }

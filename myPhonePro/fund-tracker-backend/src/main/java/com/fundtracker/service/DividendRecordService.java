@@ -19,15 +19,15 @@ public class DividendRecordService {
 
     private final DividendEventRepository eventRepository;
 
-    public List<DividendEventDTO> getRecords(String holdingId, Integer year, String status) {
+    public List<DividendEventDTO> getRecords(String holdingId, Integer year, String status, String userId) {
         EventStatus statusEnum = status != null ? EventStatus.valueOf(status) : EventStatus.distributed;
 
-        // 根据参数选择最优查询方式，避免 findAll() 全表扫描
+        // 根据参数选择最优查询方式
         List<DividendEvent> events;
         if (holdingId != null) {
-            events = eventRepository.findByHoldingIdAndStatus(holdingId, statusEnum);
+            events = eventRepository.findByHoldingIdAndStatusAndUserId(holdingId, statusEnum, userId);
         } else {
-            events = eventRepository.findByStatus(statusEnum);
+            events = eventRepository.findByStatusAndUserId(statusEnum, userId);
         }
 
         // year 过滤无法通过 JPA 方法名推导，在内存中过滤已缩小的数据集

@@ -50,7 +50,7 @@ public class DcaScheduler {
             }
 
             try {
-                dcaPlanService.executePlan(plan.getId());
+                dcaPlanService.executePlan(plan.getId(), plan.getUserId());
                 successCount++;
                 log.info("定投计划 {} 自动执行成功", plan.getId());
             } catch (Exception e) {

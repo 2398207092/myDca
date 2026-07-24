@@ -28,10 +28,13 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -58,17 +61,33 @@ public class HoldingSnapshotService {
 
     /**
      * 为所有未删除持仓生成今日快照。若当天已有快照，先删除再重建。
+     * 无参版本：定时任务使用，对所有用户分别执行快照。
      */
     @Transactional
     public void snapshotAllHoldings() {
-        List<Holding> holdings = holdingRepository.findByDeletedFalseOrderByMarketValueDesc();
+        List<Holding> allHoldings = holdingRepository.findByDeletedFalseOrderByMarketValueDesc();
+        Set<String> userIds = allHoldings.stream()
+                .map(Holding::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        for (String uid : userIds) {
+            snapshotAllHoldings(uid);
+        }
+    }
+
+    /**
+     * 为指定用户的所有未删除持仓生成今日快照。若当天已有快照，先删除再重建。
+     */
+    @Transactional
+    public void snapshotAllHoldings(String userId) {
+        List<Holding> holdings = holdingRepository.findByUserIdAndDeletedFalseOrderByMarketValueDesc(userId);
         if (holdings.isEmpty()) {
             log.info("快照任务：没有有效持仓，跳过");
             return;
         }
         LocalDate today = LocalDate.now();
         // 当前总资产 = Σ持仓市值 + 现金 + BTC
-        BigDecimal totalValue = computeTotalValue(holdings);
+        BigDecimal totalValue = computeTotalValue(holdings, userId);
 
         // 先清理当天旧快照（覆盖模式）
         int deleted = holdingSnapshotRepository.deleteBySnapshotDate(today);
@@ -105,11 +124,11 @@ public class HoldingSnapshotService {
     }
 
     /** 计算当前总资产 = Σ持仓市值 + Σ现金 + Σ比特币 */
-    private BigDecimal computeTotalValue(List<Holding> holdings) {
+    private BigDecimal computeTotalValue(List<Holding> holdings, String userId) {
         BigDecimal holdingSum = holdings.stream()
                 .map(Holding::getMarketValue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal manualSum = manualAssetRepository.findAll().stream()
+        BigDecimal manualSum = manualAssetRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(ManualAsset::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return holdingSum.add(manualSum);
@@ -122,10 +141,21 @@ public class HoldingSnapshotService {
     /**
      * 总资产走势：按快照日期分组聚合，叠加 asset_snapshots 的现金/BTC。
      */
-    public TotalAssetSeriesDTO getTotalAssetSeries(String range) {
+    public TotalAssetSeriesDTO getTotalAssetSeries(String range, String userId) {
         LocalDate startDate = resolveStartDate(range);
-        List<HoldingSnapshot> snapshots = holdingSnapshotRepository
+
+        // 获取当前用户的所有持仓 ID，用于过滤快照
+        List<Holding> userHoldings = holdingRepository.findByUserIdAndDeletedFalseOrderByMarketValueDesc(userId);
+        Set<String> userHoldingIds = userHoldings.stream()
+                .map(Holding::getId)
+                .collect(Collectors.toSet());
+
+        List<HoldingSnapshot> allSnapshots = holdingSnapshotRepository
                 .findBySnapshotDateAfterOrderBySnapshotDateAsc(startDate.minusDays(1));
+        // 只保留属于当前用户的快照
+        List<HoldingSnapshot> snapshots = allSnapshots.stream()
+                .filter(s -> userHoldingIds.contains(s.getHoldingId()))
+                .collect(Collectors.toList());
         if (snapshots.isEmpty()) {
             return TotalAssetSeriesDTO.builder()
                     .series(Collections.emptyList())
@@ -138,8 +168,8 @@ public class HoldingSnapshotService {
         Map<LocalDate, List<HoldingSnapshot>> grouped = snapshots.stream()
                 .collect(Collectors.groupingBy(HoldingSnapshot::getSnapshotDate, LinkedHashMap::new, Collectors.toList()));
 
-        // 预加载 asset_snapshots（分类级，含现金/BTC）
-        List<AssetSnapshot> assetSnapshots = assetSnapshotRepository.findByDateAfterOrderByDateAsc(startDate.minusDays(1));
+        // 预加载 asset_snapshots（分类级，含现金/BTC），按 userId 过滤
+        List<AssetSnapshot> assetSnapshots = assetSnapshotRepository.findByUserIdAndDateAfterOrderByDateAsc(userId, startDate.minusDays(1));
         Map<LocalDate, AssetSnapshot> assetMap = assetSnapshots.stream()
                 .collect(Collectors.toMap(AssetSnapshot::getDate, a -> a, (a, b) -> a));
 
@@ -201,8 +231,8 @@ public class HoldingSnapshotService {
     // 4.3 单持仓走势
     // ======================================================================
 
-    public HoldingSeriesDTO getHoldingSeries(String holdingId, String range) {
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(holdingId)
+    public HoldingSeriesDTO getHoldingSeries(String holdingId, String range, String userId) {
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(holdingId, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
         LocalDate startDate = resolveStartDate(range);
         List<HoldingSnapshot> snapshots = holdingSnapshotRepository
@@ -235,7 +265,10 @@ public class HoldingSnapshotService {
     // 4.4 单持仓 vs 上期变化
     // ======================================================================
 
-    public HoldingDiffDTO getHoldingDiff(String holdingId) {
+    public HoldingDiffDTO getHoldingDiff(String holdingId, String userId) {
+        // 验证持仓属于当前用户
+        holdingRepository.findByIdAndUserIdAndDeletedFalse(holdingId, userId)
+                .orElseThrow(BusinessException::holdingNotFound);
         List<HoldingSnapshot> top2 = holdingSnapshotRepository.findTop2ByHoldingIdOrderBySnapshotDateDesc(holdingId);
         if (top2.isEmpty()) {
             // 无快照时不抛异常，返回空响应（与 getHoldingSeries 返回空 series 行为一致）
@@ -303,8 +336,8 @@ public class HoldingSnapshotService {
      * 仅对 us_stock/gold/dividend 持仓计算年化收益率。
      * IRR 边界：单笔 buy / holdingDays<1 / costBasis=0 → 返回 null。
      */
-    public AnnualizedReturnDTO getAnnualizedReturn(String holdingId) {
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(holdingId)
+    public AnnualizedReturnDTO getAnnualizedReturn(String holdingId, String userId) {
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(holdingId, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
 
         BigDecimal currentValue = holding.getMarketValue() == null ? BigDecimal.ZERO : holding.getMarketValue();

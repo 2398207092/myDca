@@ -1,8 +1,15 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { getToken } from '@/api/request'
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/views/login/LoginPage.vue'),
+      meta: { level: 0, noAuth: true },
+    },
     {
       path: '/',
       name: 'home',
@@ -95,6 +102,20 @@ const router = createRouter({
       meta: { level: 2 },
     },
   ],
+})
+
+// 导航守卫：未登录时重定向到登录页
+router.beforeEach((to, _from, next) => {
+  if (to.meta.noAuth) {
+    next() // 登录页不需要认证
+    return
+  }
+  const token = getToken()
+  if (!token) {
+    next({ name: 'login' })
+    return
+  }
+  next()
 })
 
 export default router

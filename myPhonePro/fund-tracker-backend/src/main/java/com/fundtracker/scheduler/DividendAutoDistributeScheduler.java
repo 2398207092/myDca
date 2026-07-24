@@ -52,7 +52,7 @@ public class DividendAutoDistributeScheduler {
 
         for (DividendEvent event : dueEvents) {
             try {
-                eventService.markDistributed(event.getId());
+                eventService.markDistributed(event.getId(), event.getUserId());
                 successCount++;
                 log.info("[分红自动分发] 已处理: {} {} 金额={}",
                         event.getHoldingName(), event.getDate(), event.getAmount());

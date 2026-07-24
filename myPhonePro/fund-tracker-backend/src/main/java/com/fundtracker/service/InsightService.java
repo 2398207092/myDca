@@ -24,14 +24,14 @@ public class InsightService {
     private final DividendEventRepository eventRepository;
     private final HoldingRepository holdingRepository;
 
-    public MonthlyInsightResp getMonthlyInsight(int year, int month) {
+    public MonthlyInsightResp getMonthlyInsight(int year, int month, String userId) {
         LocalDate start = LocalDate.of(year, month, 1);
         LocalDate end = start.plusMonths(1).minusDays(1);
 
-        List<DividendEvent> monthEvents = eventRepository.findByDateBetweenOrderByDate(start, end);
+        List<DividendEvent> monthEvents = eventRepository.findByDateBetweenAndUserIdOrderByDate(start, end, userId);
 
         // 最丰厚来源：当月事件中预测分红最大的持仓
-        List<Holding> holdings = holdingRepository.findByDeletedFalseOrderByMarketValueDesc();
+        List<Holding> holdings = holdingRepository.findByUserIdAndDeletedFalseOrderByMarketValueDesc(userId);
         Map<String, Holding> holdingMap = holdings.stream()
                 .collect(Collectors.toMap(Holding::getId, h -> h));
 
@@ -90,11 +90,11 @@ public class InsightService {
                 .build();
     }
 
-    public MonthlyDetailResp getMonthlyDetail(int year, int month) {
+    public MonthlyDetailResp getMonthlyDetail(int year, int month, String userId) {
         LocalDate start = LocalDate.of(year, month, 1);
         LocalDate end = start.plusMonths(1).minusDays(1);
 
-        List<DividendEvent> monthEvents = eventRepository.findByDateBetweenOrderByDate(start, end);
+        List<DividendEvent> monthEvents = eventRepository.findByDateBetweenAndUserIdOrderByDate(start, end, userId);
 
         // 按 holdingId 分组
         Map<String, List<DividendEvent>> grouped = monthEvents.stream()
@@ -141,7 +141,7 @@ public class InsightService {
         return MonthlyDetailResp.builder().details(details).build();
     }
 
-    public AnnualInsightResp getAnnualInsight(int year) {
+    public AnnualInsightResp getAnnualInsight(int year, String userId) {
         // 全年12个月的数据
         List<AnnualInsightResp.MonthBar> bars = new ArrayList<>();
         BigDecimal peakAmount = BigDecimal.ZERO;
@@ -151,7 +151,7 @@ public class InsightService {
             LocalDate start = LocalDate.of(year, m, 1);
             LocalDate end = start.plusMonths(1).minusDays(1);
 
-            BigDecimal monthAmount = eventRepository.findByDateBetweenOrderByDate(start, end)
+            BigDecimal monthAmount = eventRepository.findByDateBetweenAndUserIdOrderByDate(start, end, userId)
                     .stream()
                     .filter(e -> e.getType() == EventType.payout)
                     .map(e -> e.getAmount() != null ? e.getAmount() : BigDecimal.ZERO)
@@ -179,7 +179,7 @@ public class InsightService {
         // 基金排名
         LocalDate yearStart = LocalDate.of(year, 1, 1);
         LocalDate yearEnd = LocalDate.of(year, 12, 31);
-        List<DividendEvent> yearEvents = eventRepository.findByDateBetweenOrderByDate(yearStart, yearEnd)
+        List<DividendEvent> yearEvents = eventRepository.findByDateBetweenAndUserIdOrderByDate(yearStart, yearEnd, userId)
                 .stream()
                 .filter(e -> e.getType() == EventType.payout)
                 .collect(Collectors.toList());

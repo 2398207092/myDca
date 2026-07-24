@@ -4,9 +4,11 @@ import { useRouter } from 'vue-router'
 import type { PageState } from '@/types'
 import { getProfile, getSettings } from '@/api/user'
 import { listExchangeRates, refreshExchangeRates } from '@/api/exchangeRate'
-import { getToken } from '@/api/request'
+import { getToken, clearToken } from '@/api/request'
+import { getUserInfo, setPassword as apiSetPassword, logout as apiLogout } from '@/api/auth'
 import type { UserProfile, UserSettings } from '@/api/user'
 import type { ExchangeRateItem } from '@/api/exchangeRate'
+import type { UserInfoResp } from '@/types/api'
 import PageStateView from '@/components/shared/PageState.vue'
 
 const router = useRouter()
@@ -20,6 +22,19 @@ const showPhoneModal = ref(false)
 const showDataInfoModal = ref(false)
 const showContactModal = ref(false)
 const isBackingUp = ref(false)
+
+// ── Auth state ──
+const userInfo = ref<UserInfoResp | null>(null)
+
+// ── Set password ──
+const showSetPwdModal = ref(false)
+const newPassword = ref('')
+const confirmNewPassword = ref('')
+const settingPassword = ref(false)
+const pwdError = ref('')
+
+// ── Logout confirm ──
+const showLogoutConfirm = ref(false)
 
 async function handleDbBackup() {
   isBackingUp.value = true
@@ -66,18 +81,52 @@ function showAlert(msg: string) {
 
 async function loadData() {
   try {
-    const [p, s, r] = await Promise.all([
+    const [p, s, r, u] = await Promise.all([
       getProfile(),
       getSettings(),
       listExchangeRates(),
+      getUserInfo().catch(() => null),
     ])
     profile.value = p
     settings.value = s
     exchangeRates.value = r
+    userInfo.value = u
     pageState.value = 'ready'
   } catch (e) {
     console.error('加载个人中心数据失败:', e)
   }
+}
+
+async function handleSetPassword() {
+  if (newPassword.value.length < 6 || newPassword.value.length > 20) {
+    pwdError.value = '密码长度需为 6-20 位'
+    return
+  }
+  if (newPassword.value !== confirmNewPassword.value) {
+    pwdError.value = '两次密码输入不一致'
+    return
+  }
+  settingPassword.value = true
+  pwdError.value = ''
+  try {
+    await apiSetPassword({ email: userInfo.value!.email, password: newPassword.value })
+    userInfo.value!.hasPassword = true
+    showSetPwdModal.value = false
+    newPassword.value = ''
+    confirmNewPassword.value = ''
+  } catch (e: any) {
+    pwdError.value = e.message || '设置密码失败'
+  } finally {
+    settingPassword.value = false
+  }
+}
+
+async function handleLogout() {
+  try {
+    await apiLogout()
+  } catch { /* ignore */ }
+  clearToken()
+  router.push({ name: 'login' })
 }
 
 async function handleRefresh() {
@@ -189,6 +238,9 @@ onMounted(() => {
                 {{ profile?.membershipExpiry }} 到期
               </span>
             </div>
+            <p v-if="userInfo?.email" class="font-body text-xs text-text-tertiary mt-1">
+              {{ userInfo.email }}
+            </p>
           </div>
           <span class="material-symbols-outlined text-text-tertiary shrink-0">
             chevron_right
@@ -314,6 +366,22 @@ onMounted(() => {
               class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform"
             >chevron_right</span>
           </div>
+          <!-- Set Password Hint -->
+          <div v-if="userInfo && !userInfo.hasPassword"
+            class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group"
+            @click="showSetPwdModal = true"
+          >
+            <div class="flex items-center gap-md">
+              <span class="material-symbols-outlined text-warning">lock_open</span>
+              <div>
+                <span class="font-body text-sm font-medium text-text-primary">设置密码</span>
+                <p class="font-body text-[11px] text-warning mt-[1px]">⚠ 尚未设置密码，点击设置</p>
+              </div>
+            </div>
+            <span
+              class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform"
+            >chevron_right</span>
+          </div>
         </div>
       </section>
 
@@ -350,11 +418,101 @@ onMounted(() => {
         </div>
       </section>
 
+      <!-- Logout -->
+      <section class="mb-xl">
+        <button
+          class="w-full bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 flex items-center justify-center gap-md hover:bg-card-alt transition-colors active:scale-[0.98]"
+          @click="showLogoutConfirm = true"
+        >
+          <span class="material-symbols-outlined text-alert">logout</span>
+          <span class="font-body text-sm font-medium text-alert">退出登录</span>
+        </button>
+      </section>
+
       <!-- Version -->
       <div class="mt-xl text-center pb-8">
         <p class="font-body text-xs text-text-tertiary opacity-50">种树 v2.4.0</p>
       </div>
     </main>
+
+    <!-- Set Password Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showSetPwdModal"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-gutter"
+        @click.self="showSetPwdModal = false"
+      >
+        <div class="bg-card-bg rounded-xl p-lg w-full max-w-sm">
+          <div class="flex items-center justify-between mb-md">
+            <h3 class="font-body text-sm font-medium text-text-primary">设置密码</h3>
+            <button
+              class="w-8 h-8 flex items-center justify-center text-text-tertiary hover:bg-card-alt rounded-lg transition-colors"
+              @click="showSetPwdModal = false"
+            >
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          <div class="space-y-3">
+            <p v-if="userInfo?.email" class="font-body text-xs text-text-tertiary">
+              账号：{{ userInfo.email }}
+            </p>
+            <input
+              v-model="newPassword"
+              type="password"
+              placeholder="6-20 位字母+数字组合"
+              class="w-full px-3 py-2.5 bg-page-bg rounded-lg border border-border-light/60 text-sm
+                     font-body text-text-primary placeholder:text-text-tertiary/50
+                     focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/20 transition-all"
+            />
+            <input
+              v-model="confirmNewPassword"
+              type="password"
+              placeholder="再次输入密码"
+              class="w-full px-3 py-2.5 bg-page-bg rounded-lg border border-border-light/60 text-sm
+                     font-body text-text-primary placeholder:text-text-tertiary/50
+                     focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/20 transition-all"
+            />
+            <div v-if="pwdError" class="py-1.5 px-2.5 bg-error/5 rounded-lg border border-error/10">
+              <p class="font-body text-xs text-error">{{ pwdError }}</p>
+            </div>
+            <button
+              @click="handleSetPassword"
+              :disabled="settingPassword || !newPassword || newPassword !== confirmNewPassword"
+              class="w-full py-2.5 rounded-lg font-body text-sm font-medium transition-all"
+              :class="settingPassword || !newPassword || newPassword !== confirmNewPassword
+                ? 'bg-page-bg text-text-tertiary cursor-not-allowed'
+                : 'bg-brand text-white active:scale-[0.98]'"
+            >
+              {{ settingPassword ? '保存中...' : '保存' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Logout Confirm Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showLogoutConfirm"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-gutter"
+        @click.self="showLogoutConfirm = false"
+      >
+        <div class="bg-card-bg rounded-xl p-lg w-full max-w-sm">
+          <h3 class="font-body text-sm font-medium text-text-primary mb-2">确认退出？</h3>
+          <p class="font-body text-xs text-text-tertiary mb-md">退出后需要重新登录才能使用</p>
+          <div class="flex gap-2">
+            <button
+              class="flex-1 py-2.5 rounded-lg bg-page-bg font-body text-sm font-medium text-text-secondary active:scale-[0.98] transition-transform"
+              @click="showLogoutConfirm = false"
+            >取消</button>
+            <button
+              class="flex-1 py-2.5 rounded-lg bg-alert text-white font-body text-sm font-medium active:scale-[0.98] transition-transform"
+              @click="handleLogout"
+            >退出</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Phone Modal -->
     <Teleport to="body">

@@ -21,25 +21,29 @@ public class ManualAssetService {
 
     private final ManualAssetRepository manualAssetRepository;
 
-    public List<ManualAssetDTO> listManualAssets() {
-        return manualAssetRepository.findAllByOrderByTypeAscAmountDesc().stream()
+    public List<ManualAssetDTO> listManualAssets(String userId) {
+        return manualAssetRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
-    public ManualAssetDTO getManualAsset(String id) {
+    public ManualAssetDTO getManualAsset(String id, String userId) {
         ManualAsset asset = manualAssetRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(6001, "手动资产不存在"));
+        if (!asset.getUserId().equals(userId)) {
+            throw new BusinessException(6002, "无权访问该资产");
+        }
         return toDTO(asset);
     }
 
     @Transactional
-    public ManualAssetDTO createManualAsset(CreateManualAssetReq req) {
+    public ManualAssetDTO createManualAsset(CreateManualAssetReq req, String userId) {
         // 如果没有现金资产，自动标记为主账户
         boolean isPrimary = "cash".equals(req.getType())
-                && manualAssetRepository.findByType("cash").isEmpty();
+                && manualAssetRepository.findByUserIdAndType(userId, "cash").isEmpty();
 
         ManualAsset asset = ManualAsset.builder()
+                .userId(userId)
                 .name(req.getName())
                 .type(req.getType())
                 .amount(req.getAmount())
@@ -53,9 +57,12 @@ public class ManualAssetService {
     }
 
     @Transactional
-    public ManualAssetDTO updateManualAsset(String id, UpdateManualAssetReq req) {
+    public ManualAssetDTO updateManualAsset(String id, UpdateManualAssetReq req, String userId) {
         ManualAsset asset = manualAssetRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(6001, "手动资产不存在"));
+        if (!asset.getUserId().equals(userId)) {
+            throw new BusinessException(6002, "无权修改该资产");
+        }
 
         if (req.getName() != null) asset.setName(req.getName());
         if (req.getType() != null) asset.setType(req.getType());
@@ -69,15 +76,18 @@ public class ManualAssetService {
     }
 
     @Transactional
-    public void deleteManualAsset(String id) {
+    public void deleteManualAsset(String id, String userId) {
         ManualAsset asset = manualAssetRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(6001, "手动资产不存在"));
+        if (!asset.getUserId().equals(userId)) {
+            throw new BusinessException(6002, "无权删除该资产");
+        }
         manualAssetRepository.delete(asset);
         log.info("删除手动资产: {} [{}]", asset.getName(), asset.getType());
     }
 
-    public BigDecimal getTotalByType(String type) {
-        List<ManualAsset> assets = manualAssetRepository.findByType(type);
+    public BigDecimal getTotalByType(String type, String userId) {
+        List<ManualAsset> assets = manualAssetRepository.findByUserIdAndType(userId, type);
         return assets.stream()
                 .map(ManualAsset::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -89,9 +99,10 @@ public class ManualAssetService {
      *
      * @param holdingId 交易的 holdingId（仅用于日志）
      * @param amount    正数=增加现金，负数=减少现金
+     * @param userId    用户 ID
      */
-    public void adjustCash(String holdingId, BigDecimal amount) {
-        List<ManualAsset> cashAssets = manualAssetRepository.findByType("cash");
+    public void adjustCash(String holdingId, BigDecimal amount, String userId) {
+        List<ManualAsset> cashAssets = manualAssetRepository.findByUserIdAndType(userId, "cash");
         if (cashAssets.isEmpty()) {
             log.warn("adjustCash: 无现金资产，跳过调整 (holdingId={}, amount={})", holdingId, amount);
             return;

@@ -8,6 +8,8 @@ import java.util.List;
 
 public interface DcaPlanRepository extends JpaRepository<DcaPlan, String> {
     List<DcaPlan> findByHoldingIdOrderByCreatedAtDesc(String holdingId);
+    List<DcaPlan> findByUserId(String userId);
+    List<DcaPlan> findByHoldingIdAndUserIdOrderByCreatedAtDesc(String holdingId, String userId);
 
     List<DcaPlan> findByStatus(String status);
 

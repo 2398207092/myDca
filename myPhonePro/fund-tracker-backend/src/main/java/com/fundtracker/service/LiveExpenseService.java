@@ -22,18 +22,19 @@ public class LiveExpenseService {
     private final LiveExpenseRepository expenseRepository;
     private final DashboardService dashboardService;
 
-    public List<LiveExpenseDTO> listAll() {
-        return expenseRepository.findByDeletedFalseOrderBySortOrderAsc()
+    public List<LiveExpenseDTO> listAll(String userId) {
+        return expenseRepository.findByUserIdAndDeletedFalseOrderBySortOrderAsc(userId)
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public LiveExpenseDTO create(CreateExpenseReq req) {
-        int nextSort = (int) expenseRepository.countByDeletedFalse();
+    public LiveExpenseDTO create(CreateExpenseReq req, String userId) {
+        int nextSort = (int) expenseRepository.countByUserIdAndDeletedFalse(userId);
         LiveExpense expense = LiveExpense.builder()
                 .id(UUID.randomUUID().toString())
+                .userId(userId)
                 .name(req.getName())
                 .icon(req.getIcon())
                 .monthlyAmount(req.getMonthlyAmount())
@@ -45,9 +46,12 @@ public class LiveExpenseService {
     }
 
     @Transactional
-    public LiveExpenseDTO update(String id, UpdateExpenseReq req) {
+    public LiveExpenseDTO update(String id, UpdateExpenseReq req, String userId) {
         LiveExpense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> BusinessException.expenseNotFound(id));
+        if (!expense.getUserId().equals(userId)) {
+            throw new RuntimeException("无权修改该支出");
+        }
         if (req.getName() != null) expense.setName(req.getName());
         if (req.getIcon() != null) expense.setIcon(req.getIcon());
         if (req.getMonthlyAmount() != null) expense.setMonthlyAmount(req.getMonthlyAmount());
@@ -57,17 +61,20 @@ public class LiveExpenseService {
     }
 
     @Transactional
-    public void delete(String id) {
+    public void delete(String id, String userId) {
         LiveExpense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> BusinessException.expenseNotFound(id));
+        if (!expense.getUserId().equals(userId)) {
+            throw new RuntimeException("无权删除该支出");
+        }
         expense.setDeleted(true);
         expenseRepository.save(expense);
         log.info("删除生活支出: {}", expense.getName());
     }
 
-    public CoverageDTO getCoverageSummary() {
-        DashboardDTO dashboard = dashboardService.getDashboard();
-        List<LiveExpense> expenses = expenseRepository.findByDeletedFalseOrderBySortOrderAsc();
+    public CoverageDTO getCoverageSummary(String userId) {
+        DashboardDTO dashboard = dashboardService.getDashboard(userId);
+        List<LiveExpense> expenses = expenseRepository.findByUserIdAndDeletedFalseOrderBySortOrderAsc(userId);
 
         BigDecimal predictedAnnualDividend = dashboard.getPredictedAnnualDividend() != null
                 ? dashboard.getPredictedAnnualDividend() : BigDecimal.ZERO;
