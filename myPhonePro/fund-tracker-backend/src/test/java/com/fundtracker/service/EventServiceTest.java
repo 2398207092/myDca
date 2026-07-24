@@ -63,14 +63,14 @@ class EventServiceTest {
         when(eventRepository.save(any(DividendEvent.class))).thenAnswer(i -> i.getArgument(0));
         when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
 
-        eventService.markDistributed("evt-1");
+        eventService.markDistributed("evt-1", "user-1");
 
         // 状态变为 distributed
         assertEquals(EventStatus.distributed, event.getStatus());
         // 累计分红增加
         assertEquals(new BigDecimal("500"), holding.getTotalDividendReceived());
         // 现金应增加 500
-        verify(manualAssetService).adjustCash("h-1", new BigDecimal("500"));
+        verify(manualAssetService).adjustCash("h-1", new BigDecimal("500"), "user-1");
     }
 
     @Test
@@ -88,10 +88,10 @@ class EventServiceTest {
         when(eventRepository.findById("evt-1")).thenReturn(Optional.of(event));
         when(eventRepository.save(any(DividendEvent.class))).thenAnswer(i -> i.getArgument(0));
 
-        eventService.markDistributed("evt-1");
+        eventService.markDistributed("evt-1", "user-1");
 
         // 金额为0时不调现金
-        verify(manualAssetService, never()).adjustCash(any(), any());
+        verify(manualAssetService, never()).adjustCash(any(), any(), any());
     }
 
     @Test
@@ -104,7 +104,7 @@ class EventServiceTest {
 
         when(eventRepository.findById("evt-1")).thenReturn(Optional.of(event));
 
-        assertThrows(BusinessException.class, () -> eventService.cancelEvent("evt-1"));
+        assertThrows(BusinessException.class, () -> eventService.cancelEvent("evt-1", "user-1"));
     }
 
     @Test
@@ -118,7 +118,7 @@ class EventServiceTest {
         when(eventRepository.findById("evt-1")).thenReturn(Optional.of(event));
         when(eventRepository.save(any(DividendEvent.class))).thenAnswer(i -> i.getArgument(0));
 
-        eventService.cancelEvent("evt-1");
+        eventService.cancelEvent("evt-1", "user-1");
 
         assertEquals(EventStatus.cancelled, event.getStatus());
     }

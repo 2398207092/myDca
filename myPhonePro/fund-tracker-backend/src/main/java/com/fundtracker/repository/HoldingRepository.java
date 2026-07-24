@@ -21,6 +21,8 @@ public interface HoldingRepository extends JpaRepository<Holding, String> {
     List<Holding> findByUserIdAndDeletedFalseOrderByMarketValueDesc(String userId);
     List<Holding> findByUserIdAndAssetCategoryAndDeletedFalse(String userId, String assetCategory);
     Optional<Holding> findByIdAndUserIdAndDeletedFalse(String id, String userId);
+    boolean existsByCodeAndUserIdAndDeletedFalse(String code, String userId);
+    List<Holding> findByCodeAndUserIdAndDeletedFalse(String code, String userId);
     long countByUserIdIsNull();
     List<Holding> findByUserIdAndTypeAndDeletedFalse(String userId, String type);
     @Query("SELECT h FROM Holding h WHERE h.userId = :userId AND (h.name LIKE %:keyword% OR h.code LIKE %:keyword%) AND h.deleted = false")

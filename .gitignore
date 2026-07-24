@@ -45,6 +45,8 @@ cookie.txt
 
 # Test files
 pingzhong_test.js
+test_*.json
+write_bats.py
 
 # Batch scripts
 stop.bat

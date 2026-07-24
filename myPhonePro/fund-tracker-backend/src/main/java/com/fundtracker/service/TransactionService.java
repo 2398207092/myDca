@@ -1,5 +1,6 @@
 package com.fundtracker.service;
 
+import com.fundtracker.event.TransactionChangedEvent;
 import com.fundtracker.exception.BusinessException;
 import com.fundtracker.model.dto.*;
 import com.fundtracker.model.entity.Holding;
@@ -9,6 +10,7 @@ import com.fundtracker.repository.HoldingRepository;
 import com.fundtracker.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,7 @@ public class TransactionService {
     private final HoldingService holdingService;
     private final ManualAssetService manualAssetService;
     private final FundNavScrapeService fundNavScrapeService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public List<TransactionDTO> listTransactions(String holdingId, String type,
                                                   String dateFrom, String dateTo, String userId) {
@@ -139,6 +142,9 @@ public class TransactionService {
             log.warn("交易后刷新净值失败: {}", e.getMessage());
         }
 
+        // 交易变更后发布事件触发分红事件同步
+        eventPublisher.publishEvent(new TransactionChangedEvent(holding.getId(), userId));
+
         return toDTO(transaction);
     }
 
@@ -186,6 +192,9 @@ public class TransactionService {
                     .setScale(2, RoundingMode.HALF_UP));
         }
         holdingRepository.save(holding);
+
+        // 交易变更后发布事件触发分红事件同步
+        eventPublisher.publishEvent(new TransactionChangedEvent(holding.getId(), userId));
 
         return toDTO(tx);
     }
@@ -239,6 +248,9 @@ public class TransactionService {
                     .setScale(2, RoundingMode.HALF_UP));
         }
         holdingRepository.save(holding);
+
+        // 交易变更后发布事件触发分红事件同步
+        eventPublisher.publishEvent(new TransactionChangedEvent(holdingId, userId));
     }
 
     /**

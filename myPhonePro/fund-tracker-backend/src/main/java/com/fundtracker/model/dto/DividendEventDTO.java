@@ -20,4 +20,5 @@ public class DividendEventDTO {
     private String status;
     private String description;
     private Boolean participated;
+    private Boolean converted;
 }

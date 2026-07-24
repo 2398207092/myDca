@@ -10,12 +10,32 @@ const holdingId = route.params.id as string
 const loading = ref(true)
 const events = ref<DividendEventItem[]>([])
 
-const participatedEvents = computed(() =>
-  events.value.filter(e => e.participated)
+// 只展示 payout（分红发放）事件
+const payoutEvents = computed(() =>
+  events.value
+    .filter(e => e.type === 'payout')
+    .sort((a, b) => b.date.localeCompare(a.date))
 )
+
+// 查找同一分红的权益登记日和除权除息日
+function findRelatedDates(payoutEvent: DividendEventItem): { registration?: string; exDividend?: string } {
+  // 用 description 中"每份 X 元"的尾部匹配
+  const suffix = payoutEvent.description.replace(/^(分红发放|除权除息|权益登记日)\s*·\s*/, '· ')
+  const related = events.value.filter(e =>
+    e.holdingId === payoutEvent.holdingId &&
+    e.description.endsWith(suffix) &&
+    e.id !== payoutEvent.id
+  )
+  return {
+    registration: related.find(e => e.type === 'registration')?.date,
+    exDividend: related.find(e => e.type === 'ex_dividend')?.date,
+  }
+}
 
 const convertingId = ref<string | null>(null)
 const distributingId = ref<string | null>(null)
+
+const relatedDates = ref<{ registration?: string; exDividend?: string }>({})
 
 async function handleConvertToReinvest(eventId: string) {
   convertingId.value = eventId
@@ -44,8 +64,8 @@ async function handleMarkDistributed(eventId: string) {
 }
 
 const totalDividend = computed(() =>
-  participatedEvents.value
-    .filter(e => e.status === 'distributed')
+  events.value
+    .filter(e => e.participated && e.status === 'distributed')
     .reduce((sum, e) => sum + (e.amount || 0), 0)
 )
 
@@ -65,6 +85,7 @@ const showActionSheet = ref(false)
 
 function showEventActions(ev: DividendEventItem) {
   selectedEvent.value = ev
+  relatedDates.value = findRelatedDates(ev)
   showActionSheet.value = true
 }
 
@@ -118,7 +139,7 @@ function goHome() {
       </div>
 
       <!-- Empty -->
-      <div v-else-if="participatedEvents.length === 0" class="flex flex-col items-center justify-center py-32 gap-md">
+      <div v-else-if="events.length === 0" class="flex flex-col items-center justify-center py-32 gap-md">
         <span class="text-5xl block text-text-tertiary/40">📋</span>
         <p class="font-body text-sm text-text-secondary">暂无分红记录</p>
       </div>
@@ -132,7 +153,7 @@ function goHome() {
         </div>
 
         <div class="space-y-xs">
-          <div v-for="ev in participatedEvents" :key="ev.id"
+          <div v-for="ev in payoutEvents" :key="ev.id"
                class="flex items-center justify-between bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 transition-colors cursor-pointer active:scale-[0.98]"
                @click="showEventActions(ev)">
             <!-- Left -->
@@ -164,6 +185,10 @@ function goHome() {
                       :class="statusLabel(ev.status).class">
                   {{ statusLabel(ev.status).text }}
                 </span>
+                <span v-if="ev.status === 'distributed' && ev.converted"
+                      class="inline-block px-sm py-0.5 rounded-full font-body text-xs bg-brand-light text-brand">
+                  已复投
+                </span>
               </div>
             </div>
           </div>
@@ -182,13 +207,36 @@ function goHome() {
           <div class="w-10 h-1 bg-border-light rounded-full mx-auto mb-lg"></div>
           <!-- Event info -->
           <div class="text-center mb-md">
-            <p class="font-body text-sm text-text-primary">{{ selectedEvent.date }}</p>
-            <p class="font-body text-xs text-text-tertiary mt-xs">{{ selectedEvent.description }}</p>
+            <p class="font-body text-sm font-medium text-text-primary">分红发放日</p>
+            <p class="font-display text-lg font-semibold text-text-primary">{{ selectedEvent.date }}</p>
+            <div class="flex items-center justify-center gap-lg mt-sm">
+              <div v-if="relatedDates.registration" class="text-center">
+                <p class="font-body text-[11px] text-text-tertiary">登记日</p>
+                <p class="font-body text-xs text-text-secondary mt-0.5">{{ relatedDates.registration }}</p>
+              </div>
+              <div v-if="relatedDates.exDividend" class="text-center">
+                <p class="font-body text-[11px] text-text-tertiary">除息日</p>
+                <p class="font-body text-xs text-text-secondary mt-0.5">{{ relatedDates.exDividend }}</p>
+              </div>
+            </div>
+            <p class="font-body text-xs text-text-tertiary mt-sm">{{ selectedEvent.description }}</p>
             <p class="font-display text-lg font-semibold text-text-primary mt-sm">{{ formatAmount(selectedEvent.amount) }}</p>
           </div>
 
-          <!-- pending → 标记到账 -->
-          <button v-if="selectedEvent.status === 'pending'"
+          <!-- 未参与 → 仅展示 -->
+          <div v-if="!selectedEvent.participated"
+               class="w-full text-center px-md py-lg rounded-xl bg-card-alt">
+            <span class="font-body text-sm text-text-tertiary">未参与本次分红</span>
+          </div>
+
+          <!-- 已复投 → 仅展示 -->
+          <div v-else-if="selectedEvent.converted"
+               class="w-full text-center px-md py-lg rounded-xl bg-card-alt">
+            <span class="font-body text-sm text-brand">已转为复投份额</span>
+          </div>
+
+          <!-- pending + participated → 标记到账 -->
+          <button v-if="selectedEvent.participated && selectedEvent.status === 'pending'"
                   class="w-full flex items-center gap-md px-md py-lg rounded-xl hover:bg-card-alt transition-colors"
                   :disabled="distributingId === selectedEvent.id"
                   @click="handleMarkDistributed(selectedEvent.id)">
@@ -198,8 +246,8 @@ function goHome() {
             </span>
           </button>
 
-          <!-- distributed → 转为复投 -->
-          <button v-if="selectedEvent.status === 'distributed'"
+          <!-- distributed + participated + 未复投 → 转为复投 -->
+          <button v-if="selectedEvent.participated && selectedEvent.status === 'distributed' && !selectedEvent.converted"
                   class="w-full flex items-center gap-md px-md py-lg rounded-xl hover:bg-card-alt transition-colors"
                   :disabled="convertingId === selectedEvent.id"
                   @click="handleConvertToReinvest(selectedEvent.id)">

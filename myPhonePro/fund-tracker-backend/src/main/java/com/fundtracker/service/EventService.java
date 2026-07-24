@@ -193,6 +193,9 @@ public class EventService {
         if (event.getAmount() == null || event.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(2004, "金额为0的分红无需复投");
         }
+        if (Boolean.TRUE.equals(event.getConverted())) {
+            throw new BusinessException(2005, "该分红已转为复投，不可重复操作");
+        }
 
         final BigDecimal amount = event.getAmount();
         holdingRepository.findByIdAndDeletedFalse(event.getHoldingId())
@@ -232,6 +235,10 @@ public class EventService {
                         transactionService.createTransaction(reinvestReq, userId);
                         log.info("分红转复投: {} 金额 {}, NAV={}, 买入 {} 份",
                                 holding.getName(), amount, price, quantity);
+
+                        // 标记已复投，防止重复操作
+                        event.setConverted(true);
+                        eventRepository.save(event);
                     } catch (Exception e) {
                         log.error("分红转复投买入失败: {}", e.getMessage());
                         // 买入失败时回滚现金扣除
@@ -254,6 +261,7 @@ public class EventService {
                 .status(event.getStatus().name())
                 .description(event.getDescription())
                 .participated(event.getParticipated())
+                .converted(event.getConverted())
                 .build();
     }
 }

@@ -48,8 +48,8 @@ public class Transaction {
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal total;
 
-    @Column(nullable = false, length = 10)
-    private String source;  // "manual" / "dca"
+    @Column(nullable = false, length = 30)
+    private String source;  // "manual" / "dca" / "dividend_reinvest"
 
     @Column(length = 36)
     private String dcaPlanId;  // nullable, FK to dca_plans

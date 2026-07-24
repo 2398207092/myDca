@@ -2,29 +2,87 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { PageState } from '@/types'
-import { getProfile, getSettings } from '@/api/user'
+import { getProfile, getSettings, updateProfile, type UserProfile } from '@/api/user'
 import { listExchangeRates, refreshExchangeRates } from '@/api/exchangeRate'
 import { getToken, clearToken } from '@/api/request'
 import { getUserInfo, setPassword as apiSetPassword, logout as apiLogout } from '@/api/auth'
-import type { UserProfile, UserSettings } from '@/api/user'
+import type { UserSettings } from '@/api/user'
 import type { ExchangeRateItem } from '@/api/exchangeRate'
 import type { UserInfoResp } from '@/types/api'
 import PageStateView from '@/components/shared/PageState.vue'
+import { getAuditDates, getAuditContent } from '@/api/audit'
+import type { AuditContent } from '@/api/audit'
+import ToastNotification from '@/components/shared/ToastNotification.vue'
+import AppHeader from '@/components/shared/AppHeader.vue'
 
 const router = useRouter()
 const pageState = ref<PageState>('loading')
+
+// ── User profile ──
 const profile = ref<UserProfile | null>(null)
 const settings = ref<UserSettings | null>(null)
 const exchangeRates = ref<ExchangeRateItem[]>([])
 const isRefreshing = ref(false)
 const avatarError = ref(false)
-const showPhoneModal = ref(false)
-const showDataInfoModal = ref(false)
-const showContactModal = ref(false)
-const isBackingUp = ref(false)
 
 // ── Auth state ──
 const userInfo = ref<UserInfoResp | null>(null)
+
+// ── Toast ──
+const toastMsg = ref<string | null>(null)
+const toastType = ref<'success' | 'error' | 'info'>('success')
+
+function showToast(msg: string, type: 'success' | 'error' | 'info' = 'success') {
+  toastMsg.value = msg
+  toastType.value = type
+}
+
+// ── Profile Edit Modal ──
+const showProfileModal = ref(false)
+const editName = ref('')
+const editAvatar = ref('')
+const savingProfile = ref(false)
+
+const AVATAR_OPTIONS = [
+  { seed: 'fund-tracker', bg: 'ff7a45' },
+  { seed: 'happy-panda', bg: '36cfc9' },
+  { seed: 'sunny-bear', bg: 'ffc53d' },
+  { seed: 'lucky-fox', bg: 'b37feb' },
+  { seed: 'cute-cat', bg: 'ff85c0' },
+  { seed: 'wise-owl', bg: '5cdbd3' },
+]
+
+function avatarUrl(seed: string, bg: string) {
+  return `https://api.dicebear.com/7.x/thumbs/svg?seed=${seed}&backgroundColor=${bg}`
+}
+
+function openProfileModal() {
+  if (!profile.value) return
+  editName.value = profile.value.name
+  editAvatar.value = profile.value.avatar
+  showProfileModal.value = true
+}
+
+async function handleSaveProfile() {
+  if (!editName.value.trim()) {
+    showToast('名字不能为空', 'error')
+    return
+  }
+  savingProfile.value = true
+  try {
+    const updated = await updateProfile({
+      name: editName.value.trim(),
+      avatar: editAvatar.value,
+    })
+    profile.value = updated
+    showProfileModal.value = false
+    showToast('个人信息已更新', 'success')
+  } catch (e: any) {
+    showToast(e.message || '保存失败', 'error')
+  } finally {
+    savingProfile.value = false
+  }
+}
 
 // ── Set password ──
 const showSetPwdModal = ref(false)
@@ -33,9 +91,91 @@ const confirmNewPassword = ref('')
 const settingPassword = ref(false)
 const pwdError = ref('')
 
-// ── Logout confirm ──
+async function handleSetPassword() {
+  if (newPassword.value.length < 6 || newPassword.value.length > 20) {
+    pwdError.value = '密码长度需为 6-20 位'
+    return
+  }
+  if (newPassword.value !== confirmNewPassword.value) {
+    pwdError.value = '两次密码输入不一致'
+    return
+  }
+  settingPassword.value = true
+  pwdError.value = ''
+  try {
+    await apiSetPassword({ email: userInfo.value!.email, password: newPassword.value })
+    userInfo.value!.hasPassword = true
+    showSetPwdModal.value = false
+    newPassword.value = ''
+    confirmNewPassword.value = ''
+    showToast('密码设置成功', 'success')
+  } catch (e: any) {
+    pwdError.value = e.message || '设置密码失败'
+  } finally {
+    settingPassword.value = false
+  }
+}
+
+// ── Logout ──
 const showLogoutConfirm = ref(false)
 
+async function handleLogout() {
+  try {
+    await apiLogout()
+  } catch { /* ignore */ }
+  clearToken()
+  router.push({ name: 'login' })
+}
+
+// ── Exchange rates ──
+async function handleRefresh() {
+  isRefreshing.value = true
+  try {
+    const resp = await refreshExchangeRates()
+    exchangeRates.value = resp.rates
+  } catch (e) {
+    console.error('刷新汇率失败:', e)
+  } finally {
+    setTimeout(() => { isRefreshing.value = false }, 1000)
+  }
+}
+
+// ── Modals ──
+const showDataInfoModal = ref(false)
+const isBackingUp = ref(false)
+
+// ── Audit (merged from Toolbox) ──
+const showDatePicker = ref(false)
+const availableDates = ref<string[]>([])
+const loadingDates = ref(false)
+const showAuditContent = ref(false)
+const auditContent = ref<AuditContent | null>(null)
+
+async function openDatePicker() {
+  showDatePicker.value = true
+  if (availableDates.value.length === 0) {
+    loadingDates.value = true
+    try {
+      availableDates.value = await getAuditDates()
+    } catch (e) {
+      console.error('获取审计日期列表失败:', e)
+    } finally {
+      loadingDates.value = false
+    }
+  }
+}
+
+async function selectDate(date: string) {
+  showDatePicker.value = false
+  try {
+    auditContent.value = await getAuditContent(date)
+    showAuditContent.value = true
+  } catch (e) {
+    console.error('获取审计内容失败:', e)
+  }
+}
+
+// ── Db backup ──
 async function handleDbBackup() {
   isBackingUp.value = true
   try {
@@ -47,12 +187,9 @@ async function handleDbBackup() {
       const err = await res.json().catch(() => ({}))
       throw new Error(err.message || `请求失败: ${res.status}`)
     }
-    // 从 Content-Disposition 解析文件名
     const disposition = res.headers.get('Content-Disposition') || ''
     const match = disposition.match(/filename="?([^";\n]+)"?/)
     const filename = match ? match[1] : `fund_tracker_${new Date().toISOString().slice(0, 10)}.sql.gz`
-
-    // 下载文件
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -62,10 +199,9 @@ async function handleDbBackup() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-
-    alert('✅ 数据库备份成功，已下载到本地')
+    showToast('✅ 数据库备份成功，已下载到本地', 'success')
   } catch (e: any) {
-    alert('❌ 备份失败: ' + (e.message || '未知错误'))
+    showToast('❌ 备份失败: ' + (e.message || '未知错误'), 'error')
   } finally {
     isBackingUp.value = false
   }
@@ -75,8 +211,9 @@ function onAvatarError() {
   avatarError.value = true
 }
 
-function showAlert(msg: string) {
-  window.alert(msg)
+
+function goBack() {
+  router.back()
 }
 
 async function loadData() {
@@ -97,73 +234,6 @@ async function loadData() {
   }
 }
 
-async function handleSetPassword() {
-  if (newPassword.value.length < 6 || newPassword.value.length > 20) {
-    pwdError.value = '密码长度需为 6-20 位'
-    return
-  }
-  if (newPassword.value !== confirmNewPassword.value) {
-    pwdError.value = '两次密码输入不一致'
-    return
-  }
-  settingPassword.value = true
-  pwdError.value = ''
-  try {
-    await apiSetPassword({ email: userInfo.value!.email, password: newPassword.value })
-    userInfo.value!.hasPassword = true
-    showSetPwdModal.value = false
-    newPassword.value = ''
-    confirmNewPassword.value = ''
-  } catch (e: any) {
-    pwdError.value = e.message || '设置密码失败'
-  } finally {
-    settingPassword.value = false
-  }
-}
-
-async function handleLogout() {
-  try {
-    await apiLogout()
-  } catch { /* ignore */ }
-  clearToken()
-  router.push({ name: 'login' })
-}
-
-async function handleRefresh() {
-  isRefreshing.value = true
-  try {
-    const resp = await refreshExchangeRates()
-    exchangeRates.value = resp.rates
-  } catch (e) {
-    console.error('刷新汇率失败:', e)
-  } finally {
-    setTimeout(() => { isRefreshing.value = false }, 1000)
-  }
-}
-
-function goToTools() {
-  router.push('/profile/tools')
-}
-
-function goToExpenseSettings() {
-  router.push('/coverage/settings')
-}
-
-function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text).then(() => {
-    alert('已复制到剪贴板')
-  }).catch(() => {
-    // fallback
-    const ta = document.createElement('textarea')
-    ta.value = text
-    document.body.appendChild(ta)
-    ta.select()
-    document.execCommand('copy')
-    document.body.removeChild(ta)
-    alert('已复制到剪贴板')
-  })
-}
-
 onMounted(() => {
   loadData()
 })
@@ -171,28 +241,19 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen bg-page-bg">
-    <!-- Header — 统一内联 -->
-    <header class="flex items-center justify-between px-gutter h-14 sticky top-0 z-50 bg-card-bg border-b border-border-light/40">
-      <div class="flex items-center gap-2">
-        <span class="material-symbols-outlined text-brand text-2xl">eco</span>
-        <h1 class="font-body text-md font-medium text-text-primary">种树</h1>
-      </div>
-      <button @click="goToTools" class="w-10 h-10 flex items-center justify-center active:opacity-80 transition-opacity">
-        <span class="material-symbols-outlined text-text-secondary">settings</span>
-      </button>
-    </header>
+    <!-- Toast -->
+    <ToastNotification :message="toastMsg" :type="toastType" @close="toastMsg = null" />
+
+    <AppHeader title="我的" :show-logo="true" />
 
     <PageStateView v-if="pageState !== 'ready'" :state="pageState" />
 
-    <main
-      v-if="pageState === 'ready'"
-      class="pt-4 pb-24 px-gutter"
-    >
-      <!-- User Info Section -->
+    <main v-if="pageState === 'ready'" class="pt-14 pb-24 px-gutter">
+      <!-- ==================== User Info Card ==================== -->
       <section class="mb-lg">
         <div
           class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 flex items-center gap-md cursor-pointer active:scale-[0.98] transition-transform"
-          @click="goToTools"
+          @click="openProfileModal"
         >
           <div class="relative shrink-0">
             <img
@@ -209,6 +270,7 @@ onMounted(() => {
               <span class="material-symbols-outlined text-[36px] text-text-secondary">person</span>
             </div>
             <div
+              v-if="profile?.membership === 'pro'"
               class="absolute -bottom-1 -right-1 bg-brand text-white p-1 rounded-full border-2 border-card-bg flex items-center justify-center"
             >
               <span
@@ -218,24 +280,23 @@ onMounted(() => {
             </div>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-sm mb-xs">
+            <div class="flex items-center gap-xs flex-wrap mb-xs">
               <h2 class="font-display text-lg text-text-primary truncate">
                 {{ profile?.name }}
               </h2>
-            </div>
-            <div class="flex items-center gap-xs flex-wrap">
               <span
                 v-if="profile?.membership === 'pro'"
-                class="bg-brand text-white px-2 py-0.5 rounded-lg font-body text-xs font-medium flex items-center gap-1"
+                class="bg-brand text-white px-1 py-0.5 rounded font-body text-[10px] font-medium leading-none flex items-center gap-[2px]"
+                style="position: relative; top: 1px"
               >
-                <span
-                  class="material-symbols-outlined text-[14px]"
-                  style="font-variation-settings: 'FILL' 1;"
-                >workspace_premium</span>
-                Pro 会员
+                <span class="material-symbols-outlined text-[11px]" style="font-variation-settings:'FILL' 1">workspace_premium</span>
+                Pro
               </span>
-              <span class="text-text-tertiary font-body text-xs">
-                {{ profile?.membershipExpiry }} 到期
+              <span v-if="profile?.membership === 'pro' && profile?.membershipExpiry" class="text-text-tertiary font-body text-[10px]">
+                {{ profile.membershipExpiry.replace(/-/g, '·') }}
+              </span>
+              <span v-if="profile?.membership !== 'pro'" class="text-text-tertiary font-body text-xs">
+                免费用户
               </span>
             </div>
             <p v-if="userInfo?.email" class="font-body text-xs text-text-tertiary mt-1">
@@ -248,7 +309,7 @@ onMounted(() => {
         </div>
       </section>
 
-      <!-- Exchange Rates Card -->
+      <!-- ==================== Exchange Rates ==================== -->
       <section class="mb-lg">
         <div class="bg-card-bg rounded-xl overflow-hidden card-shadow border border-border-light/40">
           <div class="p-lg bg-card-alt flex justify-between items-center">
@@ -269,9 +330,7 @@ onMounted(() => {
               <p class="font-display text-lg font-semibold text-brand">{{ rate.rate.toFixed(4) }}</p>
             </div>
           </div>
-          <div
-            class="px-lg pb-lg flex justify-between items-center border-t border-border-light/30 pt-sm"
-          >
+          <div class="px-lg pb-lg flex justify-between items-center border-t border-border-light/30 pt-sm">
             <span class="font-body text-xs text-text-tertiary flex items-center gap-1">
               <span class="material-symbols-outlined text-[14px]">schedule</span>
               更新于: {{ exchangeRates[0]?.updatedAt }}
@@ -290,38 +349,9 @@ onMounted(() => {
         </div>
       </section>
 
-      <!-- Function List -->
+      <!-- ==================== Function List ==================== -->
       <section class="bg-card-bg rounded-xl overflow-hidden card-shadow border border-border-light/40 mb-xl">
         <div class="divide-y divide-border-light">
-          <!-- Phone -->
-          <div
-            class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group"
-            @click="showPhoneModal = true"
-          >
-            <div class="flex items-center gap-md">
-              <span class="material-symbols-outlined text-text-secondary">smartphone</span>
-              <span class="font-body text-sm font-medium text-text-primary">已绑定手机号</span>
-            </div>
-            <div class="flex items-center gap-sm">
-              <span class="text-text-tertiary font-body text-sm">{{ profile?.phone }}</span>
-              <span
-                class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform"
-              >chevron_right</span>
-            </div>
-          </div>
-          <!-- Expense Settings -->
-          <div
-            class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group"
-            @click="goToExpenseSettings"
-          >
-            <div class="flex items-center gap-md">
-              <span class="material-symbols-outlined text-text-secondary">receipt_long</span>
-              <span class="font-body text-sm font-medium text-text-primary">生活支出设置</span>
-            </div>
-            <span
-              class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform"
-            >chevron_right</span>
-          </div>
           <!-- Data Legend -->
           <div
             class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group"
@@ -331,11 +361,10 @@ onMounted(() => {
               <span class="material-symbols-outlined text-text-secondary">info</span>
               <span class="font-body text-sm font-medium text-text-primary">数据口径说明</span>
             </div>
-            <span
-              class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform"
-            >chevron_right</span>
+            <span class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform">chevron_right</span>
           </div>
-          <!-- 备份数据库 -->
+
+          <!-- Backup Database -->
           <div
             class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group"
             @click="handleDbBackup"
@@ -346,26 +375,24 @@ onMounted(() => {
                 {{ isBackingUp ? '正在备份...' : '备份数据库' }}
               </span>
             </div>
-            <span v-if="!isBackingUp"
-              class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform"
-            >chevron_right</span>
-            <span v-else
-              class="material-symbols-outlined text-brand animate-spin"
-            >refresh</span>
+            <span v-if="!isBackingUp" class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform">chevron_right</span>
+            <span v-else class="material-symbols-outlined text-brand animate-spin">refresh</span>
           </div>
-          <!-- Contact -->
-          <div
-            class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group"
-            @click="showContactModal = true"
+
+          <!-- Contact → GitHub -->
+          <a
+            href="https://github.com/2398207092/myDca#readme"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group no-underline"
           >
             <div class="flex items-center gap-md">
               <span class="material-symbols-outlined text-text-secondary">headset_mic</span>
               <span class="font-body text-sm font-medium text-text-primary">联系我们</span>
             </div>
-            <span
-              class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform"
-            >chevron_right</span>
-          </div>
+            <span class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform">chevron_right</span>
+          </a>
+
           <!-- Set Password Hint -->
           <div v-if="userInfo && !userInfo.hasPassword"
             class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group"
@@ -378,48 +405,56 @@ onMounted(() => {
                 <p class="font-body text-[11px] text-warning mt-[1px]">⚠ 尚未设置密码，点击设置</p>
               </div>
             </div>
-            <span
-              class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform"
-            >chevron_right</span>
+            <span class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform">chevron_right</span>
           </div>
         </div>
       </section>
 
-      <!-- Legal Links -->
-      <section class="bg-card-bg rounded-xl overflow-hidden card-shadow border border-border-light/40">
+      <!-- ==================== Data Tools (merged from Toolbox) ==================== -->
+      <section class="bg-card-bg rounded-xl overflow-hidden card-shadow border border-border-light/40 mb-xl">
+        <div class="px-lg pt-md pb-sm bg-card-alt">
+          <div class="flex items-center gap-sm">
+            <span class="material-symbols-outlined text-brand text-lg">construction</span>
+            <span class="font-body text-sm font-medium text-text-primary">数据工具</span>
+          </div>
+        </div>
         <div class="divide-y divide-border-light">
           <div
-            class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer"
-            @click="showAlert('免责声明内容即将上线')"
+            class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group active:scale-[0.99] active:transition-transform"
+            @click="openDatePicker"
           >
-            <span class="font-body text-sm text-text-tertiary">免责声明</span>
-            <span class="material-symbols-outlined text-text-tertiary text-[18px]">
-              arrow_outward
-            </span>
-          </div>
-          <div
-            class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer"
-            @click="showAlert('用户协议内容即将上线')"
-          >
-            <span class="font-body text-sm text-text-tertiary">用户协议</span>
-            <span class="material-symbols-outlined text-text-tertiary text-[18px]">
-              arrow_outward
-            </span>
-          </div>
-          <div
-            class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer"
-            @click="showAlert('隐私政策内容即将上线')"
-          >
-            <span class="font-body text-sm text-text-tertiary">隐私政策</span>
-            <span class="material-symbols-outlined text-text-tertiary text-[18px]">
-              arrow_outward
-            </span>
+            <div class="flex items-center gap-md">
+              <span class="material-symbols-outlined text-brand">verified</span>
+              <div>
+                <p class="font-body text-sm font-medium text-text-primary">数据审计报告</p>
+                <p class="font-body text-xs text-text-tertiary mt-0.5">查看每日自动对账结果</p>
+              </div>
+            </div>
+            <span class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform">chevron_right</span>
           </div>
         </div>
       </section>
 
-      <!-- Logout -->
-      <section class="mb-xl">
+      <!-- ==================== Legal Links ==================== -->
+      <section class="bg-card-bg rounded-xl overflow-hidden card-shadow border border-border-light/40">
+        <div class="divide-y divide-border-light">
+          <div class="flex items-center justify-between p-lg opacity-40 cursor-not-allowed">
+            <span class="font-body text-sm text-text-tertiary">免责声明</span>
+            <span class="font-body text-[11px] text-text-tertiary/50">即将上线</span>
+          </div>
+          <div class="flex items-center justify-between p-lg opacity-40 cursor-not-allowed">
+            <span class="font-body text-sm text-text-tertiary">用户协议</span>
+            <span class="font-body text-[11px] text-text-tertiary/50">即将上线</span>
+          </div>
+          <div class="flex items-center justify-between p-lg opacity-40 cursor-not-allowed">
+            <span class="font-body text-sm text-text-tertiary">隐私政策</span>
+            <span class="font-body text-[11px] text-text-tertiary/50">即将上线</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== Logout ==================== -->
+      <section class="mt-xl">
         <button
           class="w-full bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 flex items-center justify-center gap-md hover:bg-card-alt transition-colors active:scale-[0.98]"
           @click="showLogoutConfirm = true"
@@ -435,7 +470,86 @@ onMounted(() => {
       </div>
     </main>
 
-    <!-- Set Password Modal -->
+    <!-- ==================== Profile Edit Modal ==================== -->
+    <Teleport to="body">
+      <div
+        v-if="showProfileModal"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-gutter"
+        @click.self="showProfileModal = false"
+      >
+        <div class="bg-card-bg rounded-xl p-lg w-full max-w-sm">
+          <div class="flex items-center justify-between mb-md">
+            <h3 class="font-body text-sm font-medium text-text-primary">个人信息</h3>
+            <button
+              class="w-8 h-8 flex items-center justify-center text-text-tertiary hover:bg-card-alt rounded-lg transition-colors"
+              @click="showProfileModal = false"
+            >
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+
+          <!-- Avatar Selection -->
+          <div class="text-center mb-md">
+            <p class="font-body text-xs text-text-tertiary mb-sm">选择头像</p>
+            <div class="flex flex-wrap justify-center gap-sm">
+              <div
+                v-for="opt in AVATAR_OPTIONS"
+                :key="opt.seed"
+                class="w-14 h-14 rounded-full cursor-pointer transition-all overflow-hidden"
+                :class="editAvatar === avatarUrl(opt.seed, opt.bg)
+                  ? 'ring-2 ring-brand ring-offset-2 ring-offset-card-bg scale-110'
+                  : 'hover:scale-105 opacity-70 hover:opacity-100'"
+                @click="editAvatar = avatarUrl(opt.seed, opt.bg)"
+              >
+                <img :src="avatarUrl(opt.seed, opt.bg)" class="w-full h-full object-cover" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Name Edit -->
+          <div class="mb-md">
+            <label class="font-body text-xs text-text-tertiary mb-1 block">昵称</label>
+            <input
+              v-model="editName"
+              type="text"
+              maxlength="20"
+              placeholder="输入昵称"
+              class="w-full px-3 py-2.5 bg-page-bg rounded-lg border border-border-light/60 text-sm
+                     font-body text-text-primary placeholder:text-text-tertiary/50
+                     focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/20 transition-all"
+            />
+          </div>
+
+          <!-- Membership Info -->
+          <div class="mb-md p-md bg-card-alt rounded-xl">
+            <div class="flex items-center gap-sm mb-1">
+              <span class="material-symbols-outlined text-[18px] text-brand" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+              <span class="font-body text-xs font-medium text-text-primary">会员</span>
+            </div>
+            <p v-if="profile?.membership === 'pro'" class="font-body text-sm text-text-secondary">
+              Pro 会员 · {{ profile?.membershipExpiry }} 到期
+            </p>
+            <p v-else class="font-body text-sm text-text-secondary">免费用户</p>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-2">
+            <button
+              class="flex-1 py-2.5 rounded-lg bg-page-bg font-body text-sm font-medium text-text-secondary active:scale-[0.98] transition-transform"
+              @click="showProfileModal = false"
+            >取消</button>
+            <button
+              class="flex-1 py-2.5 rounded-lg bg-brand text-white font-body text-sm font-medium active:scale-[0.98] transition-transform"
+              :disabled="savingProfile || !editName.trim()"
+              :class="savingProfile || !editName.trim() ? 'opacity-50 cursor-not-allowed' : ''"
+              @click="handleSaveProfile"
+            >{{ savingProfile ? '保存中...' : '保存' }}</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ==================== Set Password Modal ==================== -->
     <Teleport to="body">
       <div
         v-if="showSetPwdModal"
@@ -460,17 +574,13 @@ onMounted(() => {
               v-model="newPassword"
               type="password"
               placeholder="6-20 位字母+数字组合"
-              class="w-full px-3 py-2.5 bg-page-bg rounded-lg border border-border-light/60 text-sm
-                     font-body text-text-primary placeholder:text-text-tertiary/50
-                     focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/20 transition-all"
+              class="w-full px-3 py-2.5 bg-page-bg rounded-lg border border-border-light/60 text-sm font-body text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/20 transition-all"
             />
             <input
               v-model="confirmNewPassword"
               type="password"
               placeholder="再次输入密码"
-              class="w-full px-3 py-2.5 bg-page-bg rounded-lg border border-border-light/60 text-sm
-                     font-body text-text-primary placeholder:text-text-tertiary/50
-                     focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/20 transition-all"
+              class="w-full px-3 py-2.5 bg-page-bg rounded-lg border border-border-light/60 text-sm font-body text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/20 transition-all"
             />
             <div v-if="pwdError" class="py-1.5 px-2.5 bg-error/5 rounded-lg border border-error/10">
               <p class="font-body text-xs text-error">{{ pwdError }}</p>
@@ -490,7 +600,7 @@ onMounted(() => {
       </div>
     </Teleport>
 
-    <!-- Logout Confirm Modal -->
+    <!-- ==================== Logout Confirm Modal ==================== -->
     <Teleport to="body">
       <div
         v-if="showLogoutConfirm"
@@ -514,41 +624,7 @@ onMounted(() => {
       </div>
     </Teleport>
 
-    <!-- Phone Modal -->
-    <Teleport to="body">
-      <div
-        v-if="showPhoneModal"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-gutter"
-        @click.self="showPhoneModal = false"
-      >
-        <div class="bg-card-bg rounded-xl p-lg w-full max-w-sm">
-          <div class="flex items-center justify-between mb-md">
-            <h3 class="font-body text-sm font-medium text-text-primary">已绑定手机号</h3>
-            <button
-              class="w-8 h-8 flex items-center justify-center text-text-tertiary hover:bg-card-alt rounded-lg transition-colors"
-              @click="showPhoneModal = false"
-            >
-              <span class="material-symbols-outlined">close</span>
-            </button>
-          </div>
-          <div class="flex items-center gap-md py-lg">
-            <span class="material-symbols-outlined text-[48px] text-brand">smartphone</span>
-            <div>
-              <p class="font-display text-lg text-text-primary">{{ profile?.phone }}</p>
-              <p class="font-body text-xs text-text-tertiary mt-1">手机号已实名认证</p>
-            </div>
-          </div>
-          <button
-            class="w-full py-2.5 rounded-lg bg-brand text-white font-body font-medium text-sm active:scale-[0.98] transition-transform"
-            @click="copyToClipboard(profile?.phone || '')"
-          >
-            复制手机号
-          </button>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- Data Info Modal -->
+    <!-- ==================== Data Info Modal ==================== -->
     <Teleport to="body">
       <div
         v-if="showDataInfoModal"
@@ -576,51 +652,137 @@ onMounted(() => {
       </div>
     </Teleport>
 
-    <!-- Contact Modal -->
+    <!-- ==================== Audit: Date Picker Modal ==================== -->
     <Teleport to="body">
       <div
-        v-if="showContactModal"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-gutter"
-        @click.self="showContactModal = false"
+        v-if="showDatePicker"
+        class="fixed inset-0 z-[100] flex items-end justify-center bg-black/40"
+        @click.self="showDatePicker = false"
       >
-        <div class="bg-card-bg rounded-xl p-lg w-full max-w-sm">
-          <div class="flex items-center justify-between mb-md">
-            <h3 class="font-body text-sm font-medium text-text-primary">联系我们</h3>
+        <div class="bg-card-bg rounded-t-2xl w-full max-w-lg px-gutter pt-lg pb-8 animate-slide-up max-h-[70vh] flex flex-col">
+          <div class="flex items-center justify-between mb-md shrink-0">
+            <h3 class="font-body text-base font-medium text-text-primary">选择日期</h3>
             <button
               class="w-8 h-8 flex items-center justify-center text-text-tertiary hover:bg-card-alt rounded-lg transition-colors"
-              @click="showContactModal = false"
+              @click="showDatePicker = false"
             >
               <span class="material-symbols-outlined">close</span>
             </button>
           </div>
-          <div class="space-y-md">
+          <div v-if="loadingDates" class="flex items-center justify-center py-12">
+            <span class="material-symbols-outlined text-brand animate-spin text-3xl">refresh</span>
+          </div>
+          <div v-else-if="availableDates.length === 0" class="text-center py-12">
+            <span class="material-symbols-outlined text-text-tertiary text-4xl mb-3">calendar_month</span>
+            <p class="font-body text-sm text-text-tertiary">暂无审计日志</p>
+            <p class="font-body text-xs text-text-tertiary mt-1 opacity-60">审计任务每天凌晨 3:00 自动运行</p>
+          </div>
+          <div v-else class="overflow-y-auto flex-1 -mx-gutter px-gutter space-y-1">
             <div
-              class="flex items-center gap-md p-md bg-card-alt rounded-xl cursor-pointer active:scale-[0.98] transition-transform"
-              @click="copyToClipboard('support@zhongshu.app')"
+              v-for="date in availableDates"
+              :key="date"
+              class="flex items-center justify-between p-md rounded-xl hover:bg-card-alt cursor-pointer transition-colors active:scale-[0.98] active:transition-transform"
+              @click="selectDate(date)"
             >
-              <span class="material-symbols-outlined text-brand">mail</span>
-              <div>
-                <p class="font-body text-sm font-medium text-text-primary">邮箱</p>
-                <p class="font-body text-xs text-text-tertiary">support@zhongshu.app</p>
+              <div class="flex items-center gap-md">
+                <span class="material-symbols-outlined text-brand text-xl">calendar_today</span>
+                <span class="font-body text-sm text-text-primary">{{ date }}</span>
               </div>
+              <span class="material-symbols-outlined text-text-tertiary text-xl">chevron_right</span>
             </div>
-            <div class="flex items-center gap-md p-md bg-card-alt rounded-xl">
-              <span class="material-symbols-outlined text-brand">chat</span>
-              <div>
-                <p class="font-body text-sm font-medium text-text-primary">在线客服</p>
-                <p class="font-body text-xs text-text-tertiary">工作日内 24 小时回复</p>
-              </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ==================== Audit: Content Modal ==================== -->
+    <Teleport to="body">
+      <div
+        v-if="showAuditContent && auditContent"
+        class="fixed inset-0 z-[110] flex items-end justify-center bg-black/40"
+        @click.self="showAuditContent = false"
+      >
+        <div class="bg-card-bg rounded-t-2xl w-full max-w-lg px-gutter pt-lg pb-8 animate-slide-up max-h-[80vh] flex flex-col">
+          <div class="flex items-center justify-between mb-md shrink-0">
+            <div class="flex items-center gap-sm">
+              <span class="material-symbols-outlined text-brand">verified</span>
+              <h3 class="font-body text-base font-medium text-text-primary">数据对账报告</h3>
             </div>
-            <div class="flex items-center gap-md p-md bg-card-alt rounded-xl">
-              <span class="material-symbols-outlined text-brand">wechat</span>
-              <div>
-                <p class="font-body text-sm font-medium text-text-primary">微信公众号</p>
-                <p class="font-body text-xs text-text-tertiary">搜索「种树」关注</p>
-              </div>
+            <button
+              class="w-8 h-8 flex items-center justify-center text-text-tertiary hover:bg-card-alt rounded-lg transition-colors"
+              @click="showAuditContent = false"
+            >
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          <div class="text-center mb-md shrink-0">
+            <p class="font-display text-lg font-semibold text-text-primary">{{ auditContent.date }}</p>
+          </div>
+          <div
+            class="rounded-xl p-md mb-md shrink-0"
+            :class="auditContent.errorCount > 0
+              ? 'bg-red-50 border border-red-200'
+              : auditContent.warningCount > 0
+                ? 'bg-amber-50 border border-amber-200'
+                : 'bg-green-50 border border-green-200'"
+          >
+            <p
+              class="font-body text-sm font-medium text-center"
+              :class="auditContent.errorCount > 0
+                ? 'text-red-600'
+                : auditContent.warningCount > 0
+                  ? 'text-amber-600'
+                  : 'text-green-600'"
+            >{{ auditContent.summary }}</p>
+          </div>
+          <div v-if="auditContent.entries.length > 0" class="overflow-y-auto flex-1 -mx-gutter px-gutter space-y-2">
+            <div
+              v-for="(entry, i) in auditContent.entries"
+              :key="i"
+              class="flex items-start gap-sm p-md rounded-xl"
+              :class="entry.level === 'error'
+                ? 'bg-red-50/50'
+                : entry.level === 'warning'
+                  ? 'bg-amber-50/50'
+                  : 'bg-card-alt'"
+            >
+              <span v-if="entry.level === 'error'" class="material-symbols-outlined text-red-500 text-lg shrink-0 mt-0.5">error</span>
+              <span v-else-if="entry.level === 'warning'" class="material-symbols-outlined text-amber-500 text-lg shrink-0 mt-0.5">warning</span>
+              <span v-else class="material-symbols-outlined text-green-500 text-lg shrink-0 mt-0.5">check_circle</span>
+              <p class="font-body text-sm leading-relaxed" :class="{
+                'text-red-700': entry.level === 'error',
+                'text-amber-700': entry.level === 'warning',
+                'text-text-secondary': entry.level === 'info',
+              }">{{ entry.message }}</p>
             </div>
+          </div>
+          <div class="mt-md pt-md border-t border-border-light shrink-0">
+            <p class="font-body text-xs text-text-tertiary text-center">
+              共检测 <span v-if="auditContent.errorCount > 0" class="text-red-500 font-medium">{{ auditContent.errorCount }} 个错误</span>
+              <span v-if="auditContent.errorCount > 0 && auditContent.warningCount > 0">，</span>
+              <span v-if="auditContent.warningCount > 0" class="text-amber-500 font-medium">{{ auditContent.warningCount }} 个警告</span>
+              <span v-if="auditContent.errorCount === 0 && auditContent.warningCount === 0" class="text-green-500 font-medium">全部正常</span>
+            </p>
           </div>
         </div>
       </div>
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+.animate-slide-up {
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+</style>

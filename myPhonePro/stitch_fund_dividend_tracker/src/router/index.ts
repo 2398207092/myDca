@@ -65,12 +65,7 @@ const router = createRouter({
       component: () => import('@/views/coverage/SettingsPage.vue'),
       meta: { level: 2 },
     },
-    {
-      path: '/profile/tools',
-      name: 'profile-tools',
-      component: () => import('@/views/profile/ToolboxPage.vue'),
-      meta: { level: 2 },
-    },
+    // 合并到"我的"页面
     {
       path: '/metrics/settings',
       name: 'metric-settings',

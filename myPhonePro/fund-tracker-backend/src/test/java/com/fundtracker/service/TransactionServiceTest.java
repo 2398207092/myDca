@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -34,6 +35,7 @@ class TransactionServiceTest {
     @Mock private HoldingService holdingService;
     @Mock private ManualAssetService manualAssetService;
     @Mock private FundNavScrapeService fundNavScrapeService;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private TransactionService transactionService;
 
@@ -41,7 +43,8 @@ class TransactionServiceTest {
     void setUp() {
         transactionService = new TransactionService(
                 transactionRepository, holdingRepository,
-                holdingService, manualAssetService, fundNavScrapeService
+                holdingService, manualAssetService, fundNavScrapeService,
+                eventPublisher
         );
     }
 
@@ -68,12 +71,12 @@ class TransactionServiceTest {
         when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(i -> i.getArgument(0));
 
-        transactionService.createTransaction(req);
+        transactionService.createTransaction(req, "user-1");
 
         // 份额应增加 100
         assertEquals(new BigDecimal("1100"), holding.getShares());
         // 应调用 adjustCash 扣减总金额 (= 100*10 + 5 = 1005)
-        verify(manualAssetService).adjustCash("h-1", new BigDecimal("-1005.00"));
+        verify(manualAssetService).adjustCash("h-1", new BigDecimal("-1005.00"), "user-1");
         // 应调用 recalculateHoldingMetrics
         verify(holdingService).recalculateHoldingMetrics(holding);
         // 应调用 calculatePredictedDividend
@@ -103,12 +106,12 @@ class TransactionServiceTest {
         when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(i -> i.getArgument(0));
 
-        transactionService.createTransaction(req);
+        transactionService.createTransaction(req, "user-1");
 
         // 份额应减少 200
         assertEquals(new BigDecimal("800"), holding.getShares());
         // 应调用 adjustCash 增加总金额 (= 200*15 + 10 = 3010)
-        verify(manualAssetService).adjustCash("h-1", new BigDecimal("3010.00"));
+        verify(manualAssetService).adjustCash("h-1", new BigDecimal("3010.00"), "user-1");
     }
 
     @Test
@@ -128,10 +131,10 @@ class TransactionServiceTest {
 
         when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
 
-        assertThrows(BusinessException.class, () -> transactionService.createTransaction(req));
+        assertThrows(BusinessException.class, () -> transactionService.createTransaction(req, "user-1"));
 
         // 不应调用 adjustCash
-        verify(manualAssetService, never()).adjustCash(any(), any());
+        verify(manualAssetService, never()).adjustCash(any(), any(), any());
     }
 
     @Test
@@ -157,10 +160,10 @@ class TransactionServiceTest {
         when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
         doNothing().when(transactionRepository).delete(tx);
 
-        transactionService.deleteTransaction("tx-1");
+        transactionService.deleteTransaction("tx-1", "user-1");
 
         // 反向加回现金 1005
-        verify(manualAssetService).adjustCash("h-1", new BigDecimal("1005.00"));
+        verify(manualAssetService).adjustCash("h-1", new BigDecimal("1005.00"), "user-1");
     }
 
     @Test
@@ -186,9 +189,9 @@ class TransactionServiceTest {
         when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
         doNothing().when(transactionRepository).delete(tx);
 
-        transactionService.deleteTransaction("tx-1");
+        transactionService.deleteTransaction("tx-1", "user-1");
 
         // 反向扣减现金 1500
-        verify(manualAssetService).adjustCash("h-1", new BigDecimal("-1500.00"));
+        verify(manualAssetService).adjustCash("h-1", new BigDecimal("-1500.00"), "user-1");
     }
 }

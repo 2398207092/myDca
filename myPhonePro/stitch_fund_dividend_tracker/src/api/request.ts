@@ -3,6 +3,17 @@ import type { ApiResponse } from '@/types/api'
 const TOKEN_KEY = 'fund_tracker_token'
 const BASE_URL = '/api'
 
+// ── 本地开发自动登录（仅 localhost 生效，部署后自动禁用） ──
+// 在项目根目录 .env 中配置 VITE_DEV_EMAIL / VITE_DEV_PASSWORD
+const DEV_EMAIL = import.meta.env.VITE_DEV_EMAIL as string | undefined
+const DEV_PASSWORD = import.meta.env.VITE_DEV_PASSWORD as string | undefined
+
+/** 判断是否本地开发环境 */
+const isLocalDev = (): boolean => {
+  const host = window.location.hostname
+  return host === 'localhost' || host === '127.0.0.1'
+}
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
 }
@@ -15,9 +26,39 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY)
 }
 
+/** 本地开发自动登录 */
+async function autoLogin(): Promise<boolean> {
+  if (!DEV_EMAIL || !DEV_PASSWORD) return false
+  try {
+    const res = await fetch(BASE_URL + '/auth/login-pwd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: DEV_EMAIL, password: DEV_PASSWORD }),
+    })
+    if (!res.ok) return false
+    const json = await res.json()
+    if (json.code === 200 && json.data?.token) {
+      setToken(json.data.token)
+      return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
 /** 检查当前 Token 是否有效（已登录状态），无需跳转登录页 */
 export async function initAuth(): Promise<boolean> {
-  const token = getToken()
+  let token = getToken()
+
+  // 本地开发：无 Token 时尝试自动登录
+  if (!token && isLocalDev()) {
+    const ok = await autoLogin()
+    if (ok) {
+      token = getToken()
+    }
+  }
+
   if (!token) return false
 
   try {
@@ -32,7 +73,16 @@ export async function initAuth(): Promise<boolean> {
       return false
     }
     const json = await res.json()
-    return json.code === 200
+    // code === 200 且 email 不是 "unknown" 才算有效登录
+    // （旧版 Token 无 userId，后端会返回 email=unknown）
+    const valid = json.code === 200 && json.data?.email && json.data.email !== 'unknown'
+    if (!valid && isLocalDev()) {
+      // 本地开发：Token 无效时再试一次自动登录
+      clearToken()
+      const ok = await autoLogin()
+      if (ok) return true
+    }
+    return valid
   } catch {
     clearToken()
     return false

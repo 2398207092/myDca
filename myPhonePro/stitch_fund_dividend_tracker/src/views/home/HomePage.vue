@@ -185,15 +185,17 @@ onActivated(loadData)
         <!-- ============================================================ -->
         <!-- 分红覆盖                                                       -->
         <!-- ============================================================ -->
-        <section v-if="coverageSummary && coverageSummary.totalExpenses > 0" class="cursor-pointer" @click="goToCoverage">
+        <section class="cursor-pointer" @click="goToCoverage">
           <div class="flex items-center justify-between mb-sm">
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined text-brand text-sm">account_balance_wallet</span>
               <h3 class="font-body text-sm font-medium text-text-primary tracking-wide">分红覆盖</h3>
             </div>
-            <span class="text-text-tertiary text-xs">{{ coverageSummary.coveredExpenses }}/{{ coverageSummary.totalExpenses }} 项已覆盖</span>
+            <span v-if="coverageSummary && coverageSummary.totalExpenses > 0" class="text-text-tertiary text-xs">{{ coverageSummary.coveredExpenses }}/{{ coverageSummary.totalExpenses }} 项已覆盖</span>
           </div>
-          <div class="bg-card-bg rounded-xl p-md card-shadow border border-border-light/40">
+
+          <!-- 有支出时显示列表 -->
+          <div v-if="coverageSummary && coverageSummary.totalExpenses > 0" class="bg-card-bg rounded-xl p-md card-shadow border border-border-light/40">
             <div class="flex items-center gap-lg overflow-x-auto hide-scrollbar">
               <div v-for="exp in coverageSummary.expenses" :key="exp.id" class="flex flex-col items-center gap-1 min-w-[52px]">
                 <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm"
@@ -207,6 +209,19 @@ onActivated(loadData)
                 </span>
               </div>
             </div>
+          </div>
+
+          <!-- 无支出时显示添加引导 -->
+          <div v-else class="bg-card-bg rounded-xl p-md card-shadow border border-border-light/40 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-text-tertiary">receipt_long</span>
+              <span class="font-body text-sm text-text-tertiary">尚未设置生活支出</span>
+            </div>
+            <span class="inline-flex items-center gap-1 px-3 py-1.5 bg-brand text-white rounded-lg font-body text-xs font-medium active:scale-95 transition-all"
+                  @click.stop="router.push('/coverage/settings')">
+              <span class="material-symbols-outlined text-sm">add</span>
+              添加支出
+            </span>
           </div>
         </section>
 

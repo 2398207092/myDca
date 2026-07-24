@@ -43,7 +43,7 @@ class ManualAssetServiceTest {
         when(manualAssetRepository.findByType("cash")).thenReturn(List.of());
 
         // 不应抛异常
-        assertDoesNotThrow(() -> service.adjustCash("holding-1", new BigDecimal("-5000")));
+        assertDoesNotThrow(() -> service.adjustCash("holding-1", new BigDecimal("-5000"), "user-1"));
     }
 
     @Test
@@ -66,7 +66,7 @@ class ManualAssetServiceTest {
 
         when(manualAssetRepository.findByType("cash")).thenReturn(List.of(secondary, primary));
 
-        service.adjustCash("holding-1", new BigDecimal("-5000"));
+        service.adjustCash("holding-1", new BigDecimal("-5000"), "user-1");
 
         verify(manualAssetRepository).save(assetCaptor.capture());
         ManualAsset saved = assetCaptor.getValue();
@@ -94,7 +94,7 @@ class ManualAssetServiceTest {
 
         when(manualAssetRepository.findByType("cash")).thenReturn(List.of(first, second));
 
-        service.adjustCash("holding-1", new BigDecimal("-5000"));
+        service.adjustCash("holding-1", new BigDecimal("-5000"), "user-1");
 
         verify(manualAssetRepository).save(assetCaptor.capture());
         ManualAsset saved = assetCaptor.getValue();
@@ -115,7 +115,7 @@ class ManualAssetServiceTest {
 
         when(manualAssetRepository.findByType("cash")).thenReturn(List.of(asset));
 
-        service.adjustCash("holding-1", new BigDecimal("-200"));
+        service.adjustCash("holding-1", new BigDecimal("-200"), "user-1");
 
         verify(manualAssetRepository).save(assetCaptor.capture());
         assertEquals(new BigDecimal("-100"), assetCaptor.getValue().getAmount());
@@ -134,7 +134,7 @@ class ManualAssetServiceTest {
 
         when(manualAssetRepository.findByType("cash")).thenReturn(List.of(asset));
 
-        service.adjustCash("holding-1", new BigDecimal("10000"));
+        service.adjustCash("holding-1", new BigDecimal("10000"), "user-1");
 
         verify(manualAssetRepository).save(assetCaptor.capture());
         assertEquals(new BigDecimal("60000"), assetCaptor.getValue().getAmount());

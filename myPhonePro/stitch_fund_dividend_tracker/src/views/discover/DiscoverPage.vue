@@ -351,20 +351,7 @@ async function doDelete() {
 
 <template>
   <div class="min-h-screen bg-page-bg">
-    <!-- 内联 Header（不依赖 AppHeader 旧 token） -->
-    <header class="fixed top-0 w-full z-50 bg-card-bg border-b border-border-light/40 transition-shadow duration-200">
-      <div class="flex items-center justify-between px-gutter h-14 w-full max-w-[600px] mx-auto">
-        <div class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-brand text-2xl">park</span>
-          <h1 class="font-display text-2xl text-brand">资产概览</h1>
-        </div>
-        <div class="flex items-center gap-2">
-          <button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-card-alt transition-colors active:opacity-80">
-            <span class="material-symbols-outlined text-text-secondary">account_circle</span>
-          </button>
-        </div>
-      </div>
-    </header>
+    <AppHeader title="资产概览" :show-logo="true" />
 
     <!-- Loading State -->
     <main v-if="pageState === 'loading'" class="max-w-[600px] mx-auto px-gutter pt-20 pb-24">

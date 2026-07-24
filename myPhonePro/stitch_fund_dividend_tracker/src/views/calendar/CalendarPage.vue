@@ -8,6 +8,7 @@ import type { MonthlyInsight, MonthlyDetail, AnnualInsight } from '@/api/insight
 import { refreshAllFundDividends } from '@/api/fund'
 import { syncAllEvents } from '@/api/event'
 import PageStateComp from '@/components/shared/PageState.vue'
+import AppHeader from '@/components/shared/AppHeader.vue'
 
 const router = useRouter()
 const pageState = ref<PageState>('loading')
@@ -315,19 +316,9 @@ function goToHolding(holdingId: string) {
   <div class="min-h-screen bg-page-bg flex flex-col">
 
     <!-- Header — 统一 -->
-    <header class="flex items-center justify-between px-gutter h-14 sticky top-0 z-50 bg-card-bg border-b border-border-light/40">
-      <button @click="router.push('/')" class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80">
-        <span class="material-symbols-outlined text-text-secondary">arrow_back</span>
-      </button>
-      <div class="flex-1 text-center">
-        <h1 class="font-body text-md font-medium text-text-primary">分红日历</h1>
-      </div>
-      <button class="w-10 h-10 flex items-center justify-center active:opacity-80">
-        <span class="material-symbols-outlined text-text-secondary">notifications</span>
-      </button>
-    </header>
+    <AppHeader title="分红日历" :show-logo="true" />
 
-    <main class="flex-1 px-gutter pt-sm pb-24 overflow-y-auto space-y-md max-w-[600px] mx-auto w-full">
+    <main class="flex-1 px-gutter pt-14 pb-24 overflow-y-auto space-y-md max-w-[600px] mx-auto w-full">
       <PageStateComp
         v-if="pageState !== 'ready'"
         :state="pageState"

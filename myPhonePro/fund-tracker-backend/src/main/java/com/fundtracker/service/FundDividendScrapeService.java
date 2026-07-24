@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -447,10 +448,23 @@ public class FundDividendScrapeService {
             return null;
         }
         try {
-            // 提取数字部分（处理"每份派现金0.0133元"这样的格式）
-            String numStr = text.trim().replaceAll("[^0-9.]", "");
+            // 提取数字部分 — 优先从"派现金"后面提取，避免"每10份"中的"10"干扰
+            String cleaned = text.trim();
+            int idx = cleaned.indexOf("派现金");
+            if (idx >= 0) {
+                cleaned = cleaned.substring(idx + 3);
+            }
+            String numStr = cleaned.replaceAll("[^0-9.]", "");
             if (numStr.isEmpty()) return null;
-            return new BigDecimal(numStr);
+
+            BigDecimal value = new BigDecimal(numStr);
+
+            // 天天基金分红表可能以"每10份"为单位，需要折算为"每份"
+            if (text.contains("每10份")) {
+                value = value.divide(BigDecimal.TEN, 6, RoundingMode.HALF_UP);
+            }
+
+            return value;
         } catch (NumberFormatException e) {
             return null;
         }

@@ -50,4 +50,9 @@ public class DividendEvent {
 
     @Column(nullable = false)
     private Boolean participated;
+
+    /** 是否已转为复投（防止重复复投） */
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    @Builder.Default
+    private Boolean converted = false;
 }

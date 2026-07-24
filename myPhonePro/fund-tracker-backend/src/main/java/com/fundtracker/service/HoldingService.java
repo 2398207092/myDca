@@ -118,8 +118,8 @@ public class HoldingService {
 
     @Transactional
     public HoldingDTO createHolding(String userId, CreateHoldingReq req) {
-        // 检查代码是否已存在
-        if (holdingRepository.existsByCodeAndDeletedFalse(req.getCode())) {
+        // 检查当前用户是否已添加该代码
+        if (holdingRepository.existsByCodeAndUserIdAndDeletedFalse(req.getCode(), userId)) {
             throw BusinessException.holdingCodeExists();
         }
 

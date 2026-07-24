@@ -5,3 +5,12 @@ declare module '*.vue' {
   const component: DefineComponent<{}, {}, any>
   export default component
 }
+
+interface ImportMetaEnv {
+  readonly VITE_DEV_EMAIL: string
+  readonly VITE_DEV_PASSWORD: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}

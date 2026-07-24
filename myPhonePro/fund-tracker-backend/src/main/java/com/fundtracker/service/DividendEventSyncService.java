@@ -38,7 +38,18 @@ public class DividendEventSyncService {
      */
     @Transactional
     public int syncEventsForFund(String fundCode, String userId) {
-        List<Holding> holdings = holdingRepository.findByCodeAndDeletedFalse(fundCode);
+        List<Holding> holdings;
+        if (userId != null) {
+            // API 调用：只同步当前用户的持仓
+            holdings = holdingRepository.findByCodeAndUserIdAndDeletedFalse(fundCode, userId);
+            if (holdings.isEmpty()) {
+                log.info("用户未持有基金 {}", fundCode);
+                return 0;
+            }
+        } else {
+            // 定时任务：同步所有用户的持仓
+            holdings = holdingRepository.findByCodeAndDeletedFalse(fundCode);
+        }
         List<FundDividendRecord> records = fundDividendRecordRepository.findByFundCodeOrderByExDateDesc(fundCode);
         if (records.isEmpty()) {
             log.info("基金 {} 无分红记录，清理旧事件", fundCode);
@@ -63,6 +74,20 @@ public class DividendEventSyncService {
             LocalDate firstBuyDate = transactionService.getFirstTransactionDate(holding.getId());
 
             for (FundDividendRecord record : records) {
+                // 检查 payout 事件是否已被标记为"已复投"（防止 sync 时丢失 converted 状态）
+                boolean payoutWasConverted = false;
+                if (record.getPayDate() != null) {
+                    List<DividendEvent> existing = dividendEventRepository
+                            .findByHoldingIdAndTypeAndDate(holding.getId(), EventType.payout, record.getPayDate());
+                    for (DividendEvent e : existing) {
+                        if (Boolean.TRUE.equals(e.getConverted())) {
+                            payoutWasConverted = true;
+                            log.debug("保留复投状态: holding={}, payDate={}", holding.getName(), record.getPayDate());
+                            break;
+                        }
+                    }
+                }
+
                 // 先删除旧的错误事件，再重新创建
                 deleteIfExists(holding.getId(), EventType.registration, record.getRegDate());
                 deleteIfExists(holding.getId(), EventType.ex_dividend, record.getExDate());
@@ -78,9 +103,9 @@ public class DividendEventSyncService {
                     participated = sharesAtDate.compareTo(BigDecimal.ZERO) > 0;
                 }
 
-                created += createEvent(holding, record, EventType.registration, record.getRegDate(), sharesAtDate, participated, effectiveUserId);
-                created += createEvent(holding, record, EventType.ex_dividend, record.getExDate(), sharesAtDate, participated, effectiveUserId);
-                created += createEvent(holding, record, EventType.payout, record.getPayDate(), sharesAtDate, participated, effectiveUserId);
+                created += createEvent(holding, record, EventType.registration, record.getRegDate(), sharesAtDate, participated, effectiveUserId, false);
+                created += createEvent(holding, record, EventType.ex_dividend, record.getExDate(), sharesAtDate, participated, effectiveUserId, false);
+                created += createEvent(holding, record, EventType.payout, record.getPayDate(), sharesAtDate, participated, effectiveUserId, payoutWasConverted);
             }
         }
 
@@ -135,7 +160,7 @@ public class DividendEventSyncService {
      * participated=true → 按当时的实时份额计算金额
      * participated=false → 金额为 0（未参与该次分红，但保留记录）
      */
-    private int createEvent(Holding holding, FundDividendRecord record, EventType type, LocalDate date, BigDecimal sharesAtDate, boolean participated, String userId) {
+    private int createEvent(Holding holding, FundDividendRecord record, EventType type, LocalDate date, BigDecimal sharesAtDate, boolean participated, String userId, boolean converted) {
         if (date == null) return 0;
 
         BigDecimal amount = participated && record.getDividendPerShare() != null
@@ -160,11 +185,12 @@ public class DividendEventSyncService {
                 .status(EventStatus.pending)
                 .description(description)
                 .participated(participated)
+                .converted(converted)
                 .build();
 
         dividendEventRepository.save(event);
-        log.debug("创建分红事件: holding={}, type={}, date={}, amount={}, participated={}",
-                holding.getName(), type, date, amount, participated);
+        log.debug("创建分红事件: holding={}, type={}, date={}, amount={}, participated={}, converted={}",
+                holding.getName(), type, date, amount, participated, converted);
         return 1;
     }
 }
