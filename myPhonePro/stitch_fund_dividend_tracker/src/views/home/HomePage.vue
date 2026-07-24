@@ -10,6 +10,7 @@ import type { DashboardData } from '@/api/dashboard'
 import type { HoldingItem } from '@/api/holding'
 import AppHeader from '@/components/shared/AppHeader.vue'
 import PageStateComp from '@/components/shared/PageState.vue'
+import { changelog } from '@/data/changelog'
 
 function formatMoney(value: number | undefined | null): string {
   if (value == null || value === 0) return '¥0.00'
@@ -30,6 +31,21 @@ function dividendRateText(rate: number | undefined | null): string {
   return rate.toFixed(2) + '%'
 }
 
+function formatRelativeDate(dateStr: string): string {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const date = new Date(dateStr)
+  const diffDays = Math.round((today.getTime() - date.getTime()) / 86400000)
+  if (diffDays === 0) return '今天'
+  if (diffDays === 1) return '昨天'
+  if (diffDays <= 7) return `${diffDays}天前`
+  if (diffDays <= 14) return '1周前'
+  if (diffDays <= 30) return `${Math.floor(diffDays / 7)}周前`
+  if (diffDays <= 60) return '1个月前'
+  if (diffDays <= 365) return `${Math.floor(diffDays / 30)}个月前`
+  return `${Math.floor(diffDays / 365)}年前`
+}
+
 const router = useRouter()
 const pageState = ref<'loading' | 'ready' | 'error'>('loading')
 const dashboard = ref<DashboardData | null>(null)
@@ -37,6 +53,7 @@ const holdings = ref<HoldingItem[]>([])
 const coverageSummary = ref<CoverageData | null>(null)
 const showMoreMetrics = ref(false)
 const enabledMetricKeys = ref<string[]>([])
+const showChangelog = ref(false)
 
 const colorPalette = ["#1A6B56", "#5B8C7A", "#8DB8A4", "#B8D5C8"]
 
@@ -95,13 +112,20 @@ onActivated(loadData)
 
       <template v-if="pageState === 'ready'">
         <!-- ============================================================ -->
-        <!-- 公告横幅 — 卡片样式                                           -->
+        <!-- 更新公告 — 品牌色横幅                                          -->
         <!-- ============================================================ -->
-        <div v-if="(dashboard?.monthlyPredictedDividend ?? 0) > 0" class="bg-brand-light/60 rounded-xl px-lg py-sm card-shadow border border-brand/10 flex items-center gap-lg">
-          <span class="material-symbols-outlined text-brand text-lg">campaign</span>
-          <p class="font-body text-sm text-text-primary">
-            稳稳的幸福，本月预计收息 <span class="font-semibold text-brand tabular-nums">{{ dashboard?.monthlyPredictedDividend ?? 0 }}</span> 元
-          </p>
+        <div
+          class="bg-brand-light/60 rounded-xl px-lg py-sm card-shadow border border-brand/10 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-transform"
+          @click="showChangelog = true"
+        >
+          <div class="flex items-center gap-lg">
+            <span class="material-symbols-outlined text-brand text-lg">newsmode</span>
+            <div>
+              <p class="font-body text-sm text-text-primary font-medium">查看更新日志</p>
+              <p class="font-body text-[11px] text-brand/70 mt-[1px]">{{ changelog[0].version }} · {{ changelog[0].title }} · {{ formatRelativeDate(changelog[0].date) }}</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-brand/50 text-lg">chevron_right</span>
         </div>
 
         <!-- Hero 卡片 -->
@@ -311,4 +335,63 @@ onActivated(loadData)
       </button>
     </main>
   </div>
+
+  <!-- ==================== Changelog Modal ==================== -->
+  <Teleport to="body">
+    <div
+      v-if="showChangelog"
+      class="fixed inset-0 z-[100] flex items-end justify-center bg-black/40"
+      @click.self="showChangelog = false"
+    >
+      <div class="bg-card-bg rounded-t-2xl w-full max-w-lg px-gutter pt-lg pb-8 animate-slide-up max-h-[80vh] flex flex-col">
+        <div class="flex items-center justify-between mb-md shrink-0">
+          <div class="flex items-center gap-sm">
+            <span class="material-symbols-outlined text-brand">newsmode</span>
+            <h3 class="font-body text-base font-medium text-text-primary">更新日志</h3>
+          </div>
+          <button
+            class="w-8 h-8 flex items-center justify-center text-text-tertiary hover:bg-card-alt rounded-lg transition-colors"
+            @click="showChangelog = false"
+          >
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div class="overflow-y-auto flex-1 -mx-gutter px-gutter space-y-lg">
+          <div v-for="entry in changelog" :key="entry.version" class="relative pl-lg border-l-2 border-border-light pb-lg">
+            <!-- 版本圆点 -->
+            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-brand border-2 border-card-bg"></div>
+            <!-- 版本标题 -->
+            <div class="flex items-baseline gap-sm mb-1">
+              <span class="font-display text-sm font-semibold text-text-primary">{{ entry.version }}</span>
+              <span class="font-body text-[11px] text-text-tertiary">{{ entry.date }}</span>
+            </div>
+            <p class="font-body text-xs text-text-secondary mb-2">{{ entry.title }}</p>
+            <ul class="space-y-1">
+              <li v-for="(item, i) in entry.items" :key="i" class="font-body text-xs text-text-tertiary flex items-start gap-1.5">
+                <span class="text-brand shrink-0 mt-0.5">·</span>
+                {{ item }}
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
+
+<style scoped>
+.animate-slide-up {
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+</style>
