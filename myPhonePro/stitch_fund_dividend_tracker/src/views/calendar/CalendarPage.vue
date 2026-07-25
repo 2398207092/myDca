@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import type { PageState, DividendEvent, DividendEventType } from '@/types'
 import { listEvents } from '@/api/event'
@@ -53,7 +53,7 @@ async function loadMonthData() {
   monthlyInsightData.value = insightData
 }
 
-onMounted(async () => {
+onActivated(async () => {
   try {
     // 同步与加载月份数据没有依赖关系，并行执行
     await Promise.all([syncAllEvents(), loadMonthData()])

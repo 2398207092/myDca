@@ -105,7 +105,7 @@ onActivated(loadData)
 
 <template>
   <div class="min-h-screen bg-page-bg">
-    <AppHeader title="种树" :show-logo="true" right-icon="search" />
+    <AppHeader title="种树" :show-logo="true" />
 
     <main class="pt-14 pb-24 px-gutter max-w-[600px] mx-auto space-y-md">
       <PageStateComp :state="pageState" />

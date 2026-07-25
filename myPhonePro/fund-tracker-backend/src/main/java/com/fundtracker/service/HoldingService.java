@@ -1,5 +1,6 @@
 package com.fundtracker.service;
 
+import com.fundtracker.event.TransactionChangedEvent;
 import com.fundtracker.exception.BusinessException;
 import com.fundtracker.model.dto.*;
 import com.fundtracker.model.entity.DividendEvent;
@@ -16,6 +17,7 @@ import com.fundtracker.repository.HoldingRepository;
 import com.fundtracker.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +40,8 @@ public class HoldingService {
     private final FundNavScrapeService fundNavScrapeService;
     private final FundDividendRecordRepository fundDividendRecordRepository;
     private final DividendEventRepository dividendEventRepository;
+    private final ManualAssetService manualAssetService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public List<HoldingDTO> listHoldings(String userId, String type, String keyword) {
         List<Holding> holdings;
@@ -51,6 +55,7 @@ public class HoldingService {
         return holdings.stream().map(this::toDTO).collect(Collectors.toList());
     }
 
+    @Transactional
     public HoldingDTO getHolding(String id, String userId) {
         Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(id, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
@@ -179,13 +184,14 @@ public class HoldingService {
             log.warn("创建持仓后抓取净值数据失败: {}", e.getMessage());
         }
 
-        // 创建初始买入交易记录
+        // 创建初始买入交易记录（含现金扣减、净值刷新、分红事件同步）
         try {
             BigDecimal price = costPerShare; // 买入单价 = 每份成本
             BigDecimal total = shares.multiply(price).setScale(2, RoundingMode.HALF_UP);
             Transaction initTx = Transaction.builder()
                     .id(UUID.randomUUID().toString())
                     .holdingId(holding.getId())
+                    .userId(userId)
                     .type(TransactionType.buy)
                     .date(LocalDate.now())
                     .quantity(shares)
@@ -196,9 +202,34 @@ public class HoldingService {
                     .build();
             transactionRepository.save(initTx);
             log.info("为持仓 {} 创建初始买入交易: {}份 @ ¥{}", holding.getName(), shares, price);
+
+            // 扣减现金（买入交易）
+            manualAssetService.adjustCash(holding.getId(), total.negate(), userId);
         } catch (Exception e) {
-            log.warn("创建初始交易记录失败: {}", e.getMessage());
+            log.warn("创建初始交易记录或扣减现金失败: {}", e.getMessage());
         }
+
+        // 初始交易后刷新净值（非关键路径，异常仅记日志）
+        try {
+            FundNavScrapeService.LatestNavResult navResult = fundNavScrapeService.incrementalUpdate(holding.getCode());
+            if (navResult == null) {
+                navResult = fundNavScrapeService.getLatestNavFromDb(holding.getCode());
+            }
+            if (navResult != null && navResult.unitNav() != null) {
+                BigDecimal newMarketValue = holding.getShares()
+                        .multiply(navResult.unitNav())
+                        .setScale(2, RoundingMode.HALF_UP);
+                holding.setMarketValue(newMarketValue);
+                holding.setLatestPrice(navResult.unitNav());
+                holding.setPriceDate(navResult.navDate());
+                log.info("创建持仓后刷新 {} 市值: ¥{}", holding.getName(), newMarketValue);
+            }
+        } catch (Exception e) {
+            log.warn("创建持仓后刷新净值失败: {}", e.getMessage());
+        }
+
+        // 交易变更后发布事件触发分红事件同步
+        eventPublisher.publishEvent(new TransactionChangedEvent(holding.getId(), userId));
 
         // 根据抓取的分红数据计算预测年分红
         calculatePredictedDividend(holding);

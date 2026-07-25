@@ -234,7 +234,7 @@ async function loadData() {
   }
 }
 
-onMounted(() => {
+onActivated(() => {
   loadData()
 })
 </script>

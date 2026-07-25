@@ -6,6 +6,7 @@ export interface UserProfile {
   membership: 'pro' | 'free'
   membershipExpiry: string
   phone: string
+  version?: string
 }
 
 // === 持仓 ===
@@ -14,6 +15,7 @@ export interface Holding {
   name: string
   code: string
   type: string  // 'fund' | 'cny_asset' | 'ETF' | 'A股' | 等
+  costAlgorithm?: string
   shares: number
   cost: number
   marketValue: number
@@ -25,6 +27,8 @@ export interface Holding {
   dividendRecoveryRate: number // 回本进度（0-100）
   estimatedRecoveryYears: number
   color: string
+  assetCategory?: string
+  dividendReinvest?: boolean
 }
 
 // === 分红事件 ===
@@ -41,6 +45,7 @@ export interface DividendEvent {
   status: DividendEventStatus
   description: string
   participated: boolean
+  converted?: boolean
 }
 
 // === 交易 ===
@@ -81,12 +86,6 @@ export interface CoverageCategory {
   icon: string
   percentage: number
   color: string
-}
-
-// === 分红预测 ===
-export interface DividendForecast {
-  year: number
-  amount: number
 }
 
 // === 页面状态 ===

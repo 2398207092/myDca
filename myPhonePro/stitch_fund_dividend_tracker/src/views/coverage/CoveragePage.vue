@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onActivated, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCoverageData } from '@/api/expense'
 import type { CoverageData } from '@/api/expense'
@@ -53,7 +53,7 @@ function goToSettings() {
   router.push('/coverage/settings')
 }
 
-onMounted(loadData)
+onActivated(loadData)
 </script>
 
 <template>

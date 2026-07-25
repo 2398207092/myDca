@@ -8,6 +8,7 @@ import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -31,17 +32,28 @@ public class DbBackupController {
         String filename = "fund_tracker_" + dateStr + ".sql.gz";
 
         File tempFile = null;
+        File mysqlCnf = null;
         try {
-            // 临时文件
+            // 临时 gz 文件
             tempFile = File.createTempFile("backup_", ".sql.gz");
             String outPath = tempFile.getAbsolutePath();
 
-            // 构建 mysqldump 命令（使用 sed 去除 DEFINER）
+            // 临时 MySQL 配置文件（避免密码在 ps aux 中明文泄露）
+            mysqlCnf = File.createTempFile(".my_backup_", ".cnf");
+            String cnfContent = "[client]\nuser=" + dbUser + "\npassword=" + dbPassword + "\n";
+            Files.writeString(mysqlCnf.toPath(), cnfContent, StandardCharsets.UTF_8);
+            // 仅所有者可读写（Unix），Windows 下效果有限但已优于命令行明文
+            mysqlCnf.setReadable(true, true);
+            mysqlCnf.setWritable(true, true);
+            mysqlCnf.setExecutable(false);
+
+            // 构建 mysqldump 命令（使用 --defaults-extra-file 避免密码在进程列表泄露）
             ProcessBuilder pb = new ProcessBuilder(
                 "bash", "-c",
-                "mysqldump --single-transaction --default-character-set=utf8mb4 " +
+                "mysqldump --defaults-extra-file='" + mysqlCnf.getAbsolutePath() + "' " +
+                "--single-transaction --default-character-set=utf8mb4 " +
                 "--add-drop-table --max-allowed-packet=512M --tz-utc --routines --triggers " +
-                "-u'" + dbUser + "' -p'" + dbPassword + "' 'fund_tracker' " +
+                "'fund_tracker' " +
                 "2>/dev/null | sed 's/\\/\\*!50013 DEFINER[^*]*\\*\\///g; s/ DEFINER=[^ ]* / /g; s/DEFINER=[^ ]*//g' " +
                 "| gzip > '" + outPath + "'"
             );
@@ -78,10 +90,8 @@ public class DbBackupController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body(ApiResponse.error(500, "备份失败: " + e.getMessage()));
         } finally {
-            // 注意：这里不能删，因为 response 还没写完；由 JVM 的 File.deleteOnExit 或临时目录清理
-            if (tempFile != null) {
-                tempFile.deleteOnExit();
-            }
+            if (tempFile != null) tempFile.deleteOnExit();
+            if (mysqlCnf != null) mysqlCnf.deleteOnExit();
         }
     }
 }

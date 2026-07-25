@@ -12,8 +12,8 @@ export type CostAlgorithm = 'diluted' | 'diluted_only' | 'weighted_avg'
 // weighted_avg: 加权平均 (总买入金额 ÷ 总买入份额)
 
 /** 预测分红口径枚举 */
-export type ForecastHorizon = '1y' | '3y' | '5y' | 'custom'
-// 1y: 近 1 年均值, 3y: 近 3 年均值（默认）, 5y: 近 5 年均值, custom: 自定义
+export type ForecastHorizon = '12m' | '5y'
+// 12m: 近12月, 5y: 未来5年
 
 /** 通用分页请求参数 */
 export interface PaginationParams {
@@ -285,19 +285,8 @@ export interface DeleteTransactionResp {
 
 // ===================== 首页看板模块 =====================
 
-/** 首页看板摘要 */
-export interface DashboardSummary {
-  consecutiveDays: number       // 已连续收息天数
-  predictedAnnualDividend: number // 预测年度分红总额（元）
-  tenYearExpectedReturn: number // 10年预期收益（倍）
-  monthlyPredictedDividend: number // 当月预计派息（元）
-  monthlyMessage: string        // 通知横幅文案
-  totalHoldings: number         // 持仓总数
-  coveredCategories: number     // 已覆盖生活类目数
-}
-
 /** 获取首页看板 - 响应 */
-export type GetDashboardResp = DashboardSummary
+export type GetDashboardResp = import('@/api/dashboard').DashboardData
 
 // ===================== 分红覆盖类目模块 =====================
 
