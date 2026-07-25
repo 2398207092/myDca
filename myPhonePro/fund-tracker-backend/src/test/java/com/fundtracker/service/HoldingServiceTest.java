@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -36,6 +37,8 @@ class HoldingServiceTest {
     @Mock private DividendEventRepository dividendEventRepository;
     @Mock private FundDividendScrapeService fundDividendScrapeService;
     @Mock private FundNavScrapeService fundNavScrapeService;
+    @Mock private ManualAssetService manualAssetService;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private HoldingService holdingService;
     private CostCalculator costCalculator;
@@ -47,7 +50,8 @@ class HoldingServiceTest {
                 holdingRepository, transactionRepository,
                 costCalculator, fundDividendScrapeService,
                 fundNavScrapeService, fundDividendRecordRepository,
-                dividendEventRepository
+                dividendEventRepository, manualAssetService,
+                eventPublisher
         );
     }
 
