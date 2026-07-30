@@ -5,6 +5,7 @@ import com.fundtracker.model.dto.*;
 import com.fundtracker.model.entity.DcaPlan;
 import com.fundtracker.model.entity.Holding;
 import com.fundtracker.model.enums.DcaFrequency;
+import com.fundtracker.model.enums.DcaPlanStatus;
 import com.fundtracker.model.enums.HoldingType;
 import com.fundtracker.repository.DcaPlanRepository;
 import com.fundtracker.repository.HoldingRepository;
@@ -50,7 +51,7 @@ public class DcaPlanService {
      */
     public DcaBudgetVO calculateBudget(int year, int month, String userId) {
         List<DcaPlan> activePlans = dcaPlanRepository.findByUserId(userId).stream()
-                .filter(p -> "active".equals(p.getStatus()))
+                .filter(p -> DcaPlanStatus.active == p.getStatus())
                 .collect(Collectors.toList());
 
         if (activePlans.isEmpty()) {
@@ -189,7 +190,7 @@ public class DcaPlanService {
                 .frequency(frequency)
                 .day(req.getDay())
                 .tradingMarket(market)
-                .status("active")
+                .status(DcaPlanStatus.active)
                 .totalInvested(BigDecimal.ZERO)
                 .totalShares(BigDecimal.ZERO)
                 .totalExecutions(0)
@@ -242,21 +243,21 @@ public class DcaPlanService {
         }
         if (req.getStatus() != null) {
             String newStatus = req.getStatus();
-            switch (newStatus) {
-                case "paused":
-                    plan.setStatus("paused");
+            DcaPlanStatus s = DcaPlanStatus.valueOf(newStatus);
+            switch (s) {
+                case paused:
+                    plan.setStatus(DcaPlanStatus.paused);
                     log.info("定投计划 {} 已暂停", id);
                     break;
-                case "active":
-                    plan.setStatus("active");
-                    // 恢复时重置下次执行日为明天起的第一个交易日
+                case active:
+                    plan.setStatus(DcaPlanStatus.active);
                     plan.setNextExecutionDate(
                             tradingCalendar.nextTradingDay(LocalDate.now().plusDays(1), plan.getTradingMarket())
                     );
                     log.info("定投计划 {} 已恢复", id);
                     break;
-                case "ended":
-                    plan.setStatus("ended");
+                case ended:
+                    plan.setStatus(DcaPlanStatus.ended);
                     plan.setEndedAt(LocalDate.now());
                     log.info("定投计划 {} 已终止", id);
                     break;
@@ -287,7 +288,7 @@ public class DcaPlanService {
         DcaPlan plan = dcaPlanRepository.findById(id)
                 .orElseThrow(BusinessException::planNotFound);
 
-        if (!"active".equals(plan.getStatus())) {
+        if (!"active".equals(plan.getStatus().name())) {
             throw BusinessException.invalidParam("定投计划已暂停或终止，无法执行");
         }
 
@@ -356,7 +357,7 @@ public class DcaPlanService {
                 .frequency(plan.getFrequency().name())
                 .day(plan.getDay())
                 .tradingMarket(plan.getTradingMarket())
-                .status(plan.getStatus())
+                .status(plan.getStatus().name())
                 .totalInvested(plan.getTotalInvested())
                 .totalShares(plan.getTotalShares())
                 .totalExecutions(plan.getTotalExecutions())

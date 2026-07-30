@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import type { PageState } from '@/types'
 import { getProfile, getSettings, updateProfile, type UserProfile } from '@/api/user'

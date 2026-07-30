@@ -127,7 +127,10 @@ export async function get<T>(url: string, params?: Record<string, string | numbe
     }
   }
   const fullUrl = BASE_URL + url + (query.length ? '?' + query.join('&') : '')
-  const res = await fetch(fullUrl, { headers: getHeaders() })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000)
+  const res = await fetch(fullUrl, { headers: getHeaders(), signal: controller.signal })
+  clearTimeout(timeout)
   return handleResponse<T>(res)
 }
 

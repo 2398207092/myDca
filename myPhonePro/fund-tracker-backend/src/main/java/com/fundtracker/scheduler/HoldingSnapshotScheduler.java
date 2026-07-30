@@ -20,7 +20,11 @@ public class HoldingSnapshotScheduler {
     @Scheduled(cron = "0 0 1 1/5 * ?")
     public void snapshotTask() {
         log.info("开始执行持仓快照定时任务...");
-        holdingSnapshotService.snapshotAllHoldings();
-        log.info("持仓快照定时任务完成");
+        try {
+            holdingSnapshotService.snapshotAllHoldings();
+            log.info("持仓快照定时任务完成");
+        } catch (Exception e) {
+            log.error("持仓快照定时任务执行失败", e);
+        }
     }
 }

@@ -5,9 +5,8 @@ import BottomNav from '@/components/shared/BottomNav.vue'
 
 const route = useRoute()
 
-const level1Pages = new Set(['home', 'calendar', 'discover', 'profile'])
 const showBottomNav = computed(() => {
-  return level1Pages.has(String(route.name))
+  return route.meta.level === 1
 })
 
 // 登录页隐藏导航

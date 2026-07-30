@@ -1,0 +1,32 @@
+{
+  "name": "种树 - 稳健收息管理",
+  "short_name": "种树",
+  "description": "个人基金分红追踪工具:持仓管理、分红追踪、定投计划、资产概览",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#2D6A4F",
+  "background_color": "#faf9f9",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/icon-512.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "maskable"
+    }
+  ]
+}

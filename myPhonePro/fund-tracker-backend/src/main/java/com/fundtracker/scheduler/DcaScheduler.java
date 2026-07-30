@@ -1,6 +1,7 @@
 package com.fundtracker.scheduler;
 
 import com.fundtracker.model.entity.DcaPlan;
+import com.fundtracker.model.enums.DcaPlanStatus;
 import com.fundtracker.repository.DcaPlanRepository;
 import com.fundtracker.service.DcaPlanService;
 import com.fundtracker.service.TradingCalendar;
@@ -32,7 +33,7 @@ public class DcaScheduler {
 
         // 查询所有活跃且到期（或已过期）的计划
         List<DcaPlan> duePlans = dcaPlanRepository
-                .findByStatusAndNextExecutionDateLessThanEqual("active", today);
+                .findByStatusAndNextExecutionDateLessThanEqual(DcaPlanStatus.active, today);
 
         if (duePlans.isEmpty()) {
             log.info("[定投定时任务] 无到期计划");

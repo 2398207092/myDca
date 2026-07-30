@@ -46,7 +46,6 @@ cookie.txt
 # Test files
 pingzhong_test.js
 test_*.json
-write_bats.py
 
 # Batch scripts
 stop.bat
@@ -65,3 +64,4 @@ overview.md
 
 # 原型目录（设计稿，不提交）
 fund-tracker-discover-history/
+种树首页改版/

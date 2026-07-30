@@ -29,9 +29,9 @@ public class ManualAssetService {
 
     public ManualAssetDTO getManualAsset(String id, String userId) {
         ManualAsset asset = manualAssetRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(6001, "手动资产不存在"));
+                .orElseThrow(BusinessException::manualAssetNotFound);
         if (!asset.getUserId().equals(userId)) {
-            throw new BusinessException(6002, "无权访问该资产");
+            throw BusinessException.manualAssetAccessDenied();
         }
         return toDTO(asset);
     }
@@ -59,9 +59,9 @@ public class ManualAssetService {
     @Transactional
     public ManualAssetDTO updateManualAsset(String id, UpdateManualAssetReq req, String userId) {
         ManualAsset asset = manualAssetRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(6001, "手动资产不存在"));
+                .orElseThrow(BusinessException::manualAssetNotFound);
         if (!asset.getUserId().equals(userId)) {
-            throw new BusinessException(6002, "无权修改该资产");
+            throw BusinessException.manualAssetAccessDenied();
         }
 
         if (req.getName() != null) asset.setName(req.getName());
@@ -78,9 +78,9 @@ public class ManualAssetService {
     @Transactional
     public void deleteManualAsset(String id, String userId) {
         ManualAsset asset = manualAssetRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(6001, "手动资产不存在"));
+                .orElseThrow(BusinessException::manualAssetNotFound);
         if (!asset.getUserId().equals(userId)) {
-            throw new BusinessException(6002, "无权删除该资产");
+            throw BusinessException.manualAssetAccessDenied();
         }
         manualAssetRepository.delete(asset);
         log.info("删除手动资产: {} [{}]", asset.getName(), asset.getType());

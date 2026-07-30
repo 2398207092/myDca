@@ -1,39 +1,10 @@
-// === 用户 ===
-export interface UserProfile {
-  id: string
-  name: string
-  avatar: string
-  membership: 'pro' | 'free'
-  membershipExpiry: string
-  phone: string
-  version?: string
-}
-
-// === 持仓 ===
-export interface Holding {
-  id: string
-  name: string
-  code: string
-  type: string  // 'fund' | 'cny_asset' | 'ETF' | 'A股' | 等
-  costAlgorithm?: string
-  shares: number
-  cost: number
-  marketValue: number
-  predictedDividend: number
-  dividendRate: number // 成本息率
-  priceDividendRate: number // 股价息率
-  totalDividendReceived: number
-  netInvestment: number
-  dividendRecoveryRate: number // 回本进度（0-100）
-  estimatedRecoveryYears: number
-  color: string
-  assetCategory?: string
-  dividendReinvest?: boolean
-}
+// ============================================================
+// 共享业务类型（仅保留被消费的类型）
+// 各 api/*.ts 模块自定接口类型，此处仅放多个页面共享的类型
+// ============================================================
 
 // === 分红事件 ===
 export type DividendEventType = 'registration' | 'ex_dividend' | 'payout' | 'announcement'
-export type DividendEventStatus = 'pending' | 'distributed' | 'cancelled'
 
 export interface DividendEvent {
   id: string
@@ -42,50 +13,10 @@ export interface DividendEvent {
   type: DividendEventType
   date: string // YYYY-MM-DD
   amount: number
-  status: DividendEventStatus
+  status: string
   description: string
   participated: boolean
   converted?: boolean
-}
-
-// === 交易 ===
-export type TransactionType = 'buy' | 'sell' | 'bonus_share' | 'reinvest'
-
-export interface Transaction {
-  id: string
-  holdingId: string
-  type: TransactionType
-  date: string
-  quantity: number
-  price: number
-  fee: number
-  total: number
-}
-
-// === 汇率 ===
-export interface ExchangeRate {
-  pair: string
-  label: string
-  rate: number
-  updatedAt: string
-}
-
-// === 日历 ===
-export interface CalendarDay {
-  date: string
-  day: number
-  isCurrentMonth: boolean
-  events: DividendEvent[]
-  isSelected: boolean
-}
-
-// === 分红覆盖类目 ===
-export interface CoverageCategory {
-  id: string
-  name: string
-  icon: string
-  percentage: number
-  color: string
 }
 
 // === 页面状态 ===

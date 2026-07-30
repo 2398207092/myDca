@@ -1,4 +1,4 @@
-import { get, post, put, del } from './request'
+import { get, post, del } from './request'
 
 export interface LiveExpenseItem {
   id: string
@@ -12,13 +12,6 @@ export interface CreateExpenseReq {
   name: string
   icon: string
   monthlyAmount: number
-  sortOrder?: number
-}
-
-export interface UpdateExpenseReq {
-  name?: string
-  icon?: string
-  monthlyAmount?: number
   sortOrder?: number
 }
 
@@ -58,10 +51,6 @@ export async function listExpenses(): Promise<LiveExpenseItem[]> {
 
 export async function createExpense(req: CreateExpenseReq): Promise<LiveExpenseItem> {
   return post<LiveExpenseItem>('/expenses', req)
-}
-
-export async function updateExpense(id: string, req: UpdateExpenseReq): Promise<LiveExpenseItem> {
-  return put<LiveExpenseItem>(`/expenses/${id}`, req)
 }
 
 export async function deleteExpense(id: string): Promise<void> {

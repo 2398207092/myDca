@@ -1,5 +1,6 @@
 package com.fundtracker.config;
 
+import com.fundtracker.model.dto.ApiResponse;
 import com.fundtracker.model.entity.AuthToken;
 import com.fundtracker.repository.AuthTokenRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +18,13 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     public AuthInterceptor(AuthTokenRepository authTokenRepository) {
         this.authTokenRepository = authTokenRepository;
+    }
+
+    private void sendUnauthorized(HttpServletResponse response, String message) throws Exception {
+        response.setStatus(401);
+        response.setContentType("application/json;charset=UTF-8");
+        ApiResponse<?> resp = ApiResponse.error(401, message);
+        response.getWriter().write(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(resp));
     }
 
     @Override
@@ -41,9 +49,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         // 从 Header 中获取 Token
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            response.setStatus(401);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":401,\"message\":\"未认证，请携带 Authorization: Bearer <token> 请求头\",\"data\":null}");
+            sendUnauthorized(response, "未认证，请携带 Authorization: Bearer <token> 请求头");
             return false;
         }
 
@@ -51,9 +57,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         Optional<AuthToken> authToken = authTokenRepository.findByTokenAndActiveTrue(token);
 
         if (authToken.isEmpty()) {
-            response.setStatus(401);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":401,\"message\":\"Token 无效或已过期\",\"data\":null}");
+            sendUnauthorized(response, "Token 无效或已过期");
             return false;
         }
 
@@ -63,9 +67,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         if (validToken.getExpiresAt() != null && validToken.getExpiresAt().isBefore(LocalDateTime.now())) {
             validToken.setActive(false);
             authTokenRepository.save(validToken);
-            response.setStatus(401);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":401,\"message\":\"Token 已过期，请重新登录\",\"data\":null}");
+            sendUnauthorized(response, "Token 已过期，请重新登录");
             return false;
         }
 

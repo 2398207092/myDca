@@ -833,8 +833,8 @@ onActivated(() => {
 .fade-enter-from,
 .fade-leave-to { opacity: 0; }
 
-.slide-up-enter-active { transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
-.slide-up-leave-active { transition: transform 0.2s ease; }
+.slide-up-enter-active { transition: transform 0.25s ease-out; }
+.slide-up-leave-active { transition: transform 0.2s ease-in; }
 .slide-up-enter-from { transform: translateY(100%); }
 .slide-up-leave-to { transform: translateY(100%); }
 
@@ -842,9 +842,4 @@ onActivated(() => {
 .scale-up-leave-active { transition: transform 0.15s ease, opacity 0.15s ease; }
 .scale-up-enter-from { transform: scale(0.9); opacity: 0; }
 .scale-up-leave-to { transform: scale(0.9); opacity: 0; }
-
-.slide-up-enter-active { transition: transform 0.25s ease-out; }
-.slide-up-leave-active { transition: transform 0.2s ease-in; }
-.slide-up-enter-from { transform: translateY(100%); }
-.slide-up-leave-to { transform: translateY(100%); }
 </style>

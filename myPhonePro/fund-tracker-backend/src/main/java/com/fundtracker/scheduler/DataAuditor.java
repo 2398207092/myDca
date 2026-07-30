@@ -17,7 +17,6 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 数据对账审计
@@ -41,13 +40,13 @@ public class DataAuditor {
         List<String> errors = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
 
-        auditMarketValue(errors);
-        auditCashFlow(errors, warnings);
-        auditHoldingShares(errors);
-        auditCostConsistency(errors);
-        auditDividendOutliers(warnings);
-        auditDividendRate(warnings);
-        auditStaleDividendEvents(warnings);
+        try { auditMarketValue(errors); } catch (Exception e) { log.error("审计 marketValue 异常", e); }
+        try { auditCashFlow(errors, warnings); } catch (Exception e) { log.error("审计 cashFlow 异常", e); }
+        try { auditHoldingShares(errors); } catch (Exception e) { log.error("审计 holdingShares 异常", e); }
+        try { auditCostConsistency(errors); } catch (Exception e) { log.error("审计 costConsistency 异常", e); }
+        try { auditDividendOutliers(warnings); } catch (Exception e) { log.error("审计 dividendOutliers 异常", e); }
+        try { auditDividendRate(warnings); } catch (Exception e) { log.error("审计 dividendRate 异常", e); }
+        try { auditStaleDividendEvents(warnings); } catch (Exception e) { log.error("审计 staleDividendEvents 异常", e); }
 
         // 汇总
         if (!errors.isEmpty()) {

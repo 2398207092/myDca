@@ -1,10 +1,6 @@
 import { get, post, setToken } from './request'
 import type { LoginResp, UserInfoResp } from '@/types/api'
 
-export interface TokenResp {
-  token: string
-}
-
 export interface SendCodeReq {
   email: string
   type: 'login' | 'register' | 'set_password'
@@ -20,13 +16,6 @@ export interface SetPasswordReq {
   email: string
   password: string
   code?: string
-}
-
-/** 获取应用级 Token（兼容旧版） */
-export async function fetchToken(): Promise<TokenResp> {
-  const data = await get<TokenResp>('/auth/token')
-  setToken(data.token)
-  return data
 }
 
 /** 发送验证码 */

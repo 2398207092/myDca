@@ -96,6 +96,12 @@ const router = createRouter({
       component: () => import('@/views/asset-history/AssetHistoryPage.vue'),
       meta: { level: 2 },
     },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/views/home/HomePage.vue'),
+      meta: { level: 1 },
+    },
   ],
 })
 

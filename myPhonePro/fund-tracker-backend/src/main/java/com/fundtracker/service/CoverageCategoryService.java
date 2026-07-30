@@ -1,5 +1,6 @@
 package com.fundtracker.service;
 
+import com.fundtracker.exception.BusinessException;
 import com.fundtracker.model.dto.CoverageCategoryDTO;
 import com.fundtracker.model.dto.UpdateCoverageCategoryReq;
 import com.fundtracker.model.entity.CoverageCategory;
@@ -55,7 +56,7 @@ public class CoverageCategoryService {
     @Transactional
     public CoverageCategoryDTO update(String id, UpdateCoverageCategoryReq req, String userId) {
         CoverageCategory cat = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("类目不存在"));
+                .orElseThrow(() -> BusinessException.bizError("类目不存在"));
         if (req.getName() != null) cat.setName(req.getName());
         if (req.getIcon() != null) cat.setIcon(req.getIcon());
         if (req.getPercentage() != null) cat.setPercentage(req.getPercentage());

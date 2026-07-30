@@ -12,10 +12,6 @@
     min-height: 100dvh;
     overscroll-behavior: none;
   }
-
-  ::-webkit-scrollbar {
-    display: none;
-  }
 }
 
 @layer components {

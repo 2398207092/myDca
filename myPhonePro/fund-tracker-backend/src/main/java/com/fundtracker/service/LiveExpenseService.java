@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -65,7 +64,7 @@ public class LiveExpenseService {
         LiveExpense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> BusinessException.expenseNotFound(id));
         if (!expense.getUserId().equals(userId)) {
-            throw new RuntimeException("无权删除该支出");
+            throw BusinessException.bizError("无权删除该支出");
         }
         expense.setDeleted(true);
         expenseRepository.save(expense);

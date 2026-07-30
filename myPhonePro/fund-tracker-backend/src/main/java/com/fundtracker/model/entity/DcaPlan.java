@@ -1,6 +1,7 @@
 package com.fundtracker.model.entity;
 
 import com.fundtracker.model.enums.DcaFrequency;
+import com.fundtracker.model.enums.DcaPlanStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -43,8 +44,9 @@ public class DcaPlan {
     @Column(nullable = false, length = 20)
     private String tradingMarket; // china / us / crypto
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    private String status; // active / paused / ended
+    private DcaPlanStatus status;
 
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal totalInvested;

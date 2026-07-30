@@ -1,6 +1,5 @@
 package com.fundtracker.service;
 
-import com.fundtracker.model.dto.ApiResponse;
 import com.fundtracker.model.dto.DividendInfoDTO;
 import com.fundtracker.model.entity.FundDividendRecord;
 import com.fundtracker.repository.FundDividendRecordRepository;

@@ -31,10 +31,6 @@ public class BusinessException extends RuntimeException {
         return new BusinessException(3002, "卖出份额不足");
     }
 
-    public static BusinessException invalidTransactionType() {
-        return new BusinessException(3003, "无效的交易类型");
-    }
-
     public static BusinessException rateLimitExceeded() {
         return new BusinessException(4001, "刷新过于频繁，请稍后再试");
     }
@@ -49,6 +45,14 @@ public class BusinessException extends RuntimeException {
 
     public static BusinessException invalidParam(String message) {
         return new BusinessException(6002, message);
+    }
+
+    public static BusinessException manualAssetNotFound() {
+        return new BusinessException(6003, "手动资产不存在");
+    }
+
+    public static BusinessException manualAssetAccessDenied() {
+        return new BusinessException(6004, "无权访问该资产");
     }
 
     /** 通用业务错误，用于登录/验证码等场景 */

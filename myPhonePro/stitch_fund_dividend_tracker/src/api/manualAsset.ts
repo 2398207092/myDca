@@ -31,10 +31,6 @@ export async function listManualAssets(): Promise<ManualAssetItem[]> {
   return get<ManualAssetItem[]>('/manual-assets')
 }
 
-export async function getManualAsset(id: string): Promise<ManualAssetItem> {
-  return get<ManualAssetItem>(`/manual-assets/${id}`)
-}
-
 export async function createManualAsset(req: CreateManualAssetReq): Promise<ManualAssetItem> {
   return post<ManualAssetItem>('/manual-assets', req)
 }

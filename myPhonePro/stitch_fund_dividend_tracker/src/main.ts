@@ -19,3 +19,13 @@ async function initApp() {
 }
 
 initApp()
+
+// 生产环境注册 Service Worker(开发时不注册,避免缓存干扰 HMR)
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then(() => console.log('[PWA] Service Worker 已注册'))
+      .catch((err) => console.warn('[PWA] Service Worker 注册失败:', err))
+  })
+}

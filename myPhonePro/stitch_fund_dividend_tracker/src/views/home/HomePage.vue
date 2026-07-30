@@ -11,13 +11,7 @@ import type { HoldingItem } from '@/api/holding'
 import AppHeader from '@/components/shared/AppHeader.vue'
 import PageStateComp from '@/components/shared/PageState.vue'
 import { changelog } from '@/data/changelog'
-
-function formatMoney(value: number | undefined | null): string {
-  if (value == null || value === 0) return '¥0.00'
-  if (value >= 1_0000_0000) return `¥${(value / 1_0000_0000).toFixed(2)}亿`
-  if (value >= 1_0000) return `¥${(value / 1_0000).toFixed(2)}万`
-  return `¥${value.toFixed(2)}`
-}
+import { formatMoney } from '@/utils/format'
 
 function formatShares(value: number | undefined | null): string {
   if (value == null || value === 0) return '--'

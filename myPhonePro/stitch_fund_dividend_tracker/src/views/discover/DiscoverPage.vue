@@ -11,6 +11,8 @@ import type { ManualAssetItem, CreateManualAssetReq, UpdateManualAssetReq } from
 import type { HoldingItem } from '@/api/holding'
 import type { DcaPlanVO, DcaBudgetVO } from '@/api/dca'
 import AppHeader from '@/components/shared/AppHeader.vue'
+import PageStateComp from '@/components/shared/PageState.vue'
+import { formatMoney } from '@/utils/format'
 
 const router = useRouter()
 const pageState = ref<'loading' | 'ready' | 'error'>('loading')
@@ -40,13 +42,6 @@ const savingCategory = ref(false)
 const showDeleteConfirm = ref(false)
 const deletingAssetId = ref<string | null>(null)
 const deletingAssetName = ref('')
-
-function formatMoney(v: number | undefined | null): string {
-  if (v == null || v === 0) return '¥0.00'
-  if (Math.abs(v) >= 1_0000_0000) return `¥${(v / 1_0000_0000).toFixed(2)}亿`
-  if (Math.abs(v) >= 1_0000) return `¥${(v / 1_0000).toFixed(2)}万`
-  return `¥${v.toFixed(2)}`
-}
 
 function changeDisplay(num: number): string {
   return num >= 0 ? `+${num.toFixed(2)}` : num.toFixed(2)

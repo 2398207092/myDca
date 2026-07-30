@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { getCoverageData } from '@/api/expense'
 import type { CoverageData } from '@/api/expense'
 import PageStateComp from '@/components/shared/PageState.vue'
+import { formatMoney } from '@/utils/format'
 
 const router = useRouter()
 const pageState = ref<'loading' | 'ready' | 'empty' | 'error'>('loading')
@@ -26,13 +27,6 @@ const nextTargetExpense = computed(() => {
   if (!coverage.value) return null
   return coverage.value.expenses.find(e => e.inProgress) ?? null
 })
-
-function formatMoney(value: number | undefined | null): string {
-  if (value == null || value === 0) return '¥0.00'
-  if (value >= 1_0000_0000) return `¥${(value / 1_0000_0000).toFixed(2)}亿`
-  if (value >= 1_0000) return `¥${(value / 1_0000).toFixed(2)}万`
-  return `¥${value.toFixed(2)}`
-}
 
 async function loadData() {
   pageState.value = 'loading'
