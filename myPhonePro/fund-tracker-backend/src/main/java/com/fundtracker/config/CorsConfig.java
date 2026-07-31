@@ -15,10 +15,15 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         // 仅允许明确的域名（开发+生产），不允许通配符
+        // 生产域名通过环境变量 CORS_ALLOWED_ORIGINS 注入，避免硬编码服务器 IP
+        String prodOrigin = System.getenv("CORS_ALLOWED_ORIGINS");
+        if (prodOrigin == null || prodOrigin.isEmpty()) {
+            prodOrigin = "https://retrospect.top";
+        }
         config.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
-                "https://fund-tracker.8wvps.com"
+                prodOrigin
         ));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("*"));
