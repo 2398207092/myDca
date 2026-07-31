@@ -248,9 +248,9 @@ onActivated(() => {
 
     <PageStateView v-if="pageState !== 'ready'" :state="pageState" />
 
-    <main v-if="pageState === 'ready'" class="pt-14 pb-24 px-gutter">
+    <main v-if="pageState === 'ready'" class="pt-16 pb-24 px-gutter max-w-[600px] mx-auto space-y-section">
       <!-- ==================== User Info Card ==================== -->
-      <section class="mb-lg">
+      <section>
         <div
           class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 flex items-center gap-md cursor-pointer active:scale-[0.98] transition-transform"
           @click="openProfileModal"
@@ -310,7 +310,7 @@ onActivated(() => {
       </section>
 
       <!-- ==================== Exchange Rates ==================== -->
-      <section class="mb-lg">
+      <section>
         <div class="bg-card-bg rounded-xl overflow-hidden card-shadow border border-border-light/40">
           <div class="p-lg bg-card-alt flex justify-between items-center">
             <div class="flex items-center gap-sm">
@@ -350,7 +350,7 @@ onActivated(() => {
       </section>
 
       <!-- ==================== Function List ==================== -->
-      <section class="bg-card-bg rounded-xl overflow-hidden card-shadow border border-border-light/40 mb-xl">
+      <section class="bg-card-bg rounded-xl overflow-hidden card-shadow border border-border-light/40">
         <div class="divide-y divide-border-light">
           <!-- Data Legend -->
           <div
@@ -411,7 +411,7 @@ onActivated(() => {
       </section>
 
       <!-- ==================== Data Tools (merged from Toolbox) ==================== -->
-      <section class="bg-card-bg rounded-xl overflow-hidden card-shadow border border-border-light/40 mb-xl">
+      <section class="bg-card-bg rounded-xl overflow-hidden card-shadow border border-border-light/40">
         <div class="px-lg pt-md pb-sm bg-card-alt">
           <div class="flex items-center gap-sm">
             <span class="material-symbols-outlined text-brand text-lg">construction</span>
@@ -454,7 +454,7 @@ onActivated(() => {
       </section>
 
       <!-- ==================== Logout ==================== -->
-      <section class="mt-xl">
+      <section>
         <button
           class="w-full bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 flex items-center justify-center gap-md hover:bg-card-alt transition-colors active:scale-[0.98]"
           @click="showLogoutConfirm = true"
@@ -465,7 +465,7 @@ onActivated(() => {
       </section>
 
       <!-- Version -->
-      <div class="mt-xl text-center pb-8">
+      <div class="text-center pb-8">
         <p class="font-body text-xs text-text-tertiary opacity-50">种树 v2.4.0</p>
       </div>
     </main>

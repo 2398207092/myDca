@@ -30,13 +30,13 @@ function navigate(tab: NavTab, path: string) {
 
 <template>
   <nav
-    class="fixed bottom-0 w-full z-50 rounded-t-xl bg-card-bg shadow-elevated border-t border-border-light safe-bottom"
+    class="fixed bottom-0 w-full z-header rounded-t-xl bg-card-bg shadow-elevated border-t border-border-light safe-bottom"
   >
     <div class="flex justify-around items-center h-16 w-full px-sm">
       <button
         v-for="tab in tabs"
         :key="tab.key"
-        class="flex flex-col items-center justify-center transition-all duration-200 active:scale-95 min-w-[64px] py-1 rounded-xl"
+        class="flex flex-col items-center justify-center transition-all duration-200 active:scale-90 min-w-[64px] py-1 rounded-xl"
         :class="
           activeTab === tab.key
             ? 'bg-brand-light'

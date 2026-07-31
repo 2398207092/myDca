@@ -7,6 +7,17 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: 'v2.4.1',
+    date: '2026-07-31',
+    title: '界面间距统一 & 验证自动化',
+    items: [
+      '修复首页/日历/我的页内容紧贴顶部导航，统一留 8px 呼吸间距',
+      '「我的」页 7 个区块统一为 24px 间距节奏（此前 mb/mt 混用）',
+      '添加标的页间距实现统一，移除冗余 margin',
+      'frontend-verify 技能升级：自动检测页面边界间距、间距节奏与设计档位偏差，合并单次断言降低开销',
+    ],
+  },
+  {
     version: 'v2.4.0',
     date: '2026-07-24',
     title: '我的页面重构 & 界面统一',

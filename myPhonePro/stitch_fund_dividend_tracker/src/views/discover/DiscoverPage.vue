@@ -368,10 +368,11 @@ async function doDelete() {
     </main>
 
     <!-- Ready State -->
-    <main v-else class="max-w-[600px] mx-auto px-gutter pt-20 pb-28 space-y-md">
+    <main v-else class="max-w-[600px] mx-auto px-gutter pt-20 pb-28 space-y-section">
       <!-- Classification Banner (above hero) -->
       <section v-if="uncategorizedHoldings().length > 0 && !bannerDismissed"
-               class="bg-brand-light/60 rounded-lg p-lg card-shadow border border-border-light/40 relative overflow-hidden">
+               class="stagger-item bg-brand-light/60 rounded-lg p-lg card-shadow border border-border-light/40 relative overflow-hidden"
+               style="animation-delay: 0ms">
         <button class="absolute top-2 right-2 w-6 h-6 flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors"
                 @click="dismissBanner">
           <span class="material-symbols-outlined text-[16px]">close</span>
@@ -400,7 +401,7 @@ async function doDelete() {
       </section>
 
       <!-- Total Assets Hero with Value Change -->
-      <section class="bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40">
+      <section class="stagger-item bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40" style="animation-delay: 40ms">
         <!-- Header: label left, label · arrow right -->
         <div class="flex items-center justify-between mb-1">
           <span class="font-body text-xs text-text-tertiary">总资产 (元)</span>
@@ -419,7 +420,7 @@ async function doDelete() {
         </div>
 
         <!-- Total assets centered -->
-        <div class="text-center font-display text-3xl font-medium text-text-primary mb-md tracking-tight">
+        <div class="text-center font-display text-3xl font-medium text-text-primary mb-md tracking-tight tabular-nums transition-colors duration-300">
           {{ formatMoney(overview?.totalValue) }}
         </div>
 
@@ -435,7 +436,7 @@ async function doDelete() {
             <div class="font-body text-xs opacity-80">
               {{ period === 'week' ? '本周' : period === 'month' ? '本月' : '本年' }}
             </div>
-            <div class="font-body text-sm font-medium mt-0.5">
+            <div class="font-body text-sm font-medium mt-0.5 tabular-nums">
               {{ formatPercent(valueChange.periods[period]?.percent || 0) }}
             </div>
           </div>
@@ -443,7 +444,7 @@ async function doDelete() {
       </section>
 
       <!-- Asset Allocation (Bento) -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+      <div class="stagger-item grid grid-cols-1 md:grid-cols-2 gap-md" style="animation-delay: 80ms">
         <!-- Allocation Treemap -->
         <section class="bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40">
           <div class="flex items-center justify-between mb-3">
@@ -485,7 +486,7 @@ async function doDelete() {
       </div>
 
       <!-- Category Detail Cards -->
-      <section class="space-y-md">
+      <section class="stagger-item space-y-md" style="animation-delay: 120ms">
         <div class="flex items-center justify-between px-1">
           <h2 class="font-body text-sm font-medium text-text-primary">各类资产</h2>
         </div>
@@ -1084,7 +1085,7 @@ async function doDelete() {
     <!-- Value Change Detail Dialog -->
     <Teleport to="body">
       <div v-if="showValueDetail"
-           class="fixed inset-0 z-50 flex items-center justify-center p-md"
+           class="fixed inset-0 z-modal flex items-center justify-center p-md"
            @click.self="showValueDetail = false">
         <div class="absolute inset-0 bg-black/40" @click="showValueDetail = false"></div>
         <div class="relative bg-card-bg rounded-lg card-shadow w-full max-w-sm max-h-[80vh] overflow-y-auto z-10 p-lg">

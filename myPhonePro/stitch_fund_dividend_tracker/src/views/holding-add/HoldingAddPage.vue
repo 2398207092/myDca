@@ -193,10 +193,10 @@ const estimatedAnnualDividend = computed(() => {
     </header>
 
     <!-- Main Content -->
-    <main class="flex-1 px-gutter pb-32 overflow-y-auto space-y-md">
+    <main class="flex-1 px-gutter pt-3 pb-32 overflow-y-auto space-y-md">
 
       <!-- ==================== Step 1: 选择标的 ==================== -->
-      <section class="mt-md bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
+      <section class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
         <!-- Step number + title -->
         <div class="flex items-center gap-3 mb-lg">
           <span class="flex items-center justify-center w-7 h-7 rounded-full bg-brand text-white text-xs font-display font-semibold">1</span>

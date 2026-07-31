@@ -56,7 +56,11 @@ async function loadMonthData() {
 onActivated(async () => {
   try {
     // 同步与加载月份数据没有依赖关系，并行执行
-    await Promise.all([syncAllEvents(), loadMonthData()])
+    // syncAllEvents 失败（如权限不足）不影响日历数据显示
+    await Promise.all([
+      syncAllEvents().catch(() => {}),
+      loadMonthData(),
+    ])
     pageState.value = 'ready'
   } catch {
     pageState.value = 'error'
@@ -318,7 +322,7 @@ function goToHolding(holdingId: string) {
     <!-- Header — 统一 -->
     <AppHeader title="分红日历" :show-logo="true" />
 
-    <main class="flex-1 px-gutter pt-14 pb-24 overflow-y-auto space-y-md max-w-[600px] mx-auto w-full">
+    <main class="flex-1 px-gutter pt-16 pb-24 overflow-y-auto space-y-md max-w-[600px] mx-auto w-full">
       <PageStateComp
         v-if="pageState !== 'ready'"
         :state="pageState"

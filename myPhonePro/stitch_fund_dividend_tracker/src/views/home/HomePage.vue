@@ -101,15 +101,16 @@ onActivated(loadData)
   <div class="min-h-screen bg-page-bg">
     <AppHeader title="种树" :show-logo="true" />
 
-    <main class="pt-14 pb-24 px-gutter max-w-[600px] mx-auto space-y-md">
-      <PageStateComp :state="pageState" />
+    <main class="pt-16 pb-24 px-gutter max-w-[600px] mx-auto space-y-section">
+      <PageStateComp :state="pageState" skeleton="card" :on-retry="loadData" />
 
       <template v-if="pageState === 'ready'">
         <!-- ============================================================ -->
         <!-- 更新公告 — 品牌色横幅                                          -->
         <!-- ============================================================ -->
         <div
-          class="bg-brand-light/60 rounded-xl px-lg py-sm card-shadow border border-brand/10 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-transform"
+          class="stagger-item bg-brand-light/60 rounded-xl px-lg py-sm card-shadow border border-brand/10 flex items-center justify-between cursor-pointer interactive-card"
+          style="animation-delay: 0ms"
           @click="showChangelog = true"
         >
           <div class="flex items-center gap-lg">
@@ -123,7 +124,7 @@ onActivated(loadData)
         </div>
 
         <!-- Hero 卡片 -->
-        <div class="bg-card-bg rounded-xl px-lg py-md card-shadow border border-border-light/40 relative overflow-hidden">
+        <div class="stagger-item bg-card-bg rounded-xl px-lg py-md card-shadow border border-border-light/40 relative overflow-hidden" style="animation-delay: 40ms">
           <!-- 装饰底纹 -->
           <div class="absolute -bottom-6 -right-6 w-28 h-28 rounded-full bg-brand-light/40 pointer-events-none"></div>
           <div class="absolute -top-3 -left-3 w-12 h-12 rounded-full bg-brand-light/20 pointer-events-none"></div>
@@ -141,7 +142,7 @@ onActivated(loadData)
                 </div>
                 <!-- 品牌色背景块 -->
                 <div class="bg-brand-light/60 rounded-lg px-5 py-1 inline-block">
-                  <p class="font-display text-[40px] text-brand font-semibold tabular-nums leading-none">{{ formatMoney(dashboard?.predictedAnnualDividend) }}</p>
+                  <p class="font-display text-[40px] text-brand font-semibold tabular-nums leading-none transition-colors duration-300">{{ formatMoney(dashboard?.predictedAnnualDividend) }}</p>
                 </div>
                 <!-- 右侧装饰竖线 -->
                 <div class="flex items-center gap-[3px] ml-3">
@@ -185,13 +186,13 @@ onActivated(loadData)
                   <div class="bg-card-alt/50 rounded-lg px-md py-3 text-center">
                     <p class="font-body text-xs text-text-tertiary mb-1">{{ metric.label }}</p>
                     <template v-if="metric.formatter === 'percent'">
-                      <p class="font-display text-md text-brand font-semibold tabular-nums">{{ metric.getValue(dashboard!).toFixed(1) }}<span class="text-xs text-text-tertiary">%</span></p>
+                      <p class="font-display text-md text-brand font-semibold tabular-nums transition-colors duration-300">{{ metric.getValue(dashboard!).toFixed(1) }}<span class="text-xs text-text-tertiary">%</span></p>
                     </template>
                     <template v-else-if="metric.formatter === 'money'">
-                      <p class="font-display text-md text-brand font-semibold tabular-nums">{{ formatMoney(metric.getValue(dashboard!)) }}</p>
+                      <p class="font-display text-md text-brand font-semibold tabular-nums transition-colors duration-300">{{ formatMoney(metric.getValue(dashboard!)) }}</p>
                     </template>
                     <template v-else>
-                      <p class="font-display text-md text-brand font-semibold tabular-nums">{{ metric.getValue(dashboard!) }}</p>
+                      <p class="font-display text-md text-brand font-semibold tabular-nums transition-colors duration-300">{{ metric.getValue(dashboard!) }}</p>
                     </template>
                   </div>
                 </template>
@@ -203,7 +204,7 @@ onActivated(loadData)
         <!-- ============================================================ -->
         <!-- 分红覆盖                                                       -->
         <!-- ============================================================ -->
-        <section class="cursor-pointer" @click="goToCoverage">
+        <section class="stagger-item cursor-pointer" style="animation-delay: 80ms" @click="goToCoverage">
           <div class="flex items-center justify-between mb-sm">
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined text-brand text-sm">account_balance_wallet</span>
@@ -246,16 +247,17 @@ onActivated(loadData)
         <!-- ============================================================ -->
         <!-- 持仓列表 — 含市值/成本/份额/股息率四列详情                     -->
         <!-- ============================================================ -->
-        <section class="space-y-sm">
+        <section class="stagger-item space-y-sm" style="animation-delay: 120ms">
           <div class="flex items-center gap-2">
             <span class="material-symbols-outlined text-brand text-sm">account_balance</span>
             <h3 class="font-body text-sm font-medium text-text-primary tracking-wide">持仓</h3>
           </div>
           <div v-if="holdings.length > 0" class="space-y-sm">
             <div
-              v-for="holding in holdings"
+              v-for="(holding, idx) in holdings"
               :key="holding.id"
-              class="bg-card-bg rounded-xl p-md card-shadow border border-border-light/40 cursor-pointer hover:shadow-elevated transition-all duration-200"
+              class="stagger-item bg-card-bg rounded-xl p-md card-shadow border border-border-light/40 cursor-pointer interactive-card"
+              :style="{ animationDelay: (120 + idx * 40) + 'ms' }"
               @click="goToHolding(holding.id)"
             >
               <!-- 第一行：圆点 + 名称 + 分红 -->
@@ -273,7 +275,7 @@ onActivated(loadData)
                     <p class="font-body text-[11px] text-text-tertiary">预测分红/年</p>
                   </template>
                   <template v-else>
-                    <p class="font-body text-sm text-text-tertiary">--</p>
+                    <p class="font-body text-sm text-text-tertiary tabular-nums">--</p>
                   </template>
                 </div>
               </div>
@@ -322,10 +324,10 @@ onActivated(loadData)
 
       <!-- FAB -->
       <button
-        class="fixed right-6 bottom-24 w-14 h-14 bg-brand text-white rounded-xl flex items-center justify-center shadow-elevated active:scale-90 hover:shadow-overlay transition-all duration-200 z-50"
+        class="fixed right-6 bottom-24 w-14 h-14 bg-brand text-white rounded-full flex items-center justify-center shadow-overlay active:scale-90 hover:shadow-overlay hover:brightness-110 transition-all duration-200 z-sticky"
         @click="goToAddHolding"
       >
-        <span class="material-symbols-outlined text-[32px]">add</span>
+        <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1, 'wght' 400;">add</span>
       </button>
     </main>
   </div>

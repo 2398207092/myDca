@@ -12,11 +12,27 @@
     min-height: 100dvh;
     overscroll-behavior: none;
   }
+
+  /* 全局键盘焦点环：仅键盘导航时显示，触屏/鼠标不触发 */
+  :focus-visible {
+    outline: 2px solid theme('colors.brand');
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* 滚动顺滑：iOS momentum + 全局 smooth */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 @layer components {
+  /* 阴影统一走 token，移除硬编码 rgba */
   .card-shadow {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    @apply shadow-card;
   }
 
   .safe-bottom {
@@ -34,5 +50,38 @@
   .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     vertical-align: middle;
+  }
+
+  /* 可点击卡片：按压轻微缩放 + hover 反馈 */
+  .interactive-card {
+    @apply transition-all duration-200 active:scale-[0.985] active:bg-card-alt hover:bg-card-alt/50;
+  }
+
+  /* 列表项错落进入动画 */
+  .stagger-item {
+    animation: stagger-fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes stagger-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 尊重 prefers-reduced-motion：关闭所有动画与过渡 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
