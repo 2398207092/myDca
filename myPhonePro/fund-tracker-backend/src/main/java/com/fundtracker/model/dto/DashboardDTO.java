@@ -24,4 +24,7 @@ public class DashboardDTO {
     private BigDecimal totalMarketValue;
     private BigDecimal overallDividendRate;
     private BigDecimal priceDividendRate;
+
+    /** 今日到账分红合计（date=今天 且 status=distributed） */
+    private BigDecimal todayDividendReceived;
 }

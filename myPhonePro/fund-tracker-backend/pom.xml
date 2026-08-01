@@ -68,6 +68,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- H2 Test Database (数据隔离集成测试) -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Jsoup - HTML parsing -->
         <dependency>
             <groupId>org.jsoup</groupId>

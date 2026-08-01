@@ -13,6 +13,7 @@ export interface DashboardData {
   totalMarketValue: number
   overallDividendRate: number
   priceDividendRate: number
+  todayDividendReceived: number
 }
 
 export async function getDashboard(): Promise<DashboardData> {

@@ -43,6 +43,12 @@
     padding-top: env(safe-area-inset-top);
   }
 
+  .hide-scrollbar {
+    -ms-overflow-style: none;           /* IE/Edge */
+    scrollbar-width: none;              /* Firefox */
+    -webkit-overflow-scrolling: touch;  /* iOS 流畅触摸滑动 */
+    touch-action: pan-x;                /* 明确允许水平触摸滑动 */
+  }
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -60,6 +66,21 @@
   /* 列表项错落进入动画 */
   .stagger-item {
     animation: stagger-fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* 背景氛围层：顶部品牌色晨光 + 页面底色微纵深（fixed 挂载在 App.vue） */
+  .bg-ambient {
+    background:
+      radial-gradient(ellipse 120% 40% at 50% -10%, rgba(26, 107, 86, 0.07), transparent 70%),
+      linear-gradient(180deg, #f6f5f3 0%, #f3f1ed 100%);
+  }
+
+  /* 持仓卡片氛围：品牌绿渐变描边（保留圆角；白底由 padding-box 提供） */
+  .card-brand-stroke {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(#ffffff, #ffffff) padding-box,
+      linear-gradient(135deg, rgba(26, 107, 86, 0.30), rgba(168, 213, 197, 0.60)) border-box;
   }
 }
 

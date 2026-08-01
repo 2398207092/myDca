@@ -20,6 +20,8 @@ const excludePages = ['HoldingDetailPage', 'DividendHistoryPage', 'TransactionLi
 
 <template>
   <div class="min-h-screen bg-page-bg">
+    <!-- 背景氛围层：晨光渐变（fixed 置于内容之下） -->
+    <div class="bg-ambient fixed inset-0 -z-10 pointer-events-none" aria-hidden="true"></div>
     <template v-if="showAppNav">
       <router-view v-slot="{ Component }">
         <KeepAlive :exclude="excludePages">

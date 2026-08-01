@@ -5,7 +5,11 @@ import com.fundtracker.model.dto.ApiResponse;
 import com.fundtracker.model.dto.HoldingDiffDTO;
 import com.fundtracker.model.dto.HoldingSeriesDTO;
 import com.fundtracker.model.dto.TotalAssetSeriesDTO;
-import com.fundtracker.service.HoldingSnapshotService;
+import com.fundtracker.service.AnnualizedReturnService;
+import com.fundtracker.service.HoldingSeriesService;
+import com.fundtracker.service.SnapshotGenerationService;
+import com.fundtracker.service.SnapshotListService;
+import com.fundtracker.service.TotalAssetSeriesService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +26,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class HoldingSnapshotController {
 
-    private final HoldingSnapshotService holdingSnapshotService;
+    private final TotalAssetSeriesService totalAssetSeriesService;
+    private final HoldingSeriesService holdingSeriesService;
+    private final AnnualizedReturnService annualizedReturnService;
+    private final SnapshotGenerationService snapshotGenerationService;
+    private final SnapshotListService snapshotListService;
 
     /** 总资产走势（市值/份额/收益三条线） */
     @GetMapping("/overview")
@@ -30,7 +38,7 @@ public class HoldingSnapshotController {
             HttpServletRequest request,
             @RequestParam(defaultValue = "month") String range) {
         String userId = (String) request.getAttribute("userId");
-        return ApiResponse.success(holdingSnapshotService.getTotalAssetSeries(range, userId));
+        return ApiResponse.success(totalAssetSeriesService.getTotalAssetSeries(range, userId));
     }
 
     /** 单持仓走势 */
@@ -40,7 +48,7 @@ public class HoldingSnapshotController {
             @PathVariable String holdingId,
             @RequestParam(defaultValue = "month") String range) {
         String userId = (String) request.getAttribute("userId");
-        return ApiResponse.success(holdingSnapshotService.getHoldingSeries(holdingId, range, userId));
+        return ApiResponse.success(holdingSeriesService.getHoldingSeries(holdingId, range, userId));
     }
 
     /** 单持仓 vs 上期变化 */
@@ -49,7 +57,7 @@ public class HoldingSnapshotController {
             HttpServletRequest request,
             @PathVariable String holdingId) {
         String userId = (String) request.getAttribute("userId");
-        return ApiResponse.success(holdingSnapshotService.getHoldingDiff(holdingId, userId));
+        return ApiResponse.success(holdingSeriesService.getHoldingDiff(holdingId, userId));
     }
 
     /** 单持仓年化收益率 */
@@ -58,14 +66,14 @@ public class HoldingSnapshotController {
             HttpServletRequest request,
             @PathVariable String holdingId) {
         String userId = (String) request.getAttribute("userId");
-        return ApiResponse.success(holdingSnapshotService.getAnnualizedReturn(holdingId, userId));
+        return ApiResponse.success(annualizedReturnService.getAnnualizedReturn(holdingId, userId));
     }
 
     /** 手动触发快照（调试用） */
     @PostMapping("/snapshot")
     public ApiResponse<Void> triggerSnapshot(HttpServletRequest request) {
         String userId = (String) request.getAttribute("userId");
-        holdingSnapshotService.snapshotAllHoldings(userId);
+        snapshotGenerationService.snapshotAllHoldings(userId);
         return ApiResponse.success("快照生成完成", null);
     }
 
@@ -74,6 +82,6 @@ public class HoldingSnapshotController {
     public ApiResponse<Map<String, Object>> listSnapshots(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(holdingSnapshotService.listSnapshots(page, size));
+        return ApiResponse.success(snapshotListService.listSnapshots(page, size));
     }
 }

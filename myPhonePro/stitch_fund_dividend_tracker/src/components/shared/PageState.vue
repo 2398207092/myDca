@@ -55,7 +55,7 @@ const getMessage = (state: PageState) => {
 
       <!-- Empty -->
       <div v-else-if="state === 'empty'" class="flex flex-col items-center gap-4">
-        <div class="w-16 h-16 rounded-full bg-card-alt flex items-center justify-center">
+        <div class="w-16 h-16 rounded-full bg-card-alt flex items-center justify-center animate-float">
           <span class="material-symbols-outlined text-[32px] text-text-tertiary">inbox</span>
         </div>
         <p class="font-body text-sm text-text-tertiary">{{ getMessage('empty') }}</p>
@@ -88,5 +88,15 @@ const getMessage = (state: PageState) => {
 .state-fade-enter-from,
 .state-fade-leave-to {
   opacity: 0;
+}
+
+/* D2 空状态呼吸：图标极缓浮动（6s 循环 ±4px） */
+.animate-float {
+  animation: floatY 6s ease-in-out infinite;
+}
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 </style>

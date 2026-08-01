@@ -27,4 +27,7 @@ public interface HoldingRepository extends JpaRepository<Holding, String> {
     List<Holding> findByUserIdAndTypeAndDeletedFalse(String userId, String type);
     @Query("SELECT h FROM Holding h WHERE h.userId = :userId AND (h.name LIKE %:keyword% OR h.code LIKE %:keyword%) AND h.deleted = false")
     List<Holding> findByUserIdAndNameOrCodeContainingAndDeletedFalse(@Param("userId") String userId, @Param("keyword") String keyword);
+
+    @Query("SELECT DISTINCT h.userId FROM Holding h WHERE h.deleted = false AND h.userId IS NOT NULL")
+    List<String> findDistinctUserIdsByDeletedFalse();
 }

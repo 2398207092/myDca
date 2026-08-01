@@ -40,7 +40,7 @@ class ManualAssetServiceTest {
     @Test
     @DisplayName("无现金资产时跳过，不抛异常")
     void adjustCash_noAsset() {
-        when(manualAssetRepository.findByType("cash")).thenReturn(List.of());
+        when(manualAssetRepository.findByUserIdAndType("user-1", "cash")).thenReturn(List.of());
 
         // 不应抛异常
         assertDoesNotThrow(() -> service.adjustCash("holding-1", new BigDecimal("-5000"), "user-1"));
@@ -64,7 +64,7 @@ class ManualAssetServiceTest {
                 .isPrimary(false)
                 .build();
 
-        when(manualAssetRepository.findByType("cash")).thenReturn(List.of(secondary, primary));
+        when(manualAssetRepository.findByUserIdAndType("user-1", "cash")).thenReturn(List.of(secondary, primary));
 
         service.adjustCash("holding-1", new BigDecimal("-5000"), "user-1");
 
@@ -92,7 +92,7 @@ class ManualAssetServiceTest {
                 .isPrimary(false)
                 .build();
 
-        when(manualAssetRepository.findByType("cash")).thenReturn(List.of(first, second));
+        when(manualAssetRepository.findByUserIdAndType("user-1", "cash")).thenReturn(List.of(first, second));
 
         service.adjustCash("holding-1", new BigDecimal("-5000"), "user-1");
 
@@ -113,7 +113,7 @@ class ManualAssetServiceTest {
                 .isPrimary(true)
                 .build();
 
-        when(manualAssetRepository.findByType("cash")).thenReturn(List.of(asset));
+        when(manualAssetRepository.findByUserIdAndType("user-1", "cash")).thenReturn(List.of(asset));
 
         service.adjustCash("holding-1", new BigDecimal("-200"), "user-1");
 
@@ -132,7 +132,7 @@ class ManualAssetServiceTest {
                 .isPrimary(true)
                 .build();
 
-        when(manualAssetRepository.findByType("cash")).thenReturn(List.of(asset));
+        when(manualAssetRepository.findByUserIdAndType("user-1", "cash")).thenReturn(List.of(asset));
 
         service.adjustCash("holding-1", new BigDecimal("10000"), "user-1");
 

@@ -1,0 +1,33 @@
+# 数据隔离集成测试 - H2 内存数据库配置
+spring:
+  datasource:
+    url: jdbc:h2:mem:fund_tracker_test;DB_CLOSE_DELAY=-1;MODE=MySQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 2
+      minimum-idle: 1
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+  mail:
+    enabled: false
+  # 禁用 mail 自动配置
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration,org.springframework.boot.autoconfigure.mail.MailSenderValidatorAutoConfiguration
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+app:
+  auth:
+    token: test-token-for-integration

@@ -56,6 +56,7 @@ class EventServiceTest {
         Holding holding = Holding.builder()
                 .id("h-1")
                 .name("红利低波")
+                .userId("user-1")
                 .totalDividendReceived(BigDecimal.ZERO)
                 .build();
 

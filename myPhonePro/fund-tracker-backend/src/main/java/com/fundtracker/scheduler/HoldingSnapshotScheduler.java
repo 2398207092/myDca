@@ -1,6 +1,6 @@
 package com.fundtracker.scheduler;
 
-import com.fundtracker.service.HoldingSnapshotService;
+import com.fundtracker.service.SnapshotGenerationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,13 +15,13 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class HoldingSnapshotScheduler {
 
-    private final HoldingSnapshotService holdingSnapshotService;
+    private final SnapshotGenerationService snapshotGenerationService;
 
     @Scheduled(cron = "0 0 1 1/5 * ?")
     public void snapshotTask() {
         log.info("开始执行持仓快照定时任务...");
         try {
-            holdingSnapshotService.snapshotAllHoldings();
+            snapshotGenerationService.snapshotAllHoldings();
             log.info("持仓快照定时任务完成");
         } catch (Exception e) {
             log.error("持仓快照定时任务执行失败", e);

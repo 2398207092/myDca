@@ -37,8 +37,10 @@ function goBack() {
 
 <template>
   <header
-    class="fixed top-0 w-full z-header bg-card-bg safe-top transition-shadow duration-200"
-    :class="scrolled ? 'shadow-subtle' : 'shadow-none'"
+    class="fixed top-0 w-full z-header transition-all duration-200 safe-top"
+    :class="scrolled
+      ? 'bg-card-bg/85 backdrop-blur-md shadow-subtle'
+      : 'bg-card-bg/60 backdrop-blur-md shadow-none'"
   >
     <div class="flex items-center justify-between px-gutter h-14 w-full max-w-[600px] mx-auto">
       <div class="flex items-center gap-2">

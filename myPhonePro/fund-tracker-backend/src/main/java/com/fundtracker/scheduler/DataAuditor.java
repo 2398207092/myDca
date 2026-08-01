@@ -21,6 +21,7 @@ import java.util.List;
 /**
  * 数据对账审计
  * 每天凌晨自动检查数据一致性，发现异常直接打 ERROR 日志
+ * 按用户逐一遍历，避免多用户数据混算
  */
 @Slf4j
 @Component
@@ -40,13 +41,24 @@ public class DataAuditor {
         List<String> errors = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
 
-        try { auditMarketValue(errors); } catch (Exception e) { log.error("审计 marketValue 异常", e); }
-        try { auditCashFlow(errors, warnings); } catch (Exception e) { log.error("审计 cashFlow 异常", e); }
-        try { auditHoldingShares(errors); } catch (Exception e) { log.error("审计 holdingShares 异常", e); }
-        try { auditCostConsistency(errors); } catch (Exception e) { log.error("审计 costConsistency 异常", e); }
+        // 获取所有有持仓的用户 ID，逐用户审计
+        List<String> userIds = holdingRepository.findDistinctUserIdsByDeletedFalse();
+        if (userIds.isEmpty()) {
+            log.info("无用户数据，跳过对账");
+            return;
+        }
+
+        for (String userId : userIds) {
+            try { auditMarketValue(userId, errors); } catch (Exception e) { log.error("审计 marketValue 异常 userId={}", userId, e); }
+            try { auditCashFlow(userId, errors, warnings); } catch (Exception e) { log.error("审计 cashFlow 异常 userId={}", userId, e); }
+            try { auditHoldingShares(userId, errors); } catch (Exception e) { log.error("审计 holdingShares 异常 userId={}", userId, e); }
+            try { auditCostConsistency(userId, errors); } catch (Exception e) { log.error("审计 costConsistency 异常 userId={}", userId, e); }
+            try { auditDividendRate(userId, warnings); } catch (Exception e) { log.error("审计 dividendRate 异常 userId={}", userId, e); }
+            try { auditStaleDividendEvents(userId, warnings); } catch (Exception e) { log.error("审计 staleDividendEvents 异常 userId={}", userId, e); }
+        }
+
+        // 全局审计（不区分用户）
         try { auditDividendOutliers(warnings); } catch (Exception e) { log.error("审计 dividendOutliers 异常", e); }
-        try { auditDividendRate(warnings); } catch (Exception e) { log.error("审计 dividendRate 异常", e); }
-        try { auditStaleDividendEvents(warnings); } catch (Exception e) { log.error("审计 staleDividendEvents 异常", e); }
 
         // 汇总
         if (!errors.isEmpty()) {
@@ -68,8 +80,8 @@ public class DataAuditor {
     /**
      * 市值对账：市值应等于 份额 × 最新价
      */
-    private void auditMarketValue(List<String> errors) {
-        for (Holding h : holdingRepository.findByDeletedFalseOrderByMarketValueDesc()) {
+    private void auditMarketValue(String userId, List<String> errors) {
+        for (Holding h : holdingRepository.findByUserIdAndDeletedFalseOrderByMarketValueDesc(userId)) {
             if (h.getLatestPrice() == null || h.getLatestPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
@@ -79,8 +91,8 @@ public class DataAuditor {
             BigDecimal actual = h.getMarketValue() != null ? h.getMarketValue() : BigDecimal.ZERO;
             if (expected.compareTo(actual) != 0) {
                 errors.add(String.format(
-                        "市值不一致 [%s] shares=%s price=%s actualMV=%s expectedMV=%s",
-                        h.getName(), h.getShares(), h.getLatestPrice(), actual, expected));
+                        "市值不一致 [%s/%s] shares=%s price=%s actualMV=%s expectedMV=%s",
+                        userId, h.getName(), h.getShares(), h.getLatestPrice(), actual, expected));
             }
         }
     }
@@ -88,16 +100,25 @@ public class DataAuditor {
     /**
      * 现金流水对账：初始现金 + 卖出到账 - 买入支出 + 分红到账 ≈ 当前现金
      */
-    private void auditCashFlow(List<String> errors, List<String> warnings) {
-        List<ManualAsset> cashAssets = manualAssetRepository.findByType("cash");
+    private void auditCashFlow(String userId, List<String> errors, List<String> warnings) {
+        List<ManualAsset> cashAssets = manualAssetRepository.findByUserIdAndType(userId, "cash");
         if (cashAssets.isEmpty()) return;
 
         BigDecimal currentCash = cashAssets.stream()
                 .map(ManualAsset::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 计算交易流水
-        List<Transaction> allTx = transactionRepository.findAll();
+        // 获取该用户的所有持仓 ID，用于过滤交易
+        List<Holding> userHoldings = holdingRepository.findByUserIdAndDeletedFalseOrderByMarketValueDesc(userId);
+        List<String> holdingIds = userHoldings.stream().map(Holding::getId).toList();
+        if (holdingIds.isEmpty()) return;
+
+        // 只取该用户持仓的交易
+        List<Transaction> allTx = new ArrayList<>();
+        for (String hid : holdingIds) {
+            allTx.addAll(transactionRepository.findByHoldingIdAndUserId(hid, userId));
+        }
+
         BigDecimal totalBuy = BigDecimal.ZERO;
         BigDecimal totalSell = BigDecimal.ZERO;
         for (Transaction tx : allTx) {
@@ -108,8 +129,8 @@ public class DataAuditor {
             }
         }
 
-        // 计算已到账分红
-        List<DividendEvent> distributed = dividendEventRepository.findByStatus(EventStatus.distributed);
+        // 计算已到账分红（按用户过滤）
+        List<DividendEvent> distributed = dividendEventRepository.findByStatusAndUserId(EventStatus.distributed, userId);
         BigDecimal totalDividend = distributed.stream()
                 .map(e -> e.getAmount() != null ? e.getAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -120,17 +141,17 @@ public class DataAuditor {
         // 如果没有初始现金记录，无法对账
         if (currentCash.compareTo(cashChange) != 0) {
             warnings.add(String.format(
-                    "现金流水对账: 当前现金=%s, 交易流水净变动=%s(买入=%s 卖出=%s 分红=%s)",
-                    currentCash, cashChange, totalBuy, totalSell, totalDividend));
+                    "现金流水对账 [%s]: 当前现金=%s, 交易流水净变动=%s(买入=%s 卖出=%s 分红=%s)",
+                    userId, currentCash, cashChange, totalBuy, totalSell, totalDividend));
         }
     }
 
     /**
      * 份额对账：持仓份额 = 所有买入份额 - 所有卖出份额
      */
-    private void auditHoldingShares(List<String> errors) {
-        for (Holding h : holdingRepository.findByDeletedFalseOrderByMarketValueDesc()) {
-            List<Transaction> txs = transactionRepository.findByHoldingId(h.getId());
+    private void auditHoldingShares(String userId, List<String> errors) {
+        for (Holding h : holdingRepository.findByUserIdAndDeletedFalseOrderByMarketValueDesc(userId)) {
+            List<Transaction> txs = transactionRepository.findByHoldingIdAndUserId(h.getId(), userId);
             BigDecimal buyShares = BigDecimal.ZERO;
             BigDecimal sellShares = BigDecimal.ZERO;
             for (Transaction tx : txs) {
@@ -148,8 +169,8 @@ public class DataAuditor {
             BigDecimal expectedShares = buyShares.subtract(sellShares).max(BigDecimal.ZERO);
             if (expectedShares.compareTo(h.getShares()) != 0) {
                 errors.add(String.format(
-                        "份额不一致 [%s] DB=%s 交易计算=%s(买入=%s 卖出=%s)",
-                        h.getName(), h.getShares(), expectedShares, buyShares, sellShares));
+                        "份额不一致 [%s/%s] DB=%s 交易计算=%s(买入=%s 卖出=%s)",
+                        userId, h.getName(), h.getShares(), expectedShares, buyShares, sellShares));
             }
         }
     }
@@ -158,6 +179,7 @@ public class DataAuditor {
 
     /**
      * 分红异常检测：单次分红 > 该基金近3年均值 × 3
+     * 全局审计，不区分用户
      */
     private void auditDividendOutliers(List<String> warnings) {
         List<Object[]> outliers = fundDividendRecordRepository.findDividendOutliers();
@@ -174,26 +196,25 @@ public class DataAuditor {
     /**
      * 成本息率异常检测：超过 30% 或为负
      */
-    private void auditDividendRate(List<String> warnings) {
-        for (Holding h : holdingRepository.findByDeletedFalseOrderByMarketValueDesc()) {
+    private void auditDividendRate(String userId, List<String> warnings) {
+        for (Holding h : holdingRepository.findByUserIdAndDeletedFalseOrderByMarketValueDesc(userId)) {
             BigDecimal rate = h.getDividendRate();
             if (rate != null && (rate.compareTo(new BigDecimal("30")) > 0 || rate.compareTo(BigDecimal.ZERO) < 0)) {
                 warnings.add(String.format(
-                        "成本息率异常 [%s] dividendRate=%s%% predictedDividend=%s cost=%s",
-                        h.getName(), rate, h.getPredictedDividend(), h.getCost()));
+                        "成本息率异常 [%s/%s] dividendRate=%s%% predictedDividend=%s cost=%s",
+                        userId, h.getName(), rate, h.getPredictedDividend(), h.getCost()));
             }
         }
     }
 
     /**
      * P0: 成本一致性 — 手动设置的 costPerShare 与交易推算的加权均价偏差 > 50%
-     * 抓到编辑持仓导致成本错乱的情况
      */
-    private void auditCostConsistency(List<String> errors) {
-        for (Holding h : holdingRepository.findByDeletedFalseOrderByMarketValueDesc()) {
+    private void auditCostConsistency(String userId, List<String> errors) {
+        for (Holding h : holdingRepository.findByUserIdAndDeletedFalseOrderByMarketValueDesc(userId)) {
             if (h.getCostPerShare() == null || h.getCostPerShare().compareTo(BigDecimal.ZERO) == 0) continue;
 
-            List<Transaction> txs = transactionRepository.findByHoldingId(h.getId());
+            List<Transaction> txs = transactionRepository.findByHoldingIdAndUserId(h.getId(), userId);
             BigDecimal totalBuy = BigDecimal.ZERO;
             BigDecimal totalBuyShares = BigDecimal.ZERO;
             for (Transaction tx : txs) {
@@ -209,8 +230,8 @@ public class DataAuditor {
             if (ratio.compareTo(new BigDecimal("0.5")) < 0
                     || ratio.compareTo(new BigDecimal("1.5")) > 0) {
                 errors.add(String.format(
-                        "成本不一致 [%s] 手动每份成本=%s vs 交易均价=%s，偏差=%.0f%%",
-                        h.getName(), h.getCostPerShare(), txAvgCost,
+                        "成本不一致 [%s/%s] 手动每份成本=%s vs 交易均价=%s，偏差=%.0f%%",
+                        userId, h.getName(), h.getCostPerShare(), txAvgCost,
                         ratio.subtract(BigDecimal.ONE).multiply(new BigDecimal("100"))));
             }
         }
@@ -219,13 +240,16 @@ public class DataAuditor {
     /**
      * 过期分红事件：发放日已过 7 天但状态仍为 pending
      */
-    private void auditStaleDividendEvents(List<String> warnings) {
+    private void auditStaleDividendEvents(String userId, List<String> warnings) {
         LocalDate cutoff = LocalDate.now().minusDays(7);
         List<DividendEvent> stale = dividendEventRepository.findByDateBeforeAndStatus(cutoff, EventStatus.pending);
+        // 过滤出属于该用户的事件
         for (DividendEvent e : stale) {
-            warnings.add(String.format(
-                    "分红事件过期 [%s] date=%s amount=%s 状态仍为 pending",
-                    e.getHoldingName(), e.getDate(), e.getAmount()));
+            if (userId.equals(e.getUserId())) {
+                warnings.add(String.format(
+                        "分红事件过期 [%s/%s] date=%s amount=%s 状态仍为 pending",
+                        userId, e.getHoldingName(), e.getDate(), e.getAmount()));
+            }
         }
     }
 }

@@ -13,10 +13,12 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "canvas-confetti": "^1.9.4",
     "vue": "^3.4.0",
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^25.9.3",
     "@vitejs/plugin-vue": "^5.0.0",
     "@vitest/ui": "^1.6.1",

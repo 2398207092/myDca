@@ -35,6 +35,7 @@ export default {
       },
       boxShadow: {
         'card': '0 1px 3px rgba(0,0,0,0.04)',
+        'subtle': '0 1px 4px rgba(0,0,0,0.06)',
         'elevated': '0 2px 8px rgba(0,0,0,0.05)',
         'overlay': '0 4px 16px rgba(0,0,0,0.08)',
       },

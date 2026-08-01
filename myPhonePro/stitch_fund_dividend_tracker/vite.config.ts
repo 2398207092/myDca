@@ -17,6 +17,13 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
+        // 开发走 dev server 即同源，移除浏览器 Origin 头避免后端 CORS 校验
+        // （否则手机通过局域网 IP 访问时，Origin 不在后端允许列表导致 403）
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.removeHeader('origin')
+          })
+        },
       },
     },
   },

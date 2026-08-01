@@ -2,8 +2,11 @@ package com.fundtracker.service;
 
 import com.fundtracker.model.dto.DashboardDTO;
 import com.fundtracker.model.entity.CoverageCategory;
+import com.fundtracker.model.entity.DividendEvent;
 import com.fundtracker.model.entity.Holding;
+import com.fundtracker.model.enums.EventStatus;
 import com.fundtracker.repository.CoverageCategoryRepository;
+import com.fundtracker.repository.DividendEventRepository;
 import com.fundtracker.repository.HoldingRepository;
 import com.fundtracker.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,7 @@ public class DashboardService {
     private final HoldingRepository holdingRepository;
     private final CoverageCategoryRepository coverageCategoryRepository;
     private final TransactionRepository transactionRepository;
+    private final DividendEventRepository dividendEventRepository;
 
     public DashboardDTO getDashboard(String userId) {
         List<Holding> holdings = holdingRepository.findByUserIdAndDeletedFalseOrderByMarketValueDesc(userId);
@@ -81,6 +85,14 @@ public class DashboardService {
         BigDecimal tenYearReturn = overallDividendRate.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.TEN);
 
+        // 今日到账分红合计：date=今天 且 status=distributed
+        BigDecimal todayDividendReceived = dividendEventRepository
+                .findByDateAndUserIdOrderByHoldingName(LocalDate.now(), userId).stream()
+                .filter(e -> e.getStatus() == EventStatus.distributed)
+                .map(DividendEvent::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return DashboardDTO.builder()
                 .consecutiveDays((int) consecutiveDays)
                 .predictedAnnualDividend(predictedAnnualDividend)
@@ -94,6 +106,7 @@ public class DashboardService {
                 .totalMarketValue(totalMarketValue)
                 .overallDividendRate(overallDividendRate)
                 .priceDividendRate(priceDividendRate)
+                .todayDividendReceived(todayDividendReceived)
                 .build();
     }
 }

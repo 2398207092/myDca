@@ -42,8 +42,9 @@ watch(() => props.message, (val) => {
 </template>
 
 <style scoped>
-.toast-enter-active { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+/* D3 成功时刻：Toast 温和落下 + 缩放（ease-out-quart） */
+.toast-enter-active { transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
 .toast-leave-active { transition: all 0.2s ease; }
-.toast-enter-from { opacity: 0; transform: translate(-50%, -12px) scale(0.95); }
-.toast-leave-to { opacity: 0; transform: translate(-50%, -12px) scale(0.95); }
+.toast-enter-from { opacity: 0; transform: translate(-50%, -16px) scale(0.92); }
+.toast-leave-to { opacity: 0; transform: translate(-50%, -16px) scale(0.92); }
 </style>
