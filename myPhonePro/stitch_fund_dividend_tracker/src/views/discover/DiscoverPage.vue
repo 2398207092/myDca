@@ -542,7 +542,7 @@ async function doDelete() {
             <div v-for="h in categorizedHoldings('gold')" :key="h.id"
                  class="flex items-center gap-3 cursor-pointer hover:bg-card-alt -m-lg p-lg rounded-lg transition-colors"
                  @click="router.push(`/holding/${h.id}`)">
-              <div class="w-3 h-3 rounded-full shrink-0" style="background-color:#F59E0B"></div>
+              <div class="w-3 h-3 rounded-full shrink-0" style="background-color:#8A6B08"></div>
               <div class="flex-1 min-w-0">
                 <p class="font-body text-sm font-medium text-text-primary truncate">{{ h.name }}</p>
                 <p class="font-body text-xs text-text-tertiary">黄金 · ETF</p>
@@ -554,7 +554,7 @@ async function doDelete() {
           </template>
           <template v-else>
             <div class="flex items-start gap-3">
-              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#F59E0B"></div>
+              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#8A6B08"></div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between">
                   <h3 class="font-body text-sm font-medium text-text-primary">黄金 · ETF</h3>
@@ -635,7 +635,7 @@ async function doDelete() {
                    @click="openEditSheet(a)">
                 <div class="flex items-center gap-2 min-w-0 flex-1">
                   <span class="w-2 h-2 rounded-full shrink-0"
-                        :class="a.type === 'cash' ? 'bg-[#34A853]' : 'bg-[#F59E0B]'"></span>
+                        :class="a.type === 'cash' ? 'bg-pos' : 'bg-gold'"></span>
                   <span class="font-body text-xs text-text-primary truncate">{{ a.name }}</span>
                   <span class="font-body text-[10px] text-text-tertiary/50 shrink-0">{{ a.type === 'cash' ? '现金' : '比特币' }}</span>
                 </div>
@@ -675,7 +675,7 @@ async function doDelete() {
             <div v-for="h in uncategorizedHoldings()" :key="h.id"
                  class="flex items-center gap-3 cursor-pointer hover:bg-card-alt -m-lg p-lg rounded-lg transition-colors"
                  @click="router.push(`/holding/${h.id}`)">
-              <div class="w-3 h-3 rounded-full shrink-0" style="background-color:#9CA3AF"></div>
+              <div class="w-3 h-3 rounded-full shrink-0" style="background-color:#6F6F6E"></div>
               <div class="flex-1 min-w-0">
                 <p class="font-body text-sm font-medium text-text-primary truncate">{{ h.name }}</p>
                 <p class="font-body text-xs text-text-tertiary">未分类</p>
@@ -688,7 +688,7 @@ async function doDelete() {
           </template>
           <template v-else>
             <div class="flex items-start gap-3">
-              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#9CA3AF"></div>
+              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#6F6F6E"></div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between">
                   <h3 class="font-body text-sm font-medium text-text-primary">未分类</h3>
@@ -1176,12 +1176,12 @@ async function doDelete() {
           <p class="font-body text-xs text-text-tertiary text-center mb-3">选择资产类型</p>
           <button class="w-full flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-card-alt transition-colors"
                   @click="showAddTypePicker = false; openAddSheet('cash')">
-            <span class="w-3 h-3 rounded-full shrink-0" style="background-color:#34A853"></span>
+            <span class="w-3 h-3 rounded-full shrink-0" style="background-color:#1A6B56"></span>
             <span class="font-body text-xs text-text-primary">现金</span>
           </button>
           <button class="w-full flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-card-alt transition-colors mt-1"
                   @click="showAddTypePicker = false; openAddSheet('crypto')">
-            <span class="w-3 h-3 rounded-full shrink-0" style="background-color:#F59E0B"></span>
+            <span class="w-3 h-3 rounded-full shrink-0" style="background-color:#8A6B08"></span>
             <span class="font-body text-xs text-text-primary">比特币</span>
           </button>
           <div class="text-center mt-2 pt-2 border-t border-border-light/40">

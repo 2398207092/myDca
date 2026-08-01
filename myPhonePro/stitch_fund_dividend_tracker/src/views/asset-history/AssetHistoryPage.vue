@@ -49,18 +49,18 @@ let holdingChart: any = null
 const totalChartRef = ref<HTMLElement | null>(null)
 const holdingChartRef = ref<HTMLElement | null>(null)
 
-// 类别色
+// 类别色 — 使用品牌语义色
 const catColors: Record<string, string> = {
   us_stock: '#3B82F6',
-  gold: '#F59E0B',
-  dividend: '#EAB308',
+  gold: '#8A6B08',
+  dividend: '#8A6B08',
   crypto: '#6366F1',
-  cash: '#34A853',
+  cash: '#1A6B56',
 }
 const brandColor = '#1A6B56'
 
 function holdingColor(cat?: string): string {
-  return catColors[cat || ''] || '#9CA3AF'
+  return catColors[cat || ''] || '#6F6F6E'
 }
 
 // 格式化
@@ -129,7 +129,7 @@ function buildOption(data: number[], xLabels: string[], color: string) {
       data: xLabels,
       axisLine: { lineStyle: { color: '#E8E7E5' } },
       axisTick: { show: true, length: 4, lineStyle: { color: '#C8C7C5' } },
-      axisLabel: { color: '#A09E9B', fontSize: 9, interval: computeLabelInterval(xLabels.length) },
+      axisLabel: { color: '#6F6F6E', fontSize: 9, interval: computeLabelInterval(xLabels.length) },
     },
     yAxis: {
       type: 'value',
@@ -139,7 +139,7 @@ function buildOption(data: number[], xLabels: string[], color: string) {
       axisTick: { show: true, length: 4, lineStyle: { color: '#C8C7C5' } },
       splitLine: { show: true, lineStyle: { color: '#F0EFED', type: 'dashed', width: 1 } },
       axisLabel: {
-        color: '#A09E9B',
+        color: '#6F6F6E',
         fontSize: 9,
         formatter: (v: number) => {
           if (Math.abs(v) >= 10000) return (v / 10000).toFixed(1) + 'w'

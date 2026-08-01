@@ -721,18 +721,18 @@ onActivated(() => {
           <div
             class="rounded-xl p-md mb-md shrink-0"
             :class="auditContent.errorCount > 0
-              ? 'bg-red-50 border border-red-200'
+              ? 'bg-neg-soft border border-neg/30'
               : auditContent.warningCount > 0
-                ? 'bg-amber-50 border border-amber-200'
-                : 'bg-green-50 border border-green-200'"
+                ? 'bg-gold-soft border border-gold/30'
+                : 'bg-pos-soft border border-pos/30'"
           >
             <p
               class="font-body text-sm font-medium text-center"
               :class="auditContent.errorCount > 0
-                ? 'text-red-600'
+                ? 'text-neg-strong'
                 : auditContent.warningCount > 0
-                  ? 'text-amber-600'
-                  : 'text-green-600'"
+                  ? 'text-gold-strong'
+                  : 'text-pos-strong'"
             >{{ auditContent.summary }}</p>
           </div>
           <div v-if="auditContent.entries.length > 0" class="overflow-y-auto flex-1 -mx-gutter px-gutter space-y-2">
@@ -741,27 +741,27 @@ onActivated(() => {
               :key="i"
               class="flex items-start gap-sm p-md rounded-xl"
               :class="entry.level === 'error'
-                ? 'bg-red-50/50'
+                ? 'bg-neg-soft/50'
                 : entry.level === 'warning'
-                  ? 'bg-amber-50/50'
+                  ? 'bg-gold-soft/50'
                   : 'bg-card-alt'"
             >
-              <span v-if="entry.level === 'error'" class="material-symbols-outlined text-red-500 text-lg shrink-0 mt-0.5">error</span>
-              <span v-else-if="entry.level === 'warning'" class="material-symbols-outlined text-amber-500 text-lg shrink-0 mt-0.5">warning</span>
-              <span v-else class="material-symbols-outlined text-green-500 text-lg shrink-0 mt-0.5">check_circle</span>
+              <span v-if="entry.level === 'error'" class="material-symbols-outlined text-neg text-lg shrink-0 mt-0.5">error</span>
+              <span v-else-if="entry.level === 'warning'" class="material-symbols-outlined text-gold text-lg shrink-0 mt-0.5">warning</span>
+              <span v-else class="material-symbols-outlined text-pos text-lg shrink-0 mt-0.5">check_circle</span>
               <p class="font-body text-sm leading-relaxed" :class="{
-                'text-red-700': entry.level === 'error',
-                'text-amber-700': entry.level === 'warning',
+                'text-neg-strong': entry.level === 'error',
+                'text-gold-strong': entry.level === 'warning',
                 'text-text-secondary': entry.level === 'info',
               }">{{ entry.message }}</p>
             </div>
           </div>
           <div class="mt-md pt-md border-t border-border-light shrink-0">
             <p class="font-body text-xs text-text-tertiary text-center">
-              共检测 <span v-if="auditContent.errorCount > 0" class="text-red-500 font-medium">{{ auditContent.errorCount }} 个错误</span>
+              共检测 <span v-if="auditContent.errorCount > 0" class="text-neg font-medium">{{ auditContent.errorCount }} 个错误</span>
               <span v-if="auditContent.errorCount > 0 && auditContent.warningCount > 0">，</span>
-              <span v-if="auditContent.warningCount > 0" class="text-amber-500 font-medium">{{ auditContent.warningCount }} 个警告</span>
-              <span v-if="auditContent.errorCount === 0 && auditContent.warningCount === 0" class="text-green-500 font-medium">全部正常</span>
+              <span v-if="auditContent.warningCount > 0" class="text-gold font-medium">{{ auditContent.warningCount }} 个警告</span>
+              <span v-if="auditContent.errorCount === 0 && auditContent.warningCount === 0" class="text-pos font-medium">全部正常</span>
             </p>
           </div>
         </div>

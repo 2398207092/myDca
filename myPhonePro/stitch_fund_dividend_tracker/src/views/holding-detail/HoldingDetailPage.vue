@@ -596,7 +596,7 @@ onActivated(() => {
               </span>
               <span
                 class="flex items-center gap-[2px] text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap font-body"
-                :class="plan.status === 'active' ? 'bg-brand-light text-brand' : plan.status === 'paused' ? 'bg-amber-50 text-amber-700' : 'bg-card-alt text-text-tertiary'"
+                :class="plan.status === 'active' ? 'bg-brand-light text-brand' : plan.status === 'paused' ? 'bg-gold-soft text-gold-strong' : 'bg-card-alt text-text-tertiary'"
               >
                 <span class="material-symbols-outlined text-[10px]">{{ plan.status === 'active' ? 'play_arrow' : plan.status === 'paused' ? 'pause' : 'stop' }}</span>
                 {{ plan.status === 'active' ? '活跃中' : plan.status === 'paused' ? '已暂停' : '已终止' }}

@@ -236,7 +236,7 @@ onActivated(loadData)
               exp.covered
                 ? 'bg-card-bg border-brand/20'
                 : exp.inProgress
-                  ? 'bg-card-bg border-amber-200/60'
+                  ? 'bg-card-bg border-gold/60'
                   : 'bg-card-alt/50 border-transparent'
             ]"
           >
@@ -244,7 +244,7 @@ onActivated(loadData)
               <div
                 :class="[
                   'w-10 h-10 rounded-xl flex items-center justify-center text-lg',
-                  exp.covered ? 'bg-brand-light' : exp.inProgress ? 'bg-amber-50' : 'bg-card-alt'
+                  exp.covered ? 'bg-brand-light' : exp.inProgress ? 'bg-gold-soft' : 'bg-card-alt'
                 ]"
               >
                 <span>{{ exp.icon }}</span>
@@ -263,9 +263,9 @@ onActivated(loadData)
             <!-- 状态标签 -->
             <span
               v-if="exp.inProgress"
-              class="inline-flex items-center gap-1 px-3 py-1 bg-amber-50 text-amber-800 font-body text-xs rounded-full"
+              class="inline-flex items-center gap-1 px-3 py-1 bg-gold-soft text-gold-strong font-body text-xs rounded-full"
             >
-              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-gold animate-pulse"></span>
               进行中
             </span>
             <span

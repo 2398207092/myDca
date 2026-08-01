@@ -9,29 +9,64 @@ export default {
     extend: {
       colors: {
         // 品牌色 — 深松绿（沉稳、生态感、不刺眼）
-        'brand': '#1A6B56',
-        'brand-light': '#E8F5F0',
-        'brand-dim': '#A8D5C5',
+        // 对象结构：DEFAULT 兼容 bg-brand；light=soft 兼容旧 bg-brand-light
+        brand: {
+          DEFAULT: '#1A6B56',
+          strong:  '#0F4F40',
+          soft:    '#E8F5F0',
+          light:   '#E8F5F0',  // 兼容别名，等价 soft
+          dim:     '#A8D5C5',  // 兼容旧 brand-dim
+        },
 
         // 页面/卡片背景
         'page-bg': '#F6F5F3',
         'card-bg': '#FFFFFF',
         'card-alt': '#F0EFED',
 
-        // 文字
+        // 文字（tertiary 修正：#A09E9B → #6F6F6E，达 WCAG AA 4.8:1）
         'text-primary': '#1C1B1A',
         'text-secondary': '#6B6A68',
-        'text-tertiary': '#A09E9B',
+        'text-tertiary': '#6F6F6E',
 
         // 装饰
         'border-light': '#E8E7E5',
         'progress-bg': '#E8E7E5',
 
         // 语义（仅在需要时使用）
-        'alert': '#C25A3E',
+        // alert 修正：#C25A3E → #B84E33，对比度 5.0:1
+        alert: {
+          DEFAULT: '#B84E33',
+          soft:    '#FBE9E3',
+          light:   '#FBE9E3',
+        },
         'success': '#1A6B56',
         'warning': '#B8860B',
         'error': '#BA1A1A',
+
+        // 投资语义色：涨/跌/分红金/平盘
+        pos: {                    // 正收益（绿）— 继承 brand 色值
+          DEFAULT: '#1A6B56',
+          strong:  '#0F4F40',
+          soft:    '#E8F5F0',
+          light:   '#E8F5F0',
+        },
+        neg: {                    // 负收益（红）
+          DEFAULT: '#BA1A1A',
+          strong:  '#A61616',
+          soft:    '#FBEAE7',
+          light:   '#FBEAE7',
+        },
+        gold: {                   // 分红金
+          DEFAULT: '#8A6B08',
+          strong:  '#6B5306',
+          soft:    '#F7F0DC',
+          light:   '#F7F0DC',
+        },
+        flat: {                   // 平盘
+          DEFAULT: '#6B6A68',
+          soft:    '#EFEFEE',
+          light:   '#EFEFEE',
+        },
       },
       boxShadow: {
         'card': '0 1px 3px rgba(0,0,0,0.04)',
@@ -55,8 +90,8 @@ export default {
         '2xl': '24px',
         '3xl': '32px',
         'gutter': '16px',
-        // section 间距：用于页面中 section 之间的大间隔，形成"紧密 vs 宽松"的节奏
-        'section': '24px',
+        // section 间距：8pt 网格，统一页面段间距
+        'section': '32px',
       },
       // z-index 语义化分层（按 interaction-design.md 规范）
       // 用法：z-dropdown / z-sticky / z-modal 等

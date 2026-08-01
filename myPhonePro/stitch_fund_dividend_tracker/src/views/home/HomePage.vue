@@ -374,11 +374,11 @@ onBeforeUnmount(() => {
                   <div class="w-[2px] h-[18px] rounded-[1px] bg-text-tertiary/30"></div>
                 </div>
                 <!-- 品牌色背景块：数字弹跳 + 极淡光晕呼吸 -->
-                <div class="bg-brand-light/60 rounded-lg px-5 py-1 inline-block relative">
+                <div class="amount-hl pos inline-block relative" style="padding: 4px 20px;">
                   <div class="hero-glow absolute inset-0 rounded-lg pointer-events-none"></div>
                   <p
                     :key="'hero-' + heroTick"
-                    class="hero-amount font-display text-[40px] text-brand font-semibold tabular-nums leading-none transition-colors duration-300 relative"
+                    class="hero-amount font-display text-[40px] font-semibold tabular-nums leading-none transition-colors duration-300 relative"
                   >{{ formatMoney(heroDividend) }}</p>
                 </div>
                 <!-- 右侧装饰竖线 -->
@@ -489,22 +489,22 @@ onBeforeUnmount(() => {
                 <!-- 第二行左：金额（与右列状态同行自动对齐） -->
                 <span
                   class="font-display text-[10px] font-semibold tabular-nums leading-none text-center mt-0.5"
-                  :class="node.status === 'covered' ? 'text-brand' : node.status === 'inProgress' ? 'text-amber-700' : 'text-text-tertiary'"
+                  :class="node.status === 'covered' ? 't-pos-strong' : node.status === 'inProgress' ? 't-gold' : 'text-text-tertiary'"
                 >{{ formatChipAmount(node.annualAmount) }}</span>
                 <!-- 第二行右：状态标签（与左列金额同行自动对齐） -->
                 <span
                   class="font-body text-[10px] leading-none mt-1"
-                  :class="node.status === 'covered' ? 'text-brand/70' : node.status === 'inProgress' ? 'text-amber-700/70' : 'text-text-tertiary/60'"
+                  :class="node.status === 'covered' ? 'text-pos/70' : node.status === 'inProgress' ? 'text-gold/70' : 'text-text-tertiary/60'"
                 >{{ node.status === 'covered' ? '已覆盖' : node.status === 'inProgress' ? '奋斗中' : '待点亮' }}</span>
               </div>
             </div>
 
             <!-- 底部 CTA 文案：激励语 / 成就语 -->
-            <div v-if="coverageCta" class="relative mt-sm pt-sm border-t border-border-light/60 flex items-center gap-1.5">
+              <div v-if="coverageCta" class="relative mt-sm pt-sm border-t border-border-light/60 flex items-center gap-1.5">
               <template v-if="coverageCta.type === 'progress'">
                 <span class="material-symbols-outlined text-brand text-sm">auto_awesome</span>
                 <p class="font-body text-xs text-text-secondary">
-                  再攒 <span class="text-brand font-semibold tabular-nums">{{ formatMoney(coverageCta.need) }}</span> 分红就能点亮
+                  再攒 <span class="t-pos-strong font-semibold tabular-nums">{{ formatMoney(coverageCta.need) }}</span> 分红就能点亮
                   <span class="text-base leading-none mx-0.5">{{ coverageCta.icon }}</span>
                   <span class="font-medium text-text-primary">{{ coverageCta.name }}</span>
                 </p>
@@ -559,67 +559,57 @@ onBeforeUnmount(() => {
               <!-- 右上角树叶水印（极淡，种树主题签名） -->
               <span class="material-symbols-outlined absolute -top-3 -right-3 text-5xl text-brand/[0.06] pointer-events-none select-none">eco</span>
 
-              <!-- 第一行：圆点 + 名称 + 预测分红 -->
-              <div class="flex items-center gap-md">
-                <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: holding.color }"></span>
+              <!-- 第一行：圆点 + 名称 + 代码 + 右上角主锚点（预测分红/年） -->
+              <div class="flex items-start gap-md">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0 mt-1" :style="{ backgroundColor: holding.color }"></span>
                 <div class="flex-1 min-w-0">
                   <p class="font-body text-sm font-medium text-text-primary truncate">{{ holding.name }}</p>
                   <p class="font-body text-[11px] text-text-tertiary">{{ holding.code }}</p>
                 </div>
+                <!-- 层级① 主锚点：预测分红/年（右上角顶对齐，唯一视觉焦点） -->
                 <div class="text-right shrink-0">
-                  <p v-if="holding.predictedDividend > 0" class="font-display text-sm font-semibold text-brand tabular-nums">
-                    ¥{{ holding.predictedDividend >= 10000 ? (holding.predictedDividend / 10000).toFixed(2) + '万' : holding.predictedDividend.toFixed(0) }}
+                  <p v-if="holding.predictedDividend > 0" class="font-display text-[26px] font-semibold tracking-tight leading-tight t-pos-strong tabular-nums">
+                    ¥{{ holding.predictedDividend >= 10000 ? (holding.predictedDividend / 10000).toFixed(2) + '万' : holding.predictedDividend.toFixed(0) }}<span class="text-xs text-text-tertiary ml-1">/年</span>
                   </p>
-                  <p v-else class="font-body text-sm text-text-tertiary tabular-nums">--</p>
-                  <p class="font-body text-[10px] text-text-tertiary">预测分红/年</p>
+                  <p v-else class="font-display text-[26px] font-semibold tracking-tight leading-tight text-text-tertiary tabular-nums">--<span class="text-xs text-text-tertiary ml-1">/年</span></p>
                 </div>
               </div>
 
-              <!-- 第二行：2行×3列紧凑数据（去灰底，值+标签同行） -->
-              <div class="mt-3 grid grid-cols-3 gap-y-1.5">
+              <!-- 层级② 收益叙事 + 层级③ 弱化过程量：统一浅底数据盘（1×4 四列 + 竖线分隔，标签上/数值下居中，消除中间空洞） -->
+              <div class="mt-[13px] rounded-xl bg-card-alt/50 px-md py-[9px] grid grid-cols-4 gap-x-2">
                 <!-- 市值 -->
-                <div class="flex items-baseline gap-1 justify-center">
-                  <span class="font-display text-xs font-semibold text-text-primary tabular-nums">{{ formatMoney(holdingValues[holding.id]?.marketValue ?? holding.marketValue) }}</span>
-                  <span class="font-body text-[10px] text-text-tertiary">市值</span>
+                <div class="relative flex flex-col items-center gap-1 px-1 min-w-0">
+                  <span class="font-body text-xs text-text-tertiary">市值</span>
+                  <span class="font-body text-sm font-medium text-text-primary tabular-nums truncate">{{ formatMoney(holdingValues[holding.id]?.marketValue ?? holding.marketValue) }}</span>
+                  <span class="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-px bg-border-light" aria-hidden="true"></span>
                 </div>
                 <!-- 成本 -->
-                <div class="flex items-baseline gap-1 justify-center">
-                  <span class="font-display text-xs font-semibold text-text-primary tabular-nums">{{ formatMoney(holdingValues[holding.id]?.cost ?? holding.cost) }}</span>
-                  <span class="font-body text-[10px] text-text-tertiary">成本</span>
+                <div class="relative flex flex-col items-center gap-1 px-1 min-w-0">
+                  <span class="font-body text-xs text-text-tertiary">成本</span>
+                  <span class="font-body text-sm font-medium text-text-primary tabular-nums truncate">{{ formatMoney(holdingValues[holding.id]?.cost ?? holding.cost) }}</span>
+                  <span class="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-px bg-border-light" aria-hidden="true"></span>
                 </div>
-                <!-- 收益率 -->
-                <div class="flex items-baseline gap-1 justify-center">
-                  <span class="font-body text-xs font-semibold tabular-nums"
-                     :class="holding.dividendRate === -1 ? 'text-success' : 'text-brand'">
+                <!-- 股息率（收益叙事，语义色贯穿） -->
+                <div class="relative flex flex-col items-center gap-1 px-1 min-w-0">
+                  <span class="font-body text-xs text-text-tertiary">股息率</span>
+                  <span class="font-body text-sm font-medium tabular-nums" :class="holding.dividendRate === -1 ? 'text-success' : 'text-pos'">
                     {{ dividendRateText(holding.dividendRate) }}
                   </span>
-                  <span class="font-body text-[10px] text-text-tertiary">股息率</span>
+                  <span class="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-px bg-border-light" aria-hidden="true"></span>
                 </div>
-                <!-- 份额 -->
-                <div class="flex items-baseline gap-1 justify-center">
-                  <span class="font-body text-xs font-medium text-text-primary tabular-nums">{{ formatShares(holding.shares).replace(/份$/, '') }}</span>
-                  <span class="font-body text-[10px] text-text-tertiary">份额</span>
-                </div>
-                <!-- 分红 -->
-                <div class="flex items-baseline gap-1 justify-center">
-                  <span class="font-display text-xs font-semibold text-brand tabular-nums">{{ holding.predictedDividend > 0 ? formatMoney(holding.predictedDividend) : '--' }}</span>
-                  <span class="font-body text-[10px] text-text-tertiary">分红/年</span>
-                </div>
-                <!-- 回本 -->
-                <div class="flex items-baseline gap-1 justify-center">
-                  <span class="font-body text-xs font-medium tabular-nums"
-                     :class="holding.dividendRecoveryRate >= 100 ? 'text-success' : 'text-text-primary'">
-                    {{ holding.dividendRecoveryRate > 0 ? holding.dividendRecoveryRate.toFixed(1) + '%' : '--' }}
-                  </span>
-                  <span class="font-body text-[10px] text-text-tertiary">回本</span>
+                <!-- 份额（最后一格：无右分隔线） -->
+                <div class="flex flex-col items-center gap-1 px-1 min-w-0">
+                  <span class="font-body text-xs text-text-tertiary">份额</span>
+                  <span class="font-body text-sm font-medium text-text-primary tabular-nums truncate">{{ formatShares(holding.shares).replace(/份$/, '') }}</span>
                 </div>
               </div>
 
-              <!-- 第三行：回本进度条（叙事收尾） -->
-              <div v-if="holding.dividendRecoveryRate > 0" class="flex items-center gap-md mt-2.5">
-                <div class="flex-1 h-1 rounded-full bg-progress-bg overflow-hidden">
+              <!-- 层级② 收益叙事：回本进度条（独立叙事区，加粗为 h-1.5） -->
+              <div v-if="holding.dividendRecoveryRate > 0" class="flex items-center gap-md mt-4">
+                <div class="flex-1 h-1.5 rounded-full bg-progress-bg overflow-hidden">
                   <div class="progress-shimmer h-full rounded-full bg-brand transition-all duration-500" :style="{ width: Math.min(holding.dividendRecoveryRate, 100) + '%' }"></div>
                 </div>
+                <span class="font-body text-xs font-medium text-success tabular-nums shrink-0">{{ holding.dividendRecoveryRate.toFixed(1) }}%</span>
               </div>
             </div>
           </div>
@@ -766,7 +756,7 @@ onBeforeUnmount(() => {
 }
 /* 金额品牌深绿强调（浅色卡片上更协调） */
 .celebrate-amount {
-  color: #15523F;
+  color: #0F4F40;
   margin: 0 2px;
 }
 .sparkle-icon {
@@ -789,25 +779,25 @@ onBeforeUnmount(() => {
 }
 
 /* ---- 分红覆盖卡：扁平胶囊 + CTA 文案 ---- */
-/* 类目胶囊三态：已覆盖/奋斗中/待点亮 */
+/* 类目胶囊三态：已覆盖/奋斗中/待点亮 — 使用语义色 */
 .coverage-chip--covered {
-  background: rgba(26, 107, 86, 0.10);
-  color: #1A6B56;
+  background: #E8F5F0;
+  color: #0F4F40;
 }
 .coverage-chip--active {
-  background: #FFF7ED;
-  border: 1px solid #FBBF24;
-  color: #B45309;
+  background: #F7F0DC;
+  border: 1px solid #8A6B08;
+  color: #6B5306;
   animation: coverage-chip-pulse 1.8s ease-in-out infinite;
 }
 @keyframes coverage-chip-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.35); }
-  50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(138, 107, 8, 0.35); }
+  50% { box-shadow: 0 0 0 4px rgba(138, 107, 8, 0); }
 }
 .coverage-chip--pending {
-  background: #F3F4F6;
-  color: #9CA3AF;
-  border: 1px dashed #E5E7EB;
+  background: #EFEFEE;
+  color: #6F6F6E;
+  border: 1px dashed #D3D1C7;
 }
 
 @media (prefers-reduced-motion: reduce) {

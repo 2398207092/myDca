@@ -82,6 +82,156 @@
       linear-gradient(#ffffff, #ffffff) padding-box,
       linear-gradient(135deg, rgba(26, 107, 86, 0.30), rgba(168, 213, 197, 0.60)) border-box;
   }
+
+  /* ---- UI 打磨方案：数字排版 + 语义标签 + 组件配方 ---- */
+
+  /* 数字排版：tabular-nums 等宽对齐 */
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: -0.01em;
+  }
+  .num-l1 { font-size: 1.875rem; line-height: 1.2; font-weight: 600; }
+  .num-l2 { font-size: 1.5rem;   line-height: 1.3; font-weight: 600; }
+  .num-l3 { font-size: 1.125rem; line-height: 1.4; font-weight: 500; }
+  .num-l4 { font-size: 0.875rem; line-height: 1.5; font-weight: 400; color: #6F6F6E; }
+
+  /* 涨跌配色（与数字类叠加使用） */
+  .t-pos       { color: #1A6B56; }
+  .t-pos-strong { color: #0F4F40; }
+  .t-neg       { color: #BA1A1A; }
+  .t-neg-strong { color: #A61616; }
+  .t-flat      { color: #6B6A68; }
+  .t-gold      { color: #8A6B08; }
+
+  /* 语义标签 chip */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+  .chip-pos   { color: #0F4F40; background: #E8F5F0; }
+  .chip-neg   { color: #A61616; background: #FBEAE7; }
+  .chip-gold  { color: #6B5306; background: #F7F0DC; }
+  .chip-flat  { color: #5F5E5C; background: #EFEFEE; }
+
+  /* 金额高亮块（头部关键数值） */
+  .amount-hl {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 10px;
+  }
+  .amount-hl.pos   { background: #E8F5F0; color: #0F4F40; }
+  .amount-hl.neg   { background: #FBEAE7; color: #A61616; }
+  .amount-hl.flat  { background: #EFEFEE; color: #5F5E5C; }
+
+  /* 统一组件配方 */
+  .card {
+    background: #ffffff;
+    border: 1px solid #ECEBE9;
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(35,34,33,0.06), 0 1px 2px rgba(35,34,33,0.04);
+    padding: 16px;
+  }
+  .card-pad-lg { padding: 24px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 500;
+    transition: background-color 180ms ease, transform 120ms ease;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn:active { transform: translateY(0.5px); }
+  .btn-primary { background: #1A6B56; color: #fff; }
+  .btn-primary:hover { background: #0F4F40; }
+  .btn-secondary { background: #fff; color: #232221; border-color: #D9D7D4; }
+  .btn-secondary:hover { background: #F7F6F5; }
+  .btn-ghost { background: transparent; color: #1A6B56; }
+  .btn-ghost:hover { background: #E8F5F0; }
+
+  .list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 8px;
+    border-radius: 10px;
+    transition: background-color 120ms ease;
+  }
+  .list-item:hover { background: #F7F6F5; }
+
+  .input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #D9D7D4;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #232221;
+    background: #fff;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .input:focus {
+    outline: none;
+    border-color: #1A6B56;
+    box-shadow: 0 0 0 3px rgba(26,107,86,0.15);
+  }
+  .input::placeholder { color: #B5B4B2; }
+
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 40px 16px;
+    text-align: center;
+    color: #6F6F6E;
+  }
+  .empty .empty-icon {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 9999px;
+    background: #EFEFEE;
+    color: #5F5E5C;
+  }
+
+  .toast {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    box-shadow: 0 8px 24px rgba(35,34,33,0.14);
+    animation: toast-in 320ms cubic-bezier(0.25,1,0.5,1) both;
+  }
+  .toast-info    { background: #232221; color: #fff; }
+  .toast-success { background: #E8F5F0; color: #0F4F40; }
+  .toast-error   { background: #FBEAE7; color: #A61616; }
+
+  /* 8pt 间距辅助类 */
+  .gutter-x { padding-left: 16px; padding-right: 16px; }
+  .section-y { padding-top: 32px; padding-bottom: 32px; }
+
+  @keyframes toast-in {
+    0%   { opacity: 0; transform: translateY(12px) scale(0.98); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
 }
 
 @keyframes stagger-fade-in {

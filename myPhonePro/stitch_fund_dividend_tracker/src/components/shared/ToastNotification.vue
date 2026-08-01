@@ -32,7 +32,7 @@ watch(() => props.message, (val) => {
         :class="type === 'error'
           ? 'bg-alert text-white border-alert/20'
           : type === 'success'
-            ? 'bg-green-500 text-white border-green-500/20'
+            ? 'bg-pos-soft text-pos-strong border-pos/20'
             : 'bg-card-bg text-text-primary border-border-light/40'"
       >
         {{ message }}

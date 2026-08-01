@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onActivated } from 'vue'
+import { ref, computed, onActivated, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import type { PageState, DividendEvent, DividendEventType } from '@/types'
 import { listEvents } from '@/api/event'
@@ -16,6 +16,10 @@ const activeTab = ref<'calendar' | 'overview'>('calendar')
 const currentYear = ref(new Date().getFullYear())
 const currentMonth = ref(new Date().getMonth()) // 0-indexed
 const selectedDate = ref(formatDate(new Date()))
+
+// 本地时区的"今天"字符串，用于日历"今天"标记
+const now = new Date()
+const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
 function formatDate(date: Date): string {
   const y = date.getFullYear()
@@ -300,6 +304,68 @@ function nextMonth() {
   loadMonthData()  // 切换月份后重新加载事件和洞察
 }
 
+// === 年份选择器（点击年号弹出） ===
+const yearPickerOpen = ref(false)
+const navCardRef = ref<HTMLElement | null>(null)
+const yearRange = computed(() => {
+  const y = new Date().getFullYear()
+  const start = y - 3
+  const end = y + 3
+  const list: number[] = []
+  for (let i = start; i <= end; i++) list.push(i)
+  return list
+})
+function pickYear(y: number) {
+  currentYear.value = y
+  yearPickerOpen.value = false
+  loadMonthData()
+}
+
+// 点击导航卡外部时关闭年份选择器
+function onDocClick(e: MouseEvent) {
+  if (yearPickerOpen.value && navCardRef.value && !navCardRef.value.contains(e.target as Node)) {
+    yearPickerOpen.value = false
+  }
+}
+onMounted(() => document.addEventListener('click', onDocClick))
+onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
+
+// 回到今天
+function goToToday() {
+  yearPickerOpen.value = false
+  const n = new Date()
+  currentYear.value = n.getFullYear()
+  currentMonth.value = n.getMonth()
+  selectedDate.value = formatDate(n)
+  loadMonthData()
+}
+
+// 是否正在查看当前真实月份（用于显示/隐藏「今月」按钮）
+const isCurrentMonthView = computed(() => {
+  const n = new Date()
+  return currentYear.value === n.getFullYear() && currentMonth.value === n.getMonth()
+})
+
+// === 小贴士轮播 ===
+const tips = [
+  '点击日历上带圆点的日期查看当日分红事件',
+  '权益登记日持有基金才能参与本次分红',
+  '除息日基金净值会下调相应金额',
+  '派息日分红金额到账，记得查收',
+  '年度总览展示全年分红趋势和基金排行',
+  '设置分红覆盖目标，让分红为生活服务',
+]
+const currentTipIndex = ref(0)
+let tipTimer: number | undefined
+onMounted(() => {
+  tipTimer = window.setInterval(() => {
+    currentTipIndex.value = (currentTipIndex.value + 1) % tips.length
+  }, 6000)
+})
+onBeforeUnmount(() => {
+  if (tipTimer) clearInterval(tipTimer)
+})
+
 // === Tab 切换 ===
 const tabIndicatorStyle = computed(() => ({
   transform: activeTab.value === 'calendar' ? 'translateX(0)' : 'translateX(100%)',
@@ -354,40 +420,84 @@ function goToHolding(holdingId: string) {
         <!-- ==================== 日历视图 ==================== -->
         <template v-if="activeTab === 'calendar'">
           <!-- Month Navigation -->
-          <div class="flex items-center justify-between bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40">
-            <button
-              class="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-brand transition-colors"
-              @click="prevMonth"
-            >
-              <span class="material-symbols-outlined">chevron_left</span>
-            </button>
+          <div ref="navCardRef" class="flex items-center justify-center bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40 relative overflow-hidden">
+            <!-- 导航栏微渐变背景 -->
+            <div class="absolute inset-0 bg-gradient-to-br from-brand/[0.04] via-transparent to-transparent pointer-events-none" />
+            <!-- 左侧按钮组：与右侧今月对称 -->
+            <div class="absolute left-4 flex items-center gap-1">
+              <button
+                class="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-brand transition-colors"
+                @click="prevMonth"
+              >
+                <span class="material-symbols-outlined">chevron_left</span>
+              </button>
+              <button
+                class="px-2 h-8 flex items-center justify-center font-body text-xs transition-colors rounded-lg text-text-secondary hover:text-brand hover:bg-card-alt"
+                :disabled="refreshing"
+                @click="refreshDividendData"
+              >
+                {{ refreshing ? '更新中...' : '更新' }}
+              </button>
+            </div>
+
+            <!-- 年月区：在父容器中真正居中 -->
             <div class="text-center">
-              <p class="font-display text-xl text-text-primary">
-                {{ currentYear }}年 {{ currentMonth + 1 }}月
-              </p>
+              <button
+                type="button"
+                class="font-display text-xl text-text-primary inline-flex items-center gap-1 hover:text-brand transition-colors select-none"
+                @click="yearPickerOpen = !yearPickerOpen"
+              >
+                <span>{{ currentYear }}年</span>
+                <span class="material-symbols-outlined text-[18px] text-text-tertiary">
+                  {{ yearPickerOpen ? 'expand_less' : 'unfold_more' }}
+                </span>
+              </button>
+              <span class="font-display text-xl text-text-primary">{{ currentMonth + 1 }}月</span>
+
+              <!-- 年份选择下拉 -->
+              <div
+                v-if="yearPickerOpen"
+                class="absolute left-1/2 -translate-x-1/2 top-full mt-2 bg-card-bg rounded-xl card-shadow border border-border-light/40 p-sm z-20"
+              >
+                <div class="grid grid-cols-4 gap-1">
+                  <button
+                    v-for="y in yearRange"
+                    :key="y"
+                    type="button"
+                    class="w-full py-1.5 px-0 rounded-lg font-body text-sm text-center transition-colors"
+                    :class="y === currentYear
+                      ? 'bg-brand text-white font-medium'
+                      : 'text-text-primary hover:bg-card-alt'"
+                    @click="pickYear(y)"
+                  >
+                    {{ y }}
+                  </button>
+                </div>
+              </div>
+
               <p class="font-body text-xs text-text-tertiary mt-0.5">
                 当月预计派息 {{ monthlyPredictedDividend.toFixed(2) }} 元
               </p>
             </div>
-            <button
-              class="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-brand transition-colors"
-              @click="nextMonth"
-            >
-              <span class="material-symbols-outlined">chevron_right</span>
-            </button>
-          </div>
 
-          <!-- Refresh Button -->
-          <button
-            class="w-full flex items-center justify-center gap-2 py-2 font-body text-xs text-text-secondary hover:text-brand transition-colors rounded-lg hover:bg-card-alt"
-            :disabled="refreshing"
-            @click="refreshDividendData"
-          >
-            <span class="material-symbols-outlined text-[16px]" :class="{ 'animate-spin': refreshing }">
-              {{ refreshing ? 'progress_activity' : 'refresh' }}
-            </span>
-            {{ refreshing ? '更新中...' : '更新分红数据' }}
-          </button>
+            <!-- 右侧按钮组：绝对定位保持原位 -->
+            <div class="absolute right-4 flex items-center gap-1">
+              <button
+                v-show="true"
+                class="px-2 h-8 flex items-center justify-center font-body text-xs transition-colors rounded-lg"
+                :class="isCurrentMonthView ? 'invisible' : 'text-text-secondary hover:text-brand hover:bg-card-alt'"
+                @click="goToToday"
+              >
+                今月
+              </button>
+              <button
+                class="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-brand transition-colors"
+                @click="nextMonth"
+              >
+                <span class="material-symbols-outlined">chevron_right</span>
+              </button>
+            </div>
+          </div>
 
           <!-- Calendar Card -->
           <section class="bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40">
@@ -407,7 +517,7 @@ function goToHolding(holdingId: string) {
               <div
                 v-for="(cell, idx) in calendarCells"
                 :key="idx"
-                class="flex flex-col items-center justify-center h-10 relative"
+                class="flex flex-col items-center justify-center h-11 relative"
                 :class="{ 'cursor-pointer': cell.isCurrentMonth }"
                 @click="cell.isCurrentMonth && selectDate(cell.date)"
               >
@@ -416,12 +526,14 @@ function goToHolding(holdingId: string) {
                     class="flex items-center justify-center w-9 h-9 rounded-lg transition-colors font-body text-sm"
                     :class="cell.date === selectedDate
                       ? 'bg-brand text-white font-medium'
-                      : 'text-text-primary hover:bg-card-alt'"
+                      : cell.date === todayStr
+                        ? 'border border-brand/50 text-brand font-semibold hover:bg-card-alt'
+                        : 'text-text-primary hover:bg-card-alt'"
                   >
                     {{ cell.day }}
                   </span>
                   <!-- 多圆点：每个事件一个点 -->
-                  <div v-if="getDotColors(cell.date).length" class="flex items-center gap-[2px] absolute bottom-0">
+                  <div v-if="getDotColors(cell.date).length" class="flex items-center gap-[2px] absolute bottom-0.5">
                     <template v-for="(color, ci) in getDotColors(cell.date).slice(0, 3)" :key="ci">
                       <div class="w-[5px] h-[5px] rounded-full" :class="color" />
                     </template>
@@ -429,6 +541,14 @@ function goToHolding(holdingId: string) {
                       v-if="getDotColors(cell.date).length > 3"
                       class="font-body text-[8px] text-text-tertiary leading-none"
                     >+{{ getDotColors(cell.date).length - 3 }}</span>
+                  </div>
+                </template>
+                <!-- 空白天数微装饰：极淡圆点阵 -->
+                <template v-else>
+                  <div class="flex items-center justify-center gap-[3px] opacity-[0.06]">
+                    <div class="w-[3px] h-[3px] rounded-full bg-text-tertiary" />
+                    <div class="w-[3px] h-[3px] rounded-full bg-text-tertiary" />
+                    <div class="w-[3px] h-[3px] rounded-full bg-text-tertiary" />
                   </div>
                 </template>
               </div>
@@ -450,6 +570,16 @@ function goToHolding(holdingId: string) {
               </div>
             </div>
           </section>
+
+          <!-- 小贴士条 -->
+          <div class="bg-card-bg/60 rounded-xl px-md py-2.5 flex items-center gap-2.5 border border-border-light/20 min-h-[44px]">
+            <span class="material-symbols-outlined text-[16px] text-brand/50 shrink-0">lightbulb</span>
+            <Transition name="tip-fade" mode="out-in">
+              <p class="font-body text-xs text-text-tertiary/70 leading-relaxed" :key="currentTipIndex">
+                {{ tips[currentTipIndex] }}
+              </p>
+            </Transition>
+          </div>
 
           <!-- Events List (only render when there are events) -->
           <section v-if="selectedEvents.length > 0" class="space-y-sm">
@@ -478,9 +608,11 @@ function goToHolding(holdingId: string) {
                   <div
                     v-for="event in groupedEvents[type]"
                     :key="event.id"
-                    class="bg-card-bg p-md rounded-xl card-shadow border border-border-light/40 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-all"
+                    class="bg-card-bg p-md rounded-xl card-shadow border border-border-light/40 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden"
                     @click="goToHolding(event.holdingId)"
                   >
+                    <!-- 左侧颜色条 -->
+                    <div class="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full" :class="eventTypeStyles[event.type].borderClass" />
                     <div
                       class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                       :class="eventTypeStyles[event.type].iconBgClass"
@@ -516,33 +648,64 @@ function goToHolding(holdingId: string) {
             </template>
           </section>
 
+          <!-- Empty State: Monthly Overview (when no events for selected date) -->
+          <section v-else class="bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40">
+            <div class="flex items-center justify-between mb-md">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-brand text-sm">eco</span>
+                <h3 class="font-body text-sm font-medium text-text-primary">本月分红概览</h3>
+              </div>
+              <span class="font-body text-xs text-text-tertiary bg-card-alt px-2 py-0.5 rounded-full">{{ currentMonth + 1 }}月</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-sm">
+              <div class="bg-card-alt/50 rounded-xl p-md flex flex-col gap-1">
+                <p class="font-body text-xs text-text-tertiary">本月预计派息</p>
+                <p class="font-display text-lg font-semibold text-brand tabular-nums">¥{{ monthlyPredictedDividend.toFixed(2) }}</p>
+              </div>
+              <div class="bg-card-alt/50 rounded-xl p-md flex flex-col gap-1">
+                <p class="font-body text-xs text-text-tertiary">派息基金</p>
+                <p class="font-display text-lg font-semibold text-text-primary tabular-nums">{{ monthlyActivity.payoutCount }} 笔</p>
+              </div>
+            </div>
+
+            <div class="mt-md bg-card-alt/40 rounded-xl px-md py-3 flex items-center gap-2.5 border border-border-light/20">
+              <span class="material-symbols-outlined text-[16px] text-brand/60 shrink-0">touch_app</span>
+              <p class="font-body text-xs text-text-tertiary/70 leading-relaxed">点击日历上带圆点的日期，查看当日的权益登记 / 除权除息 / 派息详情</p>
+            </div>
+          </section>
+
           <!-- Monthly Insights Bento -->
           <section class="grid grid-cols-3 gap-sm">
             <!-- 最丰厚来源 — 品牌色强调 -->
-            <div class="col-span-1 bg-brand-light p-sm rounded-xl flex flex-col justify-between min-h-[90px]">
+            <div class="col-span-1 bg-brand-light p-sm rounded-xl flex flex-col justify-between min-h-[90px] relative overflow-hidden">
               <p class="font-body text-xs text-brand/60 font-medium">最丰厚来源</p>
-              <div class="space-y-[2px]">
+              <div class="space-y-[2px] relative z-10">
                 <p class="text-[20px] font-display font-semibold text-brand leading-none">
                   ¥{{ richestSource.amount.toFixed(0) }}
                 </p>
                 <p class="font-body text-xs text-text-tertiary truncate">{{ richestSource.name }}</p>
               </div>
+              <!-- 角落装饰：星形 -->
+              <span class="material-symbols-outlined text-[42px] text-brand/[0.06] absolute -bottom-2 -right-2 select-none pointer-events-none">star</span>
             </div>
             <!-- 本月动态 — 可点击进入明细 -->
-            <div class="col-span-1 bg-card-bg p-sm rounded-xl card-shadow border border-border-light/40 flex flex-col justify-between min-h-[90px] relative cursor-pointer active:scale-[0.98] transition-transform" @click="openMonthlyDetail">
-              <div class="flex items-center justify-between">
+            <div class="col-span-1 bg-card-bg p-sm rounded-xl card-shadow border border-border-light/40 flex flex-col justify-between min-h-[90px] relative cursor-pointer active:scale-[0.98] transition-transform overflow-hidden" @click="openMonthlyDetail">
+              <div class="flex items-center justify-between relative z-10">
                 <p class="font-body text-xs text-text-tertiary font-medium">本月动态</p>
                 <span class="material-symbols-outlined text-[14px] text-text-tertiary/50">chevron_right</span>
               </div>
-              <div class="space-y-[2px]">
+              <div class="space-y-[2px] relative z-10">
                 <p class="text-[20px] font-display font-semibold text-text-primary leading-none">{{ monthlyActivity.payoutCount }}</p>
                 <p class="font-body text-xs text-text-tertiary truncate">{{ monthlyActivity.payoutCount }}笔分红 · {{ monthlyActivity.fundCount }}只基金</p>
               </div>
+              <!-- 角落装饰：日历月视图 -->
+              <span class="material-symbols-outlined text-[42px] text-text-tertiary/[0.04] absolute -bottom-2 -right-2 select-none pointer-events-none">calendar_view_month</span>
             </div>
             <!-- 下次分红 -->
-            <div class="col-span-1 bg-card-bg p-sm rounded-xl card-shadow border border-border-light/40 flex flex-col justify-between min-h-[90px]">
-              <p class="font-body text-xs text-text-tertiary font-medium">下次分红</p>
-              <div class="space-y-[2px]">
+            <div class="col-span-1 bg-card-bg p-sm rounded-xl card-shadow border border-border-light/40 flex flex-col justify-between min-h-[90px] relative overflow-hidden">
+              <p class="font-body text-xs text-text-tertiary font-medium relative z-10">下次分红</p>
+              <div class="space-y-[2px] relative z-10">
                 <p class="text-[20px] font-display font-semibold leading-none"
                    :class="nextDividend.holdingName !== '--' ? 'text-brand' : 'text-text-tertiary/40'">
                   {{ nextDividend.holdingName !== '--' ? (nextDividend.daysRemaining > 0 ? nextDividend.daysRemaining + '天后' : '今日') : '--' }}
@@ -550,6 +713,8 @@ function goToHolding(holdingId: string) {
                 <p class="font-body text-xs text-text-tertiary truncate">{{ nextDividend.holdingName }}</p>
                 <p class="font-body text-xs text-text-tertiary/60">预计 ¥{{ nextDividend.amount.toFixed(0) }}</p>
               </div>
+              <!-- 角落装饰：闹钟 -->
+              <span class="material-symbols-outlined text-[42px] text-text-tertiary/[0.04] absolute -bottom-2 -right-2 select-none pointer-events-none">notifications</span>
             </div>
           </section>
         </template>
@@ -595,7 +760,7 @@ function goToHolding(holdingId: string) {
                 <div class="flex-1 h-6 bg-progress-bg rounded overflow-hidden">
                   <div
                     class="h-full rounded transition-all duration-500"
-                    :class="q.amount > 0 ? 'bg-brand' : 'bg-progress-bg'"
+                    :class="q.amount > 0 ? 'bg-gradient-to-r from-brand to-brand-light' : 'bg-progress-bg'"
                     :style="{ width: q.percentage + '%' }"
                   />
                 </div>
@@ -744,5 +909,19 @@ function goToHolding(holdingId: string) {
 }
 .event-list-move {
   transition: transform 0.3s ease;
+}
+
+/* 小贴士淡入淡出 */
+.tip-fade-enter-active,
+.tip-fade-leave-active {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.tip-fade-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.tip-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 </style>
