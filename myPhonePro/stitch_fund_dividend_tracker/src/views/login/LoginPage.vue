@@ -18,7 +18,7 @@ const registerSubTab = ref<'code' | 'password'>('code')
 
 // ── Form ──
 const emailPrefix = ref('')
-const emailDomain = ref('@163.com')
+const emailDomain = ref('@qq.com')
 const customDomain = ref('')
 const useCustomDomain = ref(false)
 const code = ref('')
