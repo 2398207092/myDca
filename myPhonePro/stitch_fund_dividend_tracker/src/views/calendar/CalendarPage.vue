@@ -420,9 +420,9 @@ function goToHolding(holdingId: string) {
         <!-- ==================== 日历视图 ==================== -->
         <template v-if="activeTab === 'calendar'">
           <!-- Month Navigation -->
-          <div ref="navCardRef" class="flex items-center justify-center bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40 relative overflow-hidden">
-            <!-- 导航栏微渐变背景 -->
-            <div class="absolute inset-0 bg-gradient-to-br from-brand/[0.04] via-transparent to-transparent pointer-events-none" />
+          <div ref="navCardRef" class="flex items-center justify-center bg-card-bg p-lg rounded-xl card-shadow border border-border-light/40 relative">
+            <!-- 导航栏微渐变背景（自身裁圆角，不再依赖父容器 overflow-hidden，避免裁剪年份下拉） -->
+            <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-brand/[0.04] via-transparent to-transparent pointer-events-none" />
             <!-- 左侧按钮组：与右侧今月对称 -->
             <div class="absolute left-4 flex items-center gap-1">
               <button
