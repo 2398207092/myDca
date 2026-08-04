@@ -57,56 +57,54 @@ public class DividendInfoService {
         try {
             String jsData = fetchPingZhongData(code.trim());
             if (jsData == null) {
-                log.warn("获取 {} 净值数据失败", code);
-                return noData(type);
-            }
-
-            // 调试：检查数据是否包含关键字段
-            boolean hasAc = jsData.contains("Data_ACWorthTrend");
-            boolean hasUm = jsData.contains("unitMoney");
-            log.info("DividendInfo: 数据检查 - ACWorthTrend={}, unitMoney={}, 长度={}", hasAc, hasUm, jsData.length());
-            if (!hasAc) {
-                // 输出前500字符到日志
-                log.info("DividendInfo: 前500字符: {}", jsData.substring(0, Math.min(500, jsData.length())));
-            }
-
-            BigDecimal annualDividend;
-            if ("ex_date".equals(method)) {
-                // 先尝试从数据库获取完整信息（包含频率）
-                DividendInfoDTO dbResult = calcFromLocalDbWithFrequency(code.trim(), cutoffMs, horizon, type);
-                if (dbResult != null && !"none".equals(dbResult.getSource())) {
-                    return dbResult;
-                }
-                annualDividend = calcByExDate(code.trim(), jsData, cutoffMs, horizon);
-            } else if ("report_period".equals(method)) {
-                annualDividend = calcByReportPeriod(jsData, cutoffMs, horizon);
+                // 品中数据获取失败：不直接返回，降级到临时抓取兜底
+                log.warn("获取 {} 净值数据失败，降级到临时抓取兜底", code);
             } else {
-                log.info("{} 自定义模式，尝试临时抓取", code);
-                DividendInfoDTO tempResult = fundDividendScrapeService.fetchAndCalculate(code.trim(), type, horizon);
-                if (!"none".equals(tempResult.getSource())) {
-                    return tempResult;
+                // 调试：检查数据是否包含关键字段
+                boolean hasAc = jsData.contains("Data_ACWorthTrend");
+                boolean hasUm = jsData.contains("unitMoney");
+                log.info("DividendInfo: 数据检查 - ACWorthTrend={}, unitMoney={}, 长度={}", hasAc, hasUm, jsData.length());
+                if (!hasAc) {
+                    // 输出前500字符到日志
+                    log.info("DividendInfo: 前500字符: {}", jsData.substring(0, Math.min(500, jsData.length())));
                 }
-                return noData(type);
+
+                if ("ex_date".equals(method)) {
+                    // 先尝试从数据库获取完整信息（包含频率）
+                    DividendInfoDTO dbResult = calcFromLocalDbWithFrequency(code.trim(), cutoffMs, horizon, type);
+                    if (dbResult != null && !"none".equals(dbResult.getSource())) {
+                        return dbResult;
+                    }
+                    BigDecimal annualDividend = calcByExDate(code.trim(), jsData, cutoffMs, horizon);
+                    if (annualDividend != null && annualDividend.compareTo(BigDecimal.ZERO) > 0) {
+                        return DividendInfoDTO.builder()
+                                .annualDividendPerShare(annualDividend)
+                                .unitText(unitText)
+                                .source("api")
+                                .build();
+                    }
+                    log.warn("{} 按除权日无分红数据 horizon={}，尝试临时抓取", code, horizon);
+                } else if ("report_period".equals(method)) {
+                    BigDecimal annualDividend = calcByReportPeriod(jsData, cutoffMs, horizon);
+                    if (annualDividend != null && annualDividend.compareTo(BigDecimal.ZERO) > 0) {
+                        return DividendInfoDTO.builder()
+                                .annualDividendPerShare(annualDividend)
+                                .unitText(unitText)
+                                .source("api")
+                                .build();
+                    }
+                    log.warn("{} 按报告期无分红数据 horizon={}，尝试临时抓取", code, horizon);
+                } else {
+                    log.info("{} 自定义模式，尝试临时抓取", code);
+                }
             }
 
-            if (annualDividend == null || annualDividend.compareTo(BigDecimal.ZERO) <= 0) {
-                log.warn("{} 无分红数据 method={} horizon={}，尝试临时抓取", code, method, horizon);
-                DividendInfoDTO tempResult = fundDividendScrapeService.fetchAndCalculate(code.trim(), type, horizon);
-                if (!"none".equals(tempResult.getSource())) {
-                    return tempResult;
-                }
-                return DividendInfoDTO.builder()
-                        .annualDividendPerShare(BigDecimal.ZERO)
-                        .unitText(unitText)
-                        .source("none")
-                        .build();
+            // 统一兜底：品中失败或品中无分红数据 → 临时抓取天天基金分红页
+            DividendInfoDTO tempResult = fundDividendScrapeService.fetchAndCalculate(code.trim(), type, horizon);
+            if (!"none".equals(tempResult.getSource())) {
+                return tempResult;
             }
-
-            return DividendInfoDTO.builder()
-                    .annualDividendPerShare(annualDividend)
-                    .unitText(unitText)
-                    .source("api")
-                    .build();
+            return noData(type);
 
         } catch (Exception e) {
             log.warn("获取分红数据异常 {}: {}", code, e.getMessage());
@@ -251,14 +249,17 @@ public class DividendInfoService {
             if (!xm.find()) return null;
             long ts = Long.parseLong(xm.group(1));
 
-            // 提取 unitMoney（可能为空字符串 ""）
-            Pattern ump = Pattern.compile("\"?unitMoney\"?\\s*:\\s*\"?([0-9.]*)\"?");
+            // 提取 unitMoney，兼容两种格式：
+            //   旧格式："unitMoney":"0.0133"（纯数字）
+            //   新格式："unitMoney":"分红：每份派现金0.0133元"（2026年起东财改为带文字描述）
+            Pattern ump = Pattern.compile("\"?unitMoney\"?\\s*:\\s*\"([^\"]*)\"");
             Matcher umm = ump.matcher(obj);
             BigDecimal unitMoney = null;
             if (umm.find()) {
                 String val = umm.group(1);
-                if (val != null && !val.isEmpty()) {
-                    unitMoney = new BigDecimal(val);
+                Matcher num = Pattern.compile("\\d+(?:\\.\\d+)?").matcher(val);
+                if (num.find()) {
+                    unitMoney = new BigDecimal(num.group());
                 }
             }
             return new DividendRecord(ts, unitMoney);
@@ -364,7 +365,7 @@ public class DividendInfoService {
     // ==================== 数据读取 ====================
 
     private String fetchPingZhongData(String code) {
-        String urlStr = "http://fund.eastmoney.com/pingzhongdata/" + code + ".js";
+        String urlStr = "https://fund.eastmoney.com/pingzhongdata/" + code + ".js";
         try {
             log.info("DividendInfo: 开始获取 {}", urlStr);
             URI uri = new URI(urlStr);
