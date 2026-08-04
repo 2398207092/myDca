@@ -677,12 +677,12 @@ onActivated(() => {
     <!-- Edit Holding Bottom Sheet -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="showEditSheet" class="fixed inset-0 z-[100] bg-black/40" @click="showEditSheet = false"></div>
+        <div v-if="showEditSheet" class="fixed inset-0 z-modal-backdrop bg-black/40" @click="showEditSheet = false"></div>
       </Transition>
 
       <Transition name="slide-up">
         <div v-if="showEditSheet"
-             class="fixed bottom-0 left-0 right-0 z-[110] bg-card-bg rounded-t-2xl px-gutter py-lg shadow-elevated max-w-[600px] mx-auto"
+             class="fixed bottom-0 left-0 right-0 z-modal bg-card-bg rounded-t-2xl px-gutter py-lg shadow-elevated max-w-[600px] mx-auto"
              :style="{ maxHeight: '80vh', overflowY: 'auto' }">
           <!-- Drag handle -->
           <div class="w-10 h-1 bg-border-light rounded-full mx-auto mb-lg"></div>
@@ -754,12 +754,12 @@ onActivated(() => {
     <!-- Delete Confirm Dialog -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="showDeleteConfirm" class="fixed inset-0 z-[100] bg-black/40" @click="showDeleteConfirm = false"></div>
+        <div v-if="showDeleteConfirm" class="fixed inset-0 z-modal-backdrop bg-black/40" @click="showDeleteConfirm = false"></div>
       </Transition>
 
       <Transition name="scale-up">
         <div v-if="showDeleteConfirm"
-             class="fixed inset-0 z-[110] flex items-center justify-center"
+             class="fixed inset-0 z-modal flex items-center justify-center"
              @click.self="showDeleteConfirm = false">
           <div class="bg-card-bg rounded-2xl px-xl py-lg mx-gutter max-w-sm w-full shadow-elevated">
             <div class="flex flex-col items-center text-center">
@@ -788,11 +788,11 @@ onActivated(() => {
     <!-- DCA Create Sheet -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="showCreateSheet" class="fixed inset-0 z-[100] bg-black/40" @click="showCreateSheet = false"></div>
+        <div v-if="showCreateSheet" class="fixed inset-0 z-modal-backdrop bg-black/40" @click="showCreateSheet = false"></div>
       </Transition>
 
       <Transition name="scale-up">
-        <div v-if="showCreateSheet" class="fixed inset-0 z-[110] flex items-center justify-center px-gutter" @click.self="showCreateSheet = false">
+        <div v-if="showCreateSheet" class="fixed inset-0 z-modal flex items-center justify-center px-gutter" @click.self="showCreateSheet = false">
           <DcaCreateSheet
             v-if="holding"
             :holding-id="holding.id"
@@ -809,11 +809,11 @@ onActivated(() => {
     <!-- DCA Execute Sheet -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="showExecuteSheet" class="fixed inset-0 z-[100] bg-black/40" @click="showExecuteSheet = false"></div>
+        <div v-if="showExecuteSheet" class="fixed inset-0 z-modal-backdrop bg-black/40" @click="showExecuteSheet = false"></div>
       </Transition>
 
       <Transition name="scale-up">
-        <div v-if="showExecuteSheet" class="fixed inset-0 z-[110] flex items-center justify-center px-gutter" @click.self="showExecuteSheet = false">
+        <div v-if="showExecuteSheet" class="fixed inset-0 z-modal flex items-center justify-center px-gutter" @click.self="showExecuteSheet = false">
           <DcaExecuteSheet
             :plan-id="selectedPlanId"
             :holding-name="dcaPlans.find(p => p.id === selectedPlanId)?.holdingName || ''"

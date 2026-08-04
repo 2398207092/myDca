@@ -474,7 +474,7 @@ onActivated(() => {
     <Teleport to="body">
       <div
         v-if="showProfileModal"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-gutter"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-black/40 px-gutter"
         @click.self="showProfileModal = false"
       >
         <div class="bg-card-bg rounded-xl p-lg w-full max-w-sm">
@@ -553,7 +553,7 @@ onActivated(() => {
     <Teleport to="body">
       <div
         v-if="showSetPwdModal"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-gutter"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-black/40 px-gutter"
         @click.self="showSetPwdModal = false"
       >
         <div class="bg-card-bg rounded-xl p-lg w-full max-w-sm">
@@ -604,7 +604,7 @@ onActivated(() => {
     <Teleport to="body">
       <div
         v-if="showLogoutConfirm"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-gutter"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-black/40 px-gutter"
         @click.self="showLogoutConfirm = false"
       >
         <div class="bg-card-bg rounded-xl p-lg w-full max-w-sm">
@@ -628,7 +628,7 @@ onActivated(() => {
     <Teleport to="body">
       <div
         v-if="showDataInfoModal"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-gutter"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-black/40 px-gutter"
         @click.self="showDataInfoModal = false"
       >
         <div class="bg-card-bg rounded-xl p-lg w-full max-w-sm">
@@ -656,7 +656,7 @@ onActivated(() => {
     <Teleport to="body">
       <div
         v-if="showDatePicker"
-        class="fixed inset-0 z-[100] flex items-end justify-center bg-black/40"
+        class="fixed inset-0 z-modal flex items-end justify-center bg-black/40"
         @click.self="showDatePicker = false"
       >
         <div class="bg-card-bg rounded-t-2xl w-full max-w-lg px-gutter pt-lg pb-8 animate-slide-up max-h-[70vh] flex flex-col">
@@ -699,7 +699,7 @@ onActivated(() => {
     <Teleport to="body">
       <div
         v-if="showAuditContent && auditContent"
-        class="fixed inset-0 z-[110] flex items-end justify-center bg-black/40"
+        class="fixed inset-0 z-modal flex items-end justify-center bg-black/40"
         @click.self="showAuditContent = false"
       >
         <div class="bg-card-bg rounded-t-2xl w-full max-w-lg px-gutter pt-lg pb-8 animate-slide-up max-h-[80vh] flex flex-col">

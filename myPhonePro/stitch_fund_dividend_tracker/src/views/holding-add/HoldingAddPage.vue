@@ -294,7 +294,7 @@ const estimatedAnnualDividend = computed(() => {
               <span class="material-symbols-outlined text-text-tertiary text-[18px] cursor-pointer hover:text-brand transition-colors">help</span>
               <Transition name="fade">
                 <div v-if="showAlgorithmHelp"
-                     class="absolute right-0 top-8 w-64 bg-card-bg rounded-xl p-md card-shadow border border-border-light z-50"
+                     class="absolute right-0 top-8 w-64 bg-card-bg rounded-xl p-md card-shadow border border-border-light z-dropdown"
                      @click.stop>
                   <div class="space-y-3">
                     <div>

@@ -457,7 +457,7 @@ function goToHolding(holdingId: string) {
               <!-- 年份选择下拉 -->
               <div
                 v-if="yearPickerOpen"
-                class="absolute left-1/2 -translate-x-1/2 top-full mt-2 bg-card-bg rounded-xl card-shadow border border-border-light/40 p-sm z-20"
+                class="absolute left-1/2 -translate-x-1/2 top-full mt-2 bg-card-bg rounded-xl card-shadow border border-border-light/40 p-sm z-dropdown"
               >
                 <div class="grid grid-cols-4 gap-1">
                   <button
@@ -842,7 +842,7 @@ function goToHolding(holdingId: string) {
     <Teleport to="body">
       <div
         v-if="showMonthlyDetail"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-black/40"
         @click.self="showMonthlyDetail = false"
       >
         <div class="bg-card-bg rounded-2xl w-[90vw] max-w-[420px] max-h-[80vh] flex flex-col shadow-overlay">

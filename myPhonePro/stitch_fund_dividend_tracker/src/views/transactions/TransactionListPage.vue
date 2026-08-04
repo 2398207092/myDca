@@ -234,10 +234,10 @@ function goAddTrade() {
     <!-- === Action Sheet (edit / delete) === -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="showActionSheet" class="fixed inset-0 z-[100] bg-black/40" @click="closeActionSheet"></div>
+        <div v-if="showActionSheet" class="fixed inset-0 z-modal-backdrop bg-black/40" @click="closeActionSheet"></div>
       </Transition>
       <Transition name="slide-up">
-        <div v-if="showActionSheet" class="fixed bottom-0 left-0 right-0 z-[110] bg-card-bg rounded-t-2xl px-gutter py-lg shadow-overlay">
+        <div v-if="showActionSheet" class="fixed bottom-0 left-0 right-0 z-modal bg-card-bg rounded-t-2xl px-gutter py-lg shadow-overlay">
           <div class="w-10 h-1 bg-border-light rounded-full mx-auto mb-lg"></div>
           <button class="w-full flex items-center gap-md px-md py-lg rounded-xl hover:bg-card-alt transition-colors"
                   @click="openEdit">
@@ -260,11 +260,11 @@ function goAddTrade() {
     <!-- === Edit Bottom Sheet === -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="showEditSheet" class="fixed inset-0 z-[100] bg-black/40" @click="showEditSheet = false"></div>
+        <div v-if="showEditSheet" class="fixed inset-0 z-modal-backdrop bg-black/40" @click="showEditSheet = false"></div>
       </Transition>
       <Transition name="slide-up">
         <div v-if="showEditSheet"
-             class="fixed bottom-0 left-0 right-0 z-[110] bg-card-bg rounded-t-2xl px-gutter py-lg shadow-overlay"
+             class="fixed bottom-0 left-0 right-0 z-modal bg-card-bg rounded-t-2xl px-gutter py-lg shadow-overlay"
              style="max-height: 85vh; overflow-y: auto;">
           <div class="w-10 h-1 bg-border-light rounded-full mx-auto mb-lg"></div>
           <h3 class="font-body text-md font-medium text-text-primary mb-md">编辑交易</h3>
@@ -327,11 +327,11 @@ function goAddTrade() {
     <!-- === Delete Confirm Dialog === -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="showDeleteConfirm" class="fixed inset-0 z-[100] bg-black/40" @click="showDeleteConfirm = false"></div>
+        <div v-if="showDeleteConfirm" class="fixed inset-0 z-modal-backdrop bg-black/40" @click="showDeleteConfirm = false"></div>
       </Transition>
       <Transition name="scale-up">
         <div v-if="showDeleteConfirm"
-             class="fixed inset-0 z-[110] flex items-center justify-center"
+             class="fixed inset-0 z-modal flex items-center justify-center"
              @click.self="showDeleteConfirm = false">
           <div class="bg-card-bg rounded-2xl px-xl py-lg mx-gutter max-w-sm w-full shadow-overlay">
             <div class="flex flex-col items-center text-center">

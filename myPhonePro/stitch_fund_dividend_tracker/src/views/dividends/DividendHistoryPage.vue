@@ -199,11 +199,11 @@ function goHome() {
     <!-- === Action Sheet === -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="showActionSheet" class="fixed inset-0 z-[100] bg-black/40" @click="closeActionSheet"></div>
+        <div v-if="showActionSheet" class="fixed inset-0 z-modal-backdrop bg-black/40" @click="closeActionSheet"></div>
       </Transition>
       <Transition name="slide-up">
         <div v-if="showActionSheet && selectedEvent"
-             class="fixed bottom-0 left-0 right-0 z-[110] bg-card-bg rounded-t-2xl px-gutter py-lg shadow-overlay">
+             class="fixed bottom-0 left-0 right-0 z-modal bg-card-bg rounded-t-2xl px-gutter py-lg shadow-overlay">
           <div class="w-10 h-1 bg-border-light rounded-full mx-auto mb-lg"></div>
           <!-- Event info -->
           <div class="text-center mb-md">

@@ -325,10 +325,10 @@ function formatQuantity(n: number): string {
     <!-- === Execute Sheet === -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="showExecuteSheet" class="fixed inset-0 z-[100] bg-black/40" @click="showExecuteSheet = false"></div>
+        <div v-if="showExecuteSheet" class="fixed inset-0 z-modal-backdrop bg-black/40" @click="showExecuteSheet = false"></div>
       </Transition>
       <Transition name="scale-up">
-        <div v-if="showExecuteSheet" class="fixed inset-0 z-[110] flex items-center justify-center px-gutter" @click.self="showExecuteSheet = false">
+        <div v-if="showExecuteSheet" class="fixed inset-0 z-modal flex items-center justify-center px-gutter" @click.self="showExecuteSheet = false">
           <DcaExecuteSheet
             :plan-id="planId"
             :holding-name="plan?.holdingName || ''"
@@ -343,11 +343,11 @@ function formatQuantity(n: number): string {
     <!-- === Delete Confirm Dialog === -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="showDeleteConfirm" class="fixed inset-0 z-[100] bg-black/40" @click="showDeleteConfirm = false"></div>
+        <div v-if="showDeleteConfirm" class="fixed inset-0 z-modal-backdrop bg-black/40" @click="showDeleteConfirm = false"></div>
       </Transition>
       <Transition name="scale-up">
         <div v-if="showDeleteConfirm"
-             class="fixed inset-0 z-[110] flex items-center justify-center"
+             class="fixed inset-0 z-modal flex items-center justify-center"
              @click.self="showDeleteConfirm = false">
           <div class="bg-card-bg rounded-2xl px-xl py-lg mx-gutter max-w-sm w-full shadow-overlay">
             <div class="flex flex-col items-center text-center">

@@ -44,7 +44,7 @@ async function handleSubmit() {
 <template>
   <!-- Overlay -->
   <div
-    class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-6"
+    class="fixed inset-0 bg-black/40 flex items-center justify-center z-modal p-6"
     @click.self="$emit('close')"
   >
     <!-- Modal -->

@@ -810,7 +810,7 @@ async function doDelete() {
     <!-- Budget Dialog -->
     <Teleport to="body">
       <div v-if="showBudgetDialog"
-           class="fixed inset-0 z-[60] flex items-center justify-center p-md"
+           class="fixed inset-0 z-modal flex items-center justify-center p-md"
            @click.self="showBudgetDialog = false">
         <div class="absolute inset-0 bg-black/40" @click="showBudgetDialog = false"></div>
         <!-- 固定高度弹窗：flex-col + max-h 确保外框不随内容变化 -->
@@ -894,7 +894,7 @@ async function doDelete() {
     <!-- All DCA Plans Dialog -->
     <Teleport to="body">
       <div v-if="showAllDcaPlans"
-           class="fixed inset-0 z-[60] flex items-center justify-center p-md"
+           class="fixed inset-0 z-modal flex items-center justify-center p-md"
            @click.self="showAllDcaPlans = false">
         <div class="absolute inset-0 bg-black/40" @click="showAllDcaPlans = false"></div>
         <div class="relative bg-card-bg rounded-lg card-shadow w-[90%] max-w-sm z-10 p-lg max-h-[70vh] flex flex-col">
@@ -932,15 +932,19 @@ async function doDelete() {
     <!-- Manual Asset Bottom Sheet -->
     <Teleport to="body">
       <div v-if="showAssetSheet"
-           class="fixed inset-0 z-[100] bg-black/40"
+           class="fixed inset-0 z-modal bg-black/40"
            @click="showAssetSheet = false">
-        <div class="absolute bottom-0 left-0 right-0 bg-card-bg rounded-t-2xl p-lg max-h-[80vh] overflow-y-auto"
+        <div class="absolute bottom-0 left-0 right-0 bg-card-bg rounded-t-2xl max-h-[80vh] flex flex-col"
              @click.stop>
-          <div class="w-10 h-1 bg-border-light rounded-full mx-auto mb-lg"></div>
-          <h3 class="font-body text-md font-medium text-text-primary mb-lg">
-            {{ editingAssetId ? '编辑' : '添加' }}{{ assetForm.type === 'cash' ? '现金' : '比特币' }}
-          </h3>
-          <div class="space-y-md">
+          <!-- 头部（固定） -->
+          <div class="p-lg pb-md shrink-0">
+            <div class="w-10 h-1 bg-border-light rounded-full mx-auto mb-lg"></div>
+            <h3 class="font-body text-md font-medium text-text-primary">
+              {{ editingAssetId ? '编辑' : '添加' }}{{ assetForm.type === 'cash' ? '现金' : '比特币' }}
+            </h3>
+          </div>
+          <!-- 表单区（可滚动） -->
+          <div class="flex-1 overflow-y-auto px-lg space-y-md">
             <div>
               <label class="font-body text-xs text-text-tertiary block mb-1">名称</label>
               <input v-model="assetForm.name" placeholder="如：活期存款"
@@ -956,7 +960,10 @@ async function doDelete() {
               <input v-model="assetForm.note" placeholder="备注信息"
                      class="w-full px-md py-3 bg-card-alt rounded-lg text-text-primary outline-none font-body text-sm transition-colors focus:ring-2 focus:ring-brand" />
             </div>
-            <div class="flex gap-3 pt-2">
+          </div>
+          <!-- 底部按钮（固定，始终可见） -->
+          <div class="p-lg pt-md border-t border-border-light/40 shrink-0">
+            <div class="flex gap-3">
               <button class="flex-1 py-3 bg-card-alt text-text-secondary rounded-lg font-body text-sm font-medium active:scale-[0.98] transition-transform"
                       @click="showAssetSheet = false">取消</button>
               <button class="flex-1 py-3 bg-brand text-white rounded-lg font-body text-sm font-medium active:scale-[0.98] transition-transform disabled:opacity-50"
@@ -973,7 +980,7 @@ async function doDelete() {
     <!-- Category Mapping Bottom Sheet -->
     <Teleport to="body">
       <div v-if="showCatSheet && selectedHolding"
-           class="fixed inset-0 z-[100] bg-black/40"
+           class="fixed inset-0 z-modal bg-black/40"
            @click="showCatSheet = false">
         <div class="absolute bottom-0 left-0 right-0 bg-card-bg rounded-t-2xl p-lg"
              @click.stop>
@@ -1011,7 +1018,7 @@ async function doDelete() {
     <!-- Batch Category Bottom Sheet -->
     <Teleport to="body">
       <div v-if="showBatchCatSheet"
-           class="fixed inset-0 z-[100] bg-black/40"
+           class="fixed inset-0 z-modal bg-black/40"
            @click="showBatchCatSheet = false">
         <div class="absolute bottom-0 left-0 right-0 bg-card-bg rounded-t-2xl p-lg"
              @click.stop>
@@ -1057,7 +1064,7 @@ async function doDelete() {
     <!-- Delete Confirm -->
     <Teleport to="body">
       <div v-if="showDeleteConfirm"
-           class="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-lg"
+           class="fixed inset-0 z-modal bg-black/40 flex items-center justify-center p-lg"
            @click="showDeleteConfirm = false">
         <div class="bg-card-bg rounded-2xl p-lg max-w-sm w-full card-shadow" @click.stop>
           <div class="flex flex-col items-center text-center">
@@ -1169,7 +1176,7 @@ async function doDelete() {
     <!-- Add Type Picker -->
     <Teleport to="body">
       <div v-if="showAddTypePicker"
-           class="fixed inset-0 z-[60] flex items-center justify-center p-md"
+           class="fixed inset-0 z-modal flex items-center justify-center p-md"
            @click.self="showAddTypePicker = false">
         <div class="absolute inset-0 bg-black/40" @click="showAddTypePicker = false"></div>
         <div class="relative bg-card-bg rounded-lg card-shadow w-56 z-10 p-lg">

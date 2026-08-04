@@ -637,7 +637,7 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div
       v-if="showChangelog"
-      class="fixed inset-0 z-[100] flex items-end justify-center bg-black/40"
+      class="fixed inset-0 z-modal flex items-end justify-center bg-black/40"
       @click.self="showChangelog = false"
     >
       <div class="bg-card-bg rounded-t-2xl w-full max-w-lg px-gutter pt-lg pb-8 animate-slide-up max-h-[80vh] flex flex-col">

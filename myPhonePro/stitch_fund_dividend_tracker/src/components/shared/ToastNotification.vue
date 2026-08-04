@@ -28,7 +28,7 @@ watch(() => props.message, (val) => {
     <Transition name="toast">
       <div
         v-if="visible && message"
-        class="fixed top-16 left-1/2 -translate-x-1/2 z-[200] px-lg py-sm rounded-xl shadow-lg border font-body text-sm font-medium max-w-[90vw] whitespace-nowrap"
+        class="fixed top-16 left-1/2 -translate-x-1/2 z-toast px-lg py-sm rounded-xl shadow-lg border font-body text-sm font-medium max-w-[90vw] whitespace-nowrap"
         :class="type === 'error'
           ? 'bg-alert text-white border-alert/20'
           : type === 'success'
