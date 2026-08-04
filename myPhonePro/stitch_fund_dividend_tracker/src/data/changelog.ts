@@ -7,6 +7,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: 'v2.4.4',
+    date: '2026-08-04',
+    title: '弹窗层级修复 & 分红预测稳定性',
+    items: [
+      '修复弹窗层级遮挡：7 个弹窗浮层统一 z-index 语义化（modal/backdrop/dropdown），不再被顶部导航/底部导航盖住',
+      '修复分红日历年份选择下拉被父容器裁剪无法弹出',
+      '分红预测适配东财品中数据新格式：unitMoney 由纯数字改为"分红：每份派现金X元"，解析容错',
+      '分红预测降级兜底：品中数据获取失败时自动切换天天基金分红页临时抓取，不再误报"暂无分红记录"',
+      '品中数据接口升级 HTTPS，消除明文请求被拒隐患',
+      '新增 z-index 层级契约回归测试（58 项），防止层级问题再次回归',
+    ],
+  },
+  {
     version: 'v2.4.3',
     date: '2026-08-01',
     title: '首页卡片质感重构',
