@@ -5,9 +5,11 @@ import com.fundtracker.model.entity.Transaction;
 import com.fundtracker.model.enums.CostAlgorithm;
 import com.fundtracker.model.enums.HoldingType;
 import com.fundtracker.model.enums.TransactionType;
+import com.fundtracker.repository.DcaPlanRepository;
 import com.fundtracker.repository.DividendEventRepository;
 import com.fundtracker.repository.FundDividendRecordRepository;
 import com.fundtracker.repository.HoldingRepository;
+import com.fundtracker.repository.HoldingSnapshotRepository;
 import com.fundtracker.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +37,8 @@ class HoldingServiceTest {
     @Mock private TransactionRepository transactionRepository;
     @Mock private FundDividendRecordRepository fundDividendRecordRepository;
     @Mock private DividendEventRepository dividendEventRepository;
+    @Mock private DcaPlanRepository dcaPlanRepository;
+    @Mock private HoldingSnapshotRepository holdingSnapshotRepository;
     @Mock private FundDividendScrapeService fundDividendScrapeService;
     @Mock private FundNavScrapeService fundNavScrapeService;
     @Mock private ManualAssetService manualAssetService;
@@ -50,7 +54,8 @@ class HoldingServiceTest {
                 holdingRepository, transactionRepository,
                 costCalculator, fundDividendScrapeService,
                 fundNavScrapeService, fundDividendRecordRepository,
-                dividendEventRepository, manualAssetService,
+                dividendEventRepository, dcaPlanRepository,
+                holdingSnapshotRepository, manualAssetService,
                 eventPublisher
         );
     }

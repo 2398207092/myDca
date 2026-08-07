@@ -49,7 +49,7 @@ public class TransactionService {
 
     @Transactional
     public TransactionDTO createTransaction(CreateTransactionReq req, String userId) {
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(req.getHoldingId())
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(req.getHoldingId(), userId)
                 .orElseThrow(BusinessException::holdingNotFound);
 
         TransactionType type = TransactionType.valueOf(req.getType());
@@ -150,9 +150,9 @@ public class TransactionService {
 
     @Transactional
     public TransactionDTO updateTransaction(String id, UpdateTransactionReq req, String userId) {
-        Transaction tx = transactionRepository.findById(id)
+        Transaction tx = transactionRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(BusinessException::transactionNotFound);
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(tx.getHoldingId())
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(tx.getHoldingId(), userId)
                 .orElseThrow(BusinessException::holdingNotFound);
 
         // 更新字段（仅非 null 字段）
@@ -219,7 +219,7 @@ public class TransactionService {
 
     @Transactional
     public void deleteTransaction(String id, String userId) {
-        Transaction transaction = transactionRepository.findById(id)
+        Transaction transaction = transactionRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(BusinessException::transactionNotFound);
         String holdingId = transaction.getHoldingId();
         BigDecimal txTotal = transaction.getTotal();
@@ -236,7 +236,7 @@ public class TransactionService {
         }
 
         // 删除后重新计算份额和指标
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(holdingId)
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(holdingId, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
         recalculateSharesFromScratch(holding);
         holdingService.calculatePredictedDividend(holding);

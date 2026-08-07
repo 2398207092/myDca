@@ -136,7 +136,7 @@ public class DividendEventSyncService {
      */
     @Transactional
     public int syncEventsForHolding(String holdingId, String userId) {
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(holdingId).orElse(null);
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(holdingId, userId).orElse(null);
         if (holding == null || holding.getCode() == null) return 0;
         return syncEventsForFund(holding.getCode(), userId);
     }

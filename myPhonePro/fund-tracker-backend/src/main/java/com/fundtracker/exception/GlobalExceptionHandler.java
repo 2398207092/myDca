@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.HashMap;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -40,9 +42,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleUnknown(Exception ex) {
+        log.error("未处理的异常", ex);
         Map<String, Object> body = new HashMap<>();
         body.put("code", 500);
-        body.put("message", "服务器内部错误: " + ex.getMessage());
+        body.put("message", "服务器内部错误，请稍后重试");
         body.put("data", null);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }

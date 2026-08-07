@@ -48,9 +48,12 @@ public class HoldingController {
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<HoldingDTO> updateHolding(@PathVariable String id,
-                                                  @RequestBody UpdateHoldingReq req) {
-        return ApiResponse.success("更新成功", holdingService.updateHolding(id, req));
+    public ApiResponse<HoldingDTO> updateHolding(
+            HttpServletRequest request,
+            @PathVariable String id,
+            @RequestBody UpdateHoldingReq req) {
+        String userId = (String) request.getAttribute("userId");
+        return ApiResponse.success("更新成功", holdingService.updateHolding(id, req, userId));
     }
 
     @DeleteMapping("/{id}")
@@ -64,9 +67,11 @@ public class HoldingController {
 
     @GetMapping("/{id}/forecast")
     public ApiResponse<ForecastResp> getForecast(
+            HttpServletRequest request,
             @PathVariable String id,
             @RequestParam(defaultValue = "12m") String period) {
-        return ApiResponse.success(forecastService.getForecast(id, period));
+        String userId = (String) request.getAttribute("userId");
+        return ApiResponse.success(forecastService.getForecast(id, period, userId));
     }
 
     @GetMapping("/dividend-info")

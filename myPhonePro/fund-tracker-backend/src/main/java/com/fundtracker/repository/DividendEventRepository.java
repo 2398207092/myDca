@@ -6,6 +6,7 @@ import com.fundtracker.model.enums.EventType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface DividendEventRepository extends JpaRepository<DividendEvent, String> {
     List<DividendEvent> findByHoldingIdOrderByDateDesc(String holdingId);
@@ -31,4 +32,5 @@ public interface DividendEventRepository extends JpaRepository<DividendEvent, St
     List<DividendEvent> findByHoldingIdAndStatusAndUserId(String holdingId, EventStatus status, String userId);
     List<DividendEvent> findByStatusAndUserId(EventStatus status, String userId);
     List<DividendEvent> findByDateAndUserIdOrderByHoldingName(LocalDate date, String userId);
+    Optional<DividendEvent> findByIdAndUserId(String id, String userId);
 }

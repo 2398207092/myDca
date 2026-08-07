@@ -11,9 +11,11 @@ import com.fundtracker.model.enums.CostAlgorithm;
 import com.fundtracker.model.enums.EventStatus;
 import com.fundtracker.model.enums.HoldingType;
 import com.fundtracker.model.enums.TransactionType;
+import com.fundtracker.repository.DcaPlanRepository;
 import com.fundtracker.repository.DividendEventRepository;
 import com.fundtracker.repository.FundDividendRecordRepository;
 import com.fundtracker.repository.HoldingRepository;
+import com.fundtracker.repository.HoldingSnapshotRepository;
 import com.fundtracker.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +42,8 @@ public class HoldingService {
     private final FundNavScrapeService fundNavScrapeService;
     private final FundDividendRecordRepository fundDividendRecordRepository;
     private final DividendEventRepository dividendEventRepository;
+    private final DcaPlanRepository dcaPlanRepository;
+    private final HoldingSnapshotRepository holdingSnapshotRepository;
     private final ManualAssetService manualAssetService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -55,7 +59,6 @@ public class HoldingService {
         return holdings.stream().map(this::toDTO).collect(Collectors.toList());
     }
 
-    @Transactional
     public HoldingDTO getHolding(String id, String userId) {
         Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(id, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
@@ -243,8 +246,8 @@ public class HoldingService {
     }
 
     @Transactional
-    public HoldingDTO updateHolding(String id, UpdateHoldingReq req) {
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(id)
+    public HoldingDTO updateHolding(String id, UpdateHoldingReq req, String userId) {
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(id, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
 
         boolean sharesOrCostChanged = false;
@@ -299,13 +302,15 @@ public class HoldingService {
         Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(id, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
 
-        // 物理级联删除：交易 → 分红事件 → 持仓
+        // 物理级联删除：交易 → 分红事件 → 定投计划 → 快照 → 持仓
         int txCount = transactionRepository.deleteByHoldingId(id);
         int evCount = dividendEventRepository.deleteByHoldingId(id);
+        int dcaCount = dcaPlanRepository.deleteByHoldingId(id);
+        int snapCount = holdingSnapshotRepository.deleteByHoldingId(id);
         holdingRepository.delete(holding);
 
-        log.info("已删除持仓 {} (ID: {})，连带删除 {} 条交易记录和 {} 条分红事件",
-                holding.getName(), id, txCount, evCount);
+        log.info("已删除持仓 {} (ID: {})，连带删除 {} 条交易记录、{} 条分红事件、{} 条定投计划、{} 条快照",
+                holding.getName(), id, txCount, evCount, dcaCount, snapCount);
     }
 
     public void recalculateHoldingMetrics(Holding holding) {

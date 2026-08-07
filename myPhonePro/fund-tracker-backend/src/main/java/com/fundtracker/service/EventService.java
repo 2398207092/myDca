@@ -80,7 +80,7 @@ public class EventService {
 
     @Transactional
     public DividendEventDTO createEvent(CreateEventReq req, String userId) {
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(req.getHoldingId())
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(req.getHoldingId(), userId)
                 .orElseThrow(BusinessException::holdingNotFound);
 
         DividendEvent event = DividendEvent.builder()
@@ -101,7 +101,7 @@ public class EventService {
 
     @Transactional
     public DividendEventDTO markDistributed(String id, String userId) {
-        DividendEvent event = eventRepository.findById(id)
+        DividendEvent event = eventRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(BusinessException::eventNotFound);
 
         event.setStatus(EventStatus.distributed);
@@ -110,7 +110,7 @@ public class EventService {
         // 更新持仓的累计已收分红
         if (savedEvent.getAmount().compareTo(BigDecimal.ZERO) > 0) {
             final BigDecimal distributeAmount = savedEvent.getAmount();
-            holdingRepository.findByIdAndDeletedFalse(savedEvent.getHoldingId())
+            holdingRepository.findByIdAndUserIdAndDeletedFalse(savedEvent.getHoldingId(), userId)
                     .ifPresent(holding -> {
                         holding.setTotalDividendReceived(
                                 holding.getTotalDividendReceived().add(distributeAmount));
@@ -133,9 +133,7 @@ public class EventService {
                                     price = nav;
                                     quantity = distributeAmount.divide(price, 4, RoundingMode.HALF_UP);
                                 } else {
-                                    // 无净值时用 1 元兜底（数量=金额）
-                                    price = BigDecimal.ONE;
-                                    quantity = distributeAmount;
+                                    throw new BusinessException(2006, "净值数据不可用，无法复投，请先刷新净值");
                                 }
 
                                 CreateTransactionReq reinvestReq = new CreateTransactionReq();
@@ -151,6 +149,7 @@ public class EventService {
                                         holding.getName(), distributeAmount, price, quantity);
                             } catch (Exception e) {
                                 log.error("分红复投失败: {}", e.getMessage());
+                                throw new RuntimeException("分红复投失败: " + e.getMessage(), e);
                             }
                         } else {
                             // 现金模式：分红到账，增加现金
@@ -165,7 +164,7 @@ public class EventService {
 
     @Transactional
     public CancelEventResp cancelEvent(String id, String userId) {
-        DividendEvent event = eventRepository.findById(id)
+        DividendEvent event = eventRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(BusinessException::eventNotFound);
 
         if (event.getStatus() == EventStatus.distributed) {
@@ -184,7 +183,7 @@ public class EventService {
 
     @Transactional
     public DividendEventDTO convertToReinvest(String id, String userId) {
-        DividendEvent event = eventRepository.findById(id)
+        DividendEvent event = eventRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(BusinessException::eventNotFound);
 
         if (event.getStatus() != EventStatus.distributed) {
@@ -198,7 +197,7 @@ public class EventService {
         }
 
         final BigDecimal amount = event.getAmount();
-        holdingRepository.findByIdAndDeletedFalse(event.getHoldingId())
+        holdingRepository.findByIdAndUserIdAndDeletedFalse(event.getHoldingId(), userId)
                 .ifPresent(holding -> {
                     // 扣除之前加到现金里的分红金额
                     manualAssetService.adjustCash(holding.getId(), amount.negate(), holding.getUserId());
@@ -220,8 +219,7 @@ public class EventService {
                             price = nav;
                             quantity = amount.divide(price, 4, RoundingMode.HALF_UP);
                         } else {
-                            price = BigDecimal.ONE;
-                            quantity = amount;
+                            throw new BusinessException(2006, "净值数据不可用，无法复投，请先刷新净值");
                         }
 
                         CreateTransactionReq reinvestReq = new CreateTransactionReq();

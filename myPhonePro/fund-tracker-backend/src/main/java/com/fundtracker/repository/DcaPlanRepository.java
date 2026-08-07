@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface DcaPlanRepository extends JpaRepository<DcaPlan, String> {
     List<DcaPlan> findByHoldingIdOrderByCreatedAtDesc(String holdingId);
@@ -17,4 +18,5 @@ public interface DcaPlanRepository extends JpaRepository<DcaPlan, String> {
     List<DcaPlan> findByStatusAndNextExecutionDateLessThanEqual(DcaPlanStatus status, LocalDate date);
 
     int deleteByHoldingId(String holdingId);
+    Optional<DcaPlan> findByIdAndUserId(String id, String userId);
 }

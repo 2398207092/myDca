@@ -33,6 +33,11 @@ public interface HoldingSnapshotRepository extends JpaRepository<HoldingSnapshot
     int deleteBySnapshotDateAndUserId(@org.springframework.data.repository.query.Param("date") LocalDate date,
                                       @org.springframework.data.repository.query.Param("userId") String userId);
 
+    // 删除某持仓的所有快照（级联删除持仓时调用）
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("DELETE FROM HoldingSnapshot h WHERE h.holdingId = :holdingId")
+    int deleteByHoldingId(@org.springframework.data.repository.query.Param("holdingId") String holdingId);
+
     // 查某日期之后的所有快照（用于总资产走势）
     List<HoldingSnapshot> findBySnapshotDateAfterOrderBySnapshotDateAsc(LocalDate date);
 

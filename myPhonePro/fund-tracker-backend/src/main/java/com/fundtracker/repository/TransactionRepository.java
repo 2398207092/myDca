@@ -23,4 +23,5 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
     Optional<LocalDate> findEarliestTransactionDateByHoldingId(String holdingId);
 
     int deleteByHoldingId(String holdingId);
+    Optional<Transaction> findByIdAndUserId(String id, String userId);
 }

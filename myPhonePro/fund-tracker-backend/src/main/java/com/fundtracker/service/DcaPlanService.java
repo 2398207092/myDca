@@ -69,7 +69,7 @@ public class DcaPlanService {
         List<DcaBudgetVO.PlanBudgetItem> items = new java.util.ArrayList<>();
 
         for (DcaPlan plan : activePlans) {
-            Holding holding = holdingRepository.findByIdAndDeletedFalse(plan.getHoldingId()).orElse(null);
+            Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(plan.getHoldingId(), userId).orElse(null);
             int executions = estimateExecutionsInMonth(plan, year, month, tradingDays);
             BigDecimal budget = plan.getAmount().multiply(BigDecimal.valueOf(executions));
             total = total.add(budget);
@@ -167,7 +167,7 @@ public class DcaPlanService {
 
     @Transactional
     public DcaPlanVO createPlan(CreateDcaPlanReq req, String userId) {
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(req.getHoldingId())
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(req.getHoldingId(), userId)
                 .orElseThrow(BusinessException::holdingNotFound);
 
         DcaFrequency frequency;
@@ -214,22 +214,22 @@ public class DcaPlanService {
         }
         return plans.stream()
                 .map(plan -> {
-                    Holding h = holdingRepository.findByIdAndDeletedFalse(plan.getHoldingId()).orElse(null);
+                    Holding h = holdingRepository.findByIdAndUserIdAndDeletedFalse(plan.getHoldingId(), userId).orElse(null);
                     return toVO(plan, h);
                 })
                 .collect(Collectors.toList());
     }
 
     public DcaPlanVO getPlan(String id, String userId) {
-        DcaPlan plan = dcaPlanRepository.findById(id)
+        DcaPlan plan = dcaPlanRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(BusinessException::planNotFound);
-        Holding h = holdingRepository.findByIdAndDeletedFalse(plan.getHoldingId()).orElse(null);
+        Holding h = holdingRepository.findByIdAndUserIdAndDeletedFalse(plan.getHoldingId(), userId).orElse(null);
         return toVO(plan, h);
     }
 
     @Transactional
     public DcaPlanVO updatePlan(String id, UpdateDcaPlanReq req, String userId) {
-        DcaPlan plan = dcaPlanRepository.findById(id)
+        DcaPlan plan = dcaPlanRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(BusinessException::planNotFound);
 
         if (req.getAmount() != null) {
@@ -267,13 +267,13 @@ public class DcaPlanService {
         }
 
         plan = dcaPlanRepository.save(plan);
-        Holding h = holdingRepository.findByIdAndDeletedFalse(plan.getHoldingId()).orElse(null);
+        Holding h = holdingRepository.findByIdAndUserIdAndDeletedFalse(plan.getHoldingId(), userId).orElse(null);
         return toVO(plan, h);
     }
 
     @Transactional
     public void deletePlan(String id, String userId) {
-        DcaPlan plan = dcaPlanRepository.findById(id)
+        DcaPlan plan = dcaPlanRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(BusinessException::planNotFound);
         // 物理删除计划，关联的 dca 交易保留
         dcaPlanRepository.delete(plan);
@@ -285,14 +285,14 @@ public class DcaPlanService {
      */
     @Transactional
     public DcaExecutionResultVO executePlan(String id, String userId) {
-        DcaPlan plan = dcaPlanRepository.findById(id)
+        DcaPlan plan = dcaPlanRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(BusinessException::planNotFound);
 
         if (!"active".equals(plan.getStatus().name())) {
             throw BusinessException.invalidParam("定投计划已暂停或终止，无法执行");
         }
 
-        Holding holding = holdingRepository.findByIdAndDeletedFalse(plan.getHoldingId())
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(plan.getHoldingId(), userId)
                 .orElseThrow(BusinessException::holdingNotFound);
 
         LocalDate today = LocalDate.now();
