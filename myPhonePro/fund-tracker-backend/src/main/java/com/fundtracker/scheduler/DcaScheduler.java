@@ -4,6 +4,7 @@ import com.fundtracker.model.entity.DcaPlan;
 import com.fundtracker.model.enums.DcaPlanStatus;
 import com.fundtracker.repository.DcaPlanRepository;
 import com.fundtracker.service.DcaPlanService;
+import com.fundtracker.service.HoldingService;
 import com.fundtracker.service.TradingCalendar;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +16,7 @@ import java.util.List;
 
 /**
  * 定投定时任务
- * 每天 20:00（北京时间）检查所有活跃定投计划，执行到期的计划
+ * 每天 20:00（北京时间）检查所有活跃定投计划，执行到期的计划，并联动刷新持仓指标
  */
 @Slf4j
 @Component
@@ -25,6 +26,7 @@ public class DcaScheduler {
     private final DcaPlanRepository dcaPlanRepository;
     private final DcaPlanService dcaPlanService;
     private final TradingCalendar tradingCalendar;
+    private final HoldingService holdingService;
 
     @Scheduled(cron = "0 0 20 * * ?")
     public void processDcaPlans() {
@@ -54,6 +56,13 @@ public class DcaScheduler {
                 dcaPlanService.executePlan(plan.getId(), plan.getUserId());
                 successCount++;
                 log.info("定投计划 {} 自动执行成功", plan.getId());
+
+                // 定投买入后，刷新该持仓的份额、市值、成本、分红预测等指标
+                try {
+                    holdingService.refreshSingleHolding(plan.getHoldingId());
+                } catch (Exception e) {
+                    log.error("定投后刷新持仓 {} 指标失败: {}", plan.getHoldingId(), e.getMessage());
+                }
             } catch (Exception e) {
                 failCount++;
                 log.error("定投计划 {} 自动执行失败: {}", plan.getId(), e.getMessage());

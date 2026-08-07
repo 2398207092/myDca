@@ -4,6 +4,7 @@ import com.fundtracker.model.entity.Holding;
 import com.fundtracker.repository.HoldingRepository;
 import com.fundtracker.service.DividendEventSyncService;
 import com.fundtracker.service.FundDividendScrapeService;
+import com.fundtracker.service.HoldingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -13,7 +14,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 定时任务：每天凌晨检查所有持仓的分红数据更新
+ * 定时任务：每天凌晨 6:00 检查所有持仓的分红数据更新，并联动刷新持仓指标
  */
 @Slf4j
 @Component
@@ -23,9 +24,10 @@ public class FundDividendScheduler {
     private final FundDividendScrapeService scrapeService;
     private final HoldingRepository holdingRepository;
     private final DividendEventSyncService dividendEventSyncService;
+    private final HoldingService holdingService;
 
     /**
-     * 每天早上 6:00 运行，扫描所有持仓并抓取最新分红数据
+     * 每天早上 6:00 运行，扫描所有持仓并抓取最新分红数据，抓完后刷新持仓指标
      * @return 新增记录数
      */
     @Scheduled(cron = "0 0 6 * * ?")
@@ -49,7 +51,13 @@ public class FundDividendScheduler {
 
             // 抓取完成后同步分红事件到日历（定时任务无 userId，传 null 由内部从持仓获取）
             int synced = dividendEventSyncService.syncAllEvents(null);
-            log.info("===== 定时刷新完成，新增 {} 条分红记录，同步 {} 条分红事件 =====", total, synced);
+            log.info("分红数据刷新完成，新增 {} 条记录，同步 {} 条事件", total, synced);
+
+            // 分红数据变化后，刷新所有持仓的预测分红、已收分红等指标
+            log.info("分红数据已更新，联动刷新持仓指标...");
+            holdingService.refreshAllHoldings();
+
+            log.info("===== 定时刷新完成 =====");
             return total;
 
         } catch (Exception e) {

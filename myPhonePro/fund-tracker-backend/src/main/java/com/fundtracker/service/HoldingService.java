@@ -546,6 +546,62 @@ public class HoldingService {
         return toDTO(holding);
     }
 
+    /**
+     * 全量刷新所有持仓：抓取最新净值 → 重算市值 → 重算分红预测 → 重算已收分红 → 重算所有指标
+     * 供定时任务（FundNavScheduler、FundDividendScheduler）调用，串行执行避免风控
+     */
+    public void refreshAllHoldings() {
+        List<Holding> holdings = holdingRepository.findByDeletedFalseOrderByMarketValueDesc();
+        if (holdings.isEmpty()) {
+            log.info("无持仓，跳过全量刷新");
+            return;
+        }
+        log.info("开始全量刷新 {} 个持仓的净值和指标", holdings.size());
+        int success = 0;
+        for (Holding holding : holdings) {
+            try {
+                refreshSingleHoldingInternal(holding);
+                success++;
+                // 持仓间短暂间隔，避免被东财风控
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            } catch (Exception e) {
+                log.error("刷新持仓 {}({}) 失败: {}", holding.getName(), holding.getCode(), e.getMessage());
+            }
+        }
+        log.info("全量刷新完成: 成功 {}/{}", success, holdings.size());
+    }
+
+    /**
+     * 刷新单个持仓：抓取最新净值 → 重算市值 → 重算分红预测 → 重算已收分红 → 重算所有指标
+     * 供 DcaScheduler 在定投执行后调用
+     */
+    public void refreshSingleHolding(String holdingId) {
+        Holding holding = holdingRepository.findByIdAndDeletedFalse(holdingId)
+                .orElseThrow(() -> new RuntimeException("持仓不存在: " + holdingId));
+        refreshSingleHoldingInternal(holding);
+    }
+
+    /**
+     * 内部刷新逻辑：净值刷新 → 分红预测 → 已收分红 → 指标重算 → 持久化
+     */
+    private void refreshSingleHoldingInternal(Holding holding) {
+        // 仅对基金/ETF 类型刷新净值
+        if (holding.getType() == HoldingType.fund || holding.getType() == HoldingType.ETF) {
+            refreshMarketValue(holding);
+        }
+        calculatePredictedDividend(holding);
+        calculateTotalDividendReceived(holding);
+        recalculateHoldingMetrics(holding);
+        holdingRepository.save(holding);
+        log.info("刷新持仓 {}({}) 完成: 市值={}, 预测分红={}, 已收分红={}",
+                holding.getName(), holding.getCode(),
+                holding.getMarketValue(), holding.getPredictedDividend(),
+                holding.getTotalDividendReceived());
+    }
+
     private HoldingDTO toDTO(Holding holding) {
         // 市值 = 份额 × 最新净值（计算值，不读缓存）
         BigDecimal marketValue;
