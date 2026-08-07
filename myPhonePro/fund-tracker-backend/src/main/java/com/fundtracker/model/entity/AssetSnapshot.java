@@ -13,7 +13,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "asset_snapshots")
+@Table(name = "asset_snapshots", uniqueConstraints = @UniqueConstraint(name = "uk_user_date", columnNames = {"user_id", "date"}))
 public class AssetSnapshot {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

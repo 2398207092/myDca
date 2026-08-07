@@ -145,11 +145,11 @@ public class AssetOverviewService {
     @Transactional
     public void snapshotToday(String userId) {
         LocalDate today = LocalDate.now();
-        // 先删除当天旧快照（覆盖模式）
-        assetSnapshotRepository.findByUserIdAndDate(userId, today).stream().findFirst().ifPresent(s -> {
-            assetSnapshotRepository.delete(s);
-            log.info("已删除今日旧快照");
-        });
+        // 批量删除当天旧快照（覆盖模式），避免残留多条导致前端图表重复累加
+        int deleted = assetSnapshotRepository.deleteByUserIdAndDate(userId, today);
+        if (deleted > 0) {
+            log.info("已删除今日旧快照 {} 条", deleted);
+        }
 
         AssetOverviewDTO overview = getOverview(userId);
 
