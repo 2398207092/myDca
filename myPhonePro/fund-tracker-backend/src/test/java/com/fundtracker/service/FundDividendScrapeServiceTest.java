@@ -131,6 +131,50 @@ class FundDividendScrapeServiceTest {
     }
 
     @Nested
+    @DisplayName("isValidExDate 除权日有效性过滤")
+    class IsValidExDate {
+
+        @Test
+        @DisplayName("null 除权日 → 无效")
+        void nullExDate() {
+            assertFalse(FundDividendScrapeService.isValidExDate(null, LocalDate.of(2020, 1, 1)));
+        }
+
+        @Test
+        @DisplayName("晚于今天的除权日 → 无效（未来异常数据）")
+        void futureExDate() {
+            assertFalse(FundDividendScrapeService.isValidExDate(LocalDate.now().plusDays(1), LocalDate.of(2020, 1, 1)));
+        }
+
+        @Test
+        @DisplayName("早于成立日期的除权日 → 无效（代码复用脏数据）")
+        void beforeEstablishDate() {
+            assertFalse(FundDividendScrapeService.isValidExDate(LocalDate.of(2019, 6, 15), LocalDate.of(2022, 11, 29)));
+        }
+
+        @Test
+        @DisplayName("成立日期之后的除权日 → 有效")
+        void afterEstablishDate() {
+            assertTrue(FundDividendScrapeService.isValidExDate(LocalDate.of(2023, 6, 15), LocalDate.of(2022, 11, 29)));
+        }
+
+        @Test
+        @DisplayName("恰好等于成立日期 → 有效")
+        void equalsEstablishDate() {
+            assertTrue(FundDividendScrapeService.isValidExDate(LocalDate.of(2022, 11, 29), LocalDate.of(2022, 11, 29)));
+        }
+
+        @Test
+        @DisplayName("成立日期为 null → 用兜底常量 2020-01-01 过滤")
+        void nullEstablishDate() {
+            // 早于兜底日期 → 无效
+            assertFalse(FundDividendScrapeService.isValidExDate(LocalDate.of(2019, 6, 15), null));
+            // 晚于兜底日期 → 有效
+            assertTrue(FundDividendScrapeService.isValidExDate(LocalDate.of(2021, 6, 15), null));
+        }
+    }
+
+    @Nested
     @DisplayName("getRecords 查询分红记录")
     class GetRecords {
 

@@ -68,7 +68,7 @@ class TransactionServiceTest {
         req.setPrice(new BigDecimal("10"));
         req.setFee(new BigDecimal("5"));
 
-        when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(i -> i.getArgument(0));
 
         transactionService.createTransaction(req, "user-1");
@@ -103,7 +103,7 @@ class TransactionServiceTest {
         req.setPrice(new BigDecimal("15"));
         req.setFee(new BigDecimal("10"));
 
-        when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(i -> i.getArgument(0));
 
         transactionService.createTransaction(req, "user-1");
@@ -129,7 +129,7 @@ class TransactionServiceTest {
         req.setQuantity(new BigDecimal("200"));
         req.setPrice(new BigDecimal("10"));
 
-        when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
 
         assertThrows(BusinessException.class, () -> transactionService.createTransaction(req, "user-1"));
 
@@ -156,8 +156,8 @@ class TransactionServiceTest {
                 .shares(new BigDecimal("900"))
                 .build();
 
-        when(transactionRepository.findById("tx-1")).thenReturn(Optional.of(tx));
-        when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
+        when(transactionRepository.findByIdAndUserId("tx-1", "user-1")).thenReturn(Optional.of(tx));
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
         doNothing().when(transactionRepository).delete(tx);
 
         transactionService.deleteTransaction("tx-1", "user-1");
@@ -185,8 +185,8 @@ class TransactionServiceTest {
                 .shares(new BigDecimal("1000"))
                 .build();
 
-        when(transactionRepository.findById("tx-1")).thenReturn(Optional.of(tx));
-        when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
+        when(transactionRepository.findByIdAndUserId("tx-1", "user-1")).thenReturn(Optional.of(tx));
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
         doNothing().when(transactionRepository).delete(tx);
 
         transactionService.deleteTransaction("tx-1", "user-1");

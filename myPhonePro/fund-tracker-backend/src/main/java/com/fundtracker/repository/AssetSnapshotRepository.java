@@ -18,6 +18,8 @@ public interface AssetSnapshotRepository extends JpaRepository<AssetSnapshot, St
     List<AssetSnapshot> findByUserIdAndDateAfterOrderByDateAsc(String userId, LocalDate date);
     List<AssetSnapshot> findByUserIdAndDate(String userId, LocalDate date);
     Optional<AssetSnapshot> findTopByUserIdOrderByDateDesc(String userId);
+    /** 查找不晚于指定日期的最新快照（用于周/月变化对比） */
+    Optional<AssetSnapshot> findTopByUserIdAndDateLessThanEqualOrderByDateDesc(String userId, LocalDate date);
 
     // 批量删除某用户某日的快照（覆盖模式），flushAutomatically=true 确保 DELETE 先于后续 INSERT 执行
     @Modifying(flushAutomatically = true, clearAutomatically = true)

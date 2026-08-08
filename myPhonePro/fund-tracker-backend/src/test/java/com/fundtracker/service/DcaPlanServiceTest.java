@@ -102,7 +102,7 @@ class DcaPlanServiceTest {
                     .build();
 
             when(dcaPlanRepository.findByUserId("user-1")).thenReturn(List.of(plan));
-            when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
             when(tradingCalendar.countTradingDaysInMonth(2026, 8, "china")).thenReturn(21);
 
             DcaBudgetVO result = dcaPlanService.calculateBudget(2026, 8, "user-1");
@@ -130,7 +130,7 @@ class DcaPlanServiceTest {
             req.setFrequency("weekly");
             req.setDay(1);
 
-            when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
             when(tradingCalendar.nextTradingDay(any(LocalDate.class), eq("china"))).thenAnswer(i -> i.getArgument(0));
             when(dcaPlanRepository.save(any(DcaPlan.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -149,7 +149,7 @@ class DcaPlanServiceTest {
             CreateDcaPlanReq req = new CreateDcaPlanReq();
             req.setHoldingId("h-404");
 
-            when(holdingRepository.findByIdAndDeletedFalse("h-404")).thenReturn(Optional.empty());
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-404", "user-1")).thenReturn(Optional.empty());
 
             assertThrows(BusinessException.class, () -> dcaPlanService.createPlan(req, "user-1"));
         }
@@ -163,7 +163,7 @@ class DcaPlanServiceTest {
             req.setAmount(new BigDecimal("500"));
             req.setFrequency("invalid_freq");
 
-            when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
 
             assertThrows(BusinessException.class, () -> dcaPlanService.createPlan(req, "user-1"));
         }
@@ -179,7 +179,7 @@ class DcaPlanServiceTest {
             DcaPlan plan = DcaPlan.builder().id("p-1").holdingId("h-1").frequency(DcaFrequency.monthly).status(DcaPlanStatus.active).build();
             when(dcaPlanRepository.findByHoldingIdAndUserIdOrderByCreatedAtDesc("h-1", "user-1"))
                     .thenReturn(List.of(plan));
-            when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.empty());
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.empty());
 
             List<DcaPlanVO> result = dcaPlanService.listPlans("h-1", "user-1");
 
@@ -206,8 +206,8 @@ class DcaPlanServiceTest {
         @DisplayName("计划存在 → 返回 VO")
         void planFound() {
             DcaPlan plan = DcaPlan.builder().id("p-1").holdingId("h-1").frequency(DcaFrequency.monthly).status(DcaPlanStatus.active).build();
-            when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
-            when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.empty());
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.empty());
 
             DcaPlanVO result = dcaPlanService.getPlan("p-1", "user-1");
 
@@ -217,7 +217,7 @@ class DcaPlanServiceTest {
         @Test
         @DisplayName("计划不存在 → 抛异常")
         void planNotFound() {
-            when(dcaPlanRepository.findById("p-404")).thenReturn(Optional.empty());
+            when(dcaPlanRepository.findByIdAndUserId("p-404", "user-1")).thenReturn(Optional.empty());
 
             assertThrows(BusinessException.class, () -> dcaPlanService.getPlan("p-404", "user-1"));
         }
@@ -234,9 +234,9 @@ class DcaPlanServiceTest {
             UpdateDcaPlanReq req = new UpdateDcaPlanReq();
             req.setAmount(new BigDecimal("1000"));
 
-            when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
             when(dcaPlanRepository.save(any(DcaPlan.class))).thenAnswer(i -> i.getArgument(0));
-            when(holdingRepository.findByIdAndDeletedFalse(any())).thenReturn(Optional.empty());
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse(any(), eq("user-1"))).thenReturn(Optional.empty());
 
             DcaPlanVO result = dcaPlanService.updatePlan("p-1", req, "user-1");
 
@@ -250,9 +250,9 @@ class DcaPlanServiceTest {
             UpdateDcaPlanReq req = new UpdateDcaPlanReq();
             req.setStatus("paused");
 
-            when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
             when(dcaPlanRepository.save(any(DcaPlan.class))).thenAnswer(i -> i.getArgument(0));
-            when(holdingRepository.findByIdAndDeletedFalse(any())).thenReturn(Optional.empty());
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse(any(), eq("user-1"))).thenReturn(Optional.empty());
 
             DcaPlanVO result = dcaPlanService.updatePlan("p-1", req, "user-1");
 
@@ -266,10 +266,10 @@ class DcaPlanServiceTest {
             UpdateDcaPlanReq req = new UpdateDcaPlanReq();
             req.setStatus("active");
 
-            when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
             when(tradingCalendar.nextTradingDay(any(LocalDate.class), eq("china"))).thenReturn(LocalDate.of(2026, 8, 3));
             when(dcaPlanRepository.save(any(DcaPlan.class))).thenAnswer(i -> i.getArgument(0));
-            when(holdingRepository.findByIdAndDeletedFalse(any())).thenReturn(Optional.empty());
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse(any(), eq("user-1"))).thenReturn(Optional.empty());
 
             DcaPlanVO result = dcaPlanService.updatePlan("p-1", req, "user-1");
 
@@ -284,9 +284,9 @@ class DcaPlanServiceTest {
             UpdateDcaPlanReq req = new UpdateDcaPlanReq();
             req.setStatus("ended");
 
-            when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
             when(dcaPlanRepository.save(any(DcaPlan.class))).thenAnswer(i -> i.getArgument(0));
-            when(holdingRepository.findByIdAndDeletedFalse(any())).thenReturn(Optional.empty());
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse(any(), eq("user-1"))).thenReturn(Optional.empty());
 
             DcaPlanVO result = dcaPlanService.updatePlan("p-1", req, "user-1");
 
@@ -297,7 +297,7 @@ class DcaPlanServiceTest {
         @Test
         @DisplayName("计划不存在 → 抛异常")
         void planNotFound() {
-            when(dcaPlanRepository.findById("p-404")).thenReturn(Optional.empty());
+            when(dcaPlanRepository.findByIdAndUserId("p-404", "user-1")).thenReturn(Optional.empty());
 
             assertThrows(BusinessException.class, () -> dcaPlanService.updatePlan("p-404", new UpdateDcaPlanReq(), "user-1"));
         }
@@ -311,7 +311,7 @@ class DcaPlanServiceTest {
         @DisplayName("删除成功")
         void success() {
             DcaPlan plan = DcaPlan.builder().id("p-1").build();
-            when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
             doNothing().when(dcaPlanRepository).delete(plan);
 
             dcaPlanService.deletePlan("p-1", "user-1");
@@ -322,7 +322,7 @@ class DcaPlanServiceTest {
         @Test
         @DisplayName("计划不存在 → 抛异常")
         void planNotFound() {
-            when(dcaPlanRepository.findById("p-404")).thenReturn(Optional.empty());
+            when(dcaPlanRepository.findByIdAndUserId("p-404", "user-1")).thenReturn(Optional.empty());
 
             assertThrows(BusinessException.class, () -> dcaPlanService.deletePlan("p-404", "user-1"));
         }
@@ -351,8 +351,8 @@ class DcaPlanServiceTest {
             TransactionDTO txDto = new TransactionDTO();
             txDto.setId("tx-1");
 
-            when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
-            when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
             when(fundNavScrapeService.getLatestNavBefore("000001", LocalDate.now())).thenReturn(nav);
             when(transactionService.createTransaction(any(CreateTransactionReq.class), eq("user-1"))).thenReturn(txDto);
             when(tradingCalendar.nextTradingDay(any(LocalDate.class), eq("china")))
@@ -378,7 +378,7 @@ class DcaPlanServiceTest {
         @DisplayName("计划已暂停 → 抛异常")
         void planPaused() {
             DcaPlan plan = DcaPlan.builder().id("p-1").status(DcaPlanStatus.paused).build();
-            when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
 
             assertThrows(BusinessException.class, () -> dcaPlanService.executePlan("p-1", "user-1"));
         }
@@ -387,7 +387,7 @@ class DcaPlanServiceTest {
         @DisplayName("计划已终止 → 抛异常")
         void planEnded() {
             DcaPlan plan = DcaPlan.builder().id("p-1").status(DcaPlanStatus.ended).build();
-            when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
 
             assertThrows(BusinessException.class, () -> dcaPlanService.executePlan("p-1", "user-1"));
         }
@@ -396,8 +396,8 @@ class DcaPlanServiceTest {
         @DisplayName("持仓不存在 → 抛异常")
         void holdingNotFound() {
             DcaPlan plan = DcaPlan.builder().id("p-1").holdingId("h-404").status(DcaPlanStatus.active).build();
-            when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
-            when(holdingRepository.findByIdAndDeletedFalse("h-404")).thenReturn(Optional.empty());
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-404", "user-1")).thenReturn(Optional.empty());
 
             assertThrows(BusinessException.class, () -> dcaPlanService.executePlan("p-1", "user-1"));
         }
@@ -407,8 +407,8 @@ class DcaPlanServiceTest {
         void noNavData() {
             Holding holding = Holding.builder().id("h-1").code("000001").type(HoldingType.fund).build();
             DcaPlan plan = DcaPlan.builder().id("p-1").holdingId("h-1").status(DcaPlanStatus.active).build();
-            when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
-            when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
             when(fundNavScrapeService.getLatestNavBefore("000001", LocalDate.now())).thenReturn(null);
 
             assertThrows(BusinessException.class, () -> dcaPlanService.executePlan("p-1", "user-1"));

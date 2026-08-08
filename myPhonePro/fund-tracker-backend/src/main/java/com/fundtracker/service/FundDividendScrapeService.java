@@ -9,17 +9,23 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 抓取天天基金 fhsp 页面的分红数据，存入本地数据库
@@ -33,9 +39,78 @@ public class FundDividendScrapeService {
     private final FundDividendRecordRepository recordRepository;
 
     private static final String FHSP_URL = "https://fundf10.eastmoney.com/fhsp_%s.html";
+    private static final String ESTAB_DATE_URL = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNBasicInformation?FCODE=%s&deviceid=Wap&plat=Wap&product=EFund&version=2.0.0";
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    // 拒绝明显不合理的历史分红日期（基金代码可能被复用，导致抓取到前一只基金的数据）
-    private static final LocalDate MIN_VALID_EX_DATE = LocalDate.of(2022, 1, 1);
+    private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+
+    /**
+     * 兜底过滤日期：仅当成立日期接口获取失败时使用（非配置项）。
+     * 正常情况一律按每个基金的实际成立日期过滤，防止基金代码被复用导致抓取到前一只基金的分红脏数据。
+     */
+    private static final LocalDate FALLBACK_MIN_EX_DATE = LocalDate.of(2020, 1, 1);
+
+    /** 基金成立日期内存缓存（成立日期是静态属性，抓取一次后永久缓存） */
+    private final Map<String, LocalDate> establishDateCache = new ConcurrentHashMap<>();
+
+    /** 外部 HTTP 抓取重试策略：最多 3 次，指数退避 500ms → 1s → 2s */
+    private static final RetryTemplate HTTP_RETRY = RetryTemplate.builder()
+            .maxAttempts(3)
+            .exponentialBackoff(500, 2, 5000)
+            .retryOn(IOException.class)
+            .build();
+
+    /**
+     * 抓取 fhsp 页面（带重试）
+     */
+    private Document fetchDocumentWithRetry(String url) {
+        try {
+            return HTTP_RETRY.execute(context -> Jsoup.connect(url)
+                    .userAgent(USER_AGENT)
+                    .timeout(10000)
+                    .get());
+        } catch (Exception e) {
+            log.warn("抓取分红页 {} 重试 3 次后仍失败: {}", url, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 获取基金成立日期（带内存缓存 + 重试）。
+     * 数据源：天天基金 FundMNBasicInformation 接口的 ESTABDATE 字段。
+     *
+     * @return 成立日期；获取失败返回 null
+     */
+    public LocalDate getEstablishDate(String fundCode) {
+        if (establishDateCache.containsKey(fundCode)) {
+            return establishDateCache.get(fundCode);
+        }
+        LocalDate establishDate = fetchEstablishDate(fundCode);
+        establishDateCache.put(fundCode, establishDate);
+        return establishDate;
+    }
+
+    private LocalDate fetchEstablishDate(String fundCode) {
+        String url = String.format(ESTAB_DATE_URL, fundCode);
+        try {
+            return HTTP_RETRY.execute(context -> {
+                String json = Jsoup.connect(url)
+                        .userAgent(USER_AGENT)
+                        .ignoreContentType(true)
+                        .timeout(10000)
+                        .execute()
+                        .body();
+                Pattern p = Pattern.compile("\"ESTABDATE\"\\s*:\\s*\"([0-9-]+)\"");
+                Matcher m = p.matcher(json);
+                if (m.find()) {
+                    return LocalDate.parse(m.group(1), DATE_FMT);
+                }
+                throw new IOException("ESTABDATE 字段未找到");
+            });
+        } catch (Exception e) {
+            log.warn("获取基金 {} 成立日期失败（重试耗尽）: {}", fundCode, e.getMessage());
+            return null;
+        }
+    }
 
     /**
      * 抓取指定基金的全部分红数据（增量更新）
@@ -44,6 +119,9 @@ public class FundDividendScrapeService {
     @Transactional
     public int scrapeAndSave(String fundCode) {
         try {
+            // 按基金实际成立日期过滤分红记录（防代码复用脏数据）
+            LocalDate establishDate = getEstablishDate(fundCode);
+
             // 分页抓取：部分老基金分红记录较多，页面会分页
             int saved = 0;
             int page = 1;
@@ -53,13 +131,14 @@ public class FundDividendScrapeService {
                 String url = String.format(FHSP_URL, fundCode) + (page > 1 ? "?page=" + page : "");
                 log.info("开始抓取分红数据: {} (第{}页)", url, page);
 
-                Document doc = Jsoup.connect(url)
-                        .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                        .timeout(10000)
-                        .get();
+                Document doc = fetchDocumentWithRetry(url);
+                if (doc == null) {
+                    log.warn("{} 分红页面抓取失败（重试耗尽）", url);
+                    break;
+                }
 
                 // 查找分红送配详情表格
-                List<FundDividendRecord> pageRecords = parseDividendTable(doc, fundCode);
+                List<FundDividendRecord> pageRecords = parseDividendTable(doc, fundCode, establishDate);
 
                 if (pageRecords.isEmpty()) {
                     // 当前页无数据 → 全部抓完
@@ -146,12 +225,13 @@ public class FundDividendScrapeService {
             String url = String.format(FHSP_URL, fundCode);
             log.info("临时抓取分红数据用于展示: {}", url);
 
-            Document doc = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                    .timeout(10000)
-                    .get();
+            Document doc = fetchDocumentWithRetry(url);
+            if (doc == null) {
+                log.warn("临时抓取 {} 分红页面失败（重试耗尽）", fundCode);
+                return noData(type);
+            }
 
-            List<FundDividendRecord> records = parseDividendTable(doc, fundCode);
+            List<FundDividendRecord> records = parseDividendTable(doc, fundCode, getEstablishDate(fundCode));
             if (records.isEmpty()) {
                 log.warn("临时抓取 {} 未找到分红数据", fundCode);
                 return noData(type);
@@ -356,9 +436,27 @@ public class FundDividendScrapeService {
     // ==================== HTML 解析 ====================
 
     /**
-     * 解析天天基金 fhsp 页面的分红送配详情表格
+     * 判断除权日是否有效（用于过滤代码复用导致的脏分红数据）：
+     * - 不能为 null，不能晚于今天（未来异常数据）
+     * - 不能早于基金成立日期（成立日期前的分红属于代码复用前的旧基金）
+     *
+     * @param exDate         分红除权日
+     * @param establishDate  基金成立日期（可能为 null，此时用兜底常量过滤）
      */
-    private List<FundDividendRecord> parseDividendTable(Document doc, String fundCode) {
+    static boolean isValidExDate(LocalDate exDate, LocalDate establishDate) {
+        if (exDate == null || exDate.isAfter(LocalDate.now())) {
+            return false;
+        }
+        LocalDate effectiveMinDate = establishDate != null ? establishDate : FALLBACK_MIN_EX_DATE;
+        return !exDate.isBefore(effectiveMinDate);
+    }
+
+    /**
+     * 解析天天基金 fhsp 页面的分红送配详情表格
+     *
+     * @param establishDate 基金成立日期（可能为 null，此时用兜底常量过滤）
+     */
+    private List<FundDividendRecord> parseDividendTable(Document doc, String fundCode, LocalDate establishDate) {
         List<FundDividendRecord> records = new ArrayList<>();
 
         // 查找分红详情的表格 — 包含"权益登记日"列的表格
@@ -395,7 +493,12 @@ public class FundDividendScrapeService {
                 BigDecimal perShare = parseBigDecimal(cellText);
                 LocalDate payDate = parseDate(cells.get(4).text());
 
-                if (exDate == null || exDate.isBefore(MIN_VALID_EX_DATE) || exDate.isAfter(LocalDate.now())) continue;
+                if (!isValidExDate(exDate, establishDate)) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("{} 跳过无效除权日: {} (成立日期: {})", fundCode, exDate, establishDate);
+                    }
+                    continue;
+                }
 
                 FundDividendRecord record = FundDividendRecord.builder()
                         .fundCode(fundCode)

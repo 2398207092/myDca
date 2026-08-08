@@ -60,9 +60,9 @@ class EventServiceTest {
                 .totalDividendReceived(BigDecimal.ZERO)
                 .build();
 
-        when(eventRepository.findById("evt-1")).thenReturn(Optional.of(event));
+        when(eventRepository.findByIdAndUserId("evt-1", "user-1")).thenReturn(Optional.of(event));
         when(eventRepository.save(any(DividendEvent.class))).thenAnswer(i -> i.getArgument(0));
-        when(holdingRepository.findByIdAndDeletedFalse("h-1")).thenReturn(Optional.of(holding));
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
 
         eventService.markDistributed("evt-1", "user-1");
 
@@ -86,7 +86,7 @@ class EventServiceTest {
                 .status(EventStatus.pending)
                 .build();
 
-        when(eventRepository.findById("evt-1")).thenReturn(Optional.of(event));
+        when(eventRepository.findByIdAndUserId("evt-1", "user-1")).thenReturn(Optional.of(event));
         when(eventRepository.save(any(DividendEvent.class))).thenAnswer(i -> i.getArgument(0));
 
         eventService.markDistributed("evt-1", "user-1");
@@ -103,7 +103,7 @@ class EventServiceTest {
                 .status(EventStatus.distributed)
                 .build();
 
-        when(eventRepository.findById("evt-1")).thenReturn(Optional.of(event));
+        when(eventRepository.findByIdAndUserId("evt-1", "user-1")).thenReturn(Optional.of(event));
 
         assertThrows(BusinessException.class, () -> eventService.cancelEvent("evt-1", "user-1"));
     }
@@ -116,7 +116,7 @@ class EventServiceTest {
                 .status(EventStatus.pending)
                 .build();
 
-        when(eventRepository.findById("evt-1")).thenReturn(Optional.of(event));
+        when(eventRepository.findByIdAndUserId("evt-1", "user-1")).thenReturn(Optional.of(event));
         when(eventRepository.save(any(DividendEvent.class))).thenAnswer(i -> i.getArgument(0));
 
         eventService.cancelEvent("evt-1", "user-1");

@@ -56,31 +56,34 @@ public class AssetOverviewService {
         BigDecimal totalValue = cashValue.add(cryptoValue).add(usStockValue)
                 .add(goldValue).add(dividendValue);
 
-        // 计算变化（对比最近快照）
+        // 计算变化：
+        //   weeklyChange  = 当前总资产 - 7 天前快照总资产
+        //   monthlyChange = 当前总资产 - 30 天前快照总资产
+        // 使用"不晚于目标日期的最新快照"，避免快照缺席时返回 0
         BigDecimal weeklyChange = BigDecimal.ZERO;
         BigDecimal weeklyChangePercent = BigDecimal.ZERO;
         BigDecimal monthlyChange = BigDecimal.ZERO;
         BigDecimal monthlyChangePercent = BigDecimal.ZERO;
 
-        Optional<AssetSnapshot> latestSnapshot = assetSnapshotRepository.findTopByUserIdOrderByDateDesc(userId);
-        if (latestSnapshot.isPresent()) {
-            BigDecimal prevTotal = latestSnapshot.get().getTotalValue();
-            if (prevTotal.compareTo(BigDecimal.ZERO) > 0) {
-                weeklyChange = totalValue.subtract(prevTotal);
+        Optional<AssetSnapshot> weekAgoSnapshot = assetSnapshotRepository
+                .findTopByUserIdAndDateLessThanEqualOrderByDateDesc(userId, LocalDate.now().minusDays(7));
+        if (weekAgoSnapshot.isPresent()) {
+            BigDecimal weekAgoTotal = weekAgoSnapshot.get().getTotalValue();
+            weeklyChange = totalValue.subtract(weekAgoTotal);
+            if (weekAgoTotal.compareTo(BigDecimal.ZERO) > 0) {
                 weeklyChangePercent = weeklyChange.multiply(BigDecimal.valueOf(100))
-                        .divide(prevTotal, 2, RoundingMode.HALF_UP);
+                        .divide(weekAgoTotal, 2, RoundingMode.HALF_UP);
+            }
+        }
 
-                // 查 7 天前的快照
-                LocalDate weekAgo = LocalDate.now().minusDays(7);
-                Optional<AssetSnapshot> weekAgoSnapshot = assetSnapshotRepository.findByUserIdAndDate(userId, weekAgo).stream().findFirst();
-                if (weekAgoSnapshot.isPresent()) {
-                    BigDecimal weekAgoTotal = weekAgoSnapshot.get().getTotalValue();
-                    monthlyChange = totalValue.subtract(weekAgoTotal);
-                    if (weekAgoTotal.compareTo(BigDecimal.ZERO) > 0) {
-                        monthlyChangePercent = monthlyChange.multiply(BigDecimal.valueOf(100))
-                                .divide(weekAgoTotal, 2, RoundingMode.HALF_UP);
-                    }
-                }
+        Optional<AssetSnapshot> monthAgoSnapshot = assetSnapshotRepository
+                .findTopByUserIdAndDateLessThanEqualOrderByDateDesc(userId, LocalDate.now().minusDays(30));
+        if (monthAgoSnapshot.isPresent()) {
+            BigDecimal monthAgoTotal = monthAgoSnapshot.get().getTotalValue();
+            monthlyChange = totalValue.subtract(monthAgoTotal);
+            if (monthAgoTotal.compareTo(BigDecimal.ZERO) > 0) {
+                monthlyChangePercent = monthlyChange.multiply(BigDecimal.valueOf(100))
+                        .divide(monthAgoTotal, 2, RoundingMode.HALF_UP);
             }
         }
 
