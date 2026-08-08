@@ -85,7 +85,10 @@ public class FundDividendScrapeService {
             return establishDateCache.get(fundCode);
         }
         LocalDate establishDate = fetchEstablishDate(fundCode);
-        establishDateCache.put(fundCode, establishDate);
+        // 注意：ConcurrentHashMap 不允许 null 值，抓取失败时不缓存（下次可重试）
+        if (establishDate != null) {
+            establishDateCache.put(fundCode, establishDate);
+        }
         return establishDate;
     }
 
@@ -93,8 +96,10 @@ public class FundDividendScrapeService {
         String url = String.format(ESTAB_DATE_URL, fundCode);
         try {
             return HTTP_RETRY.execute(context -> {
+                // 注意：该接口对浏览器 UA 返回反爬拦截（190字节"网络繁忙"），
+                // 必须用 curl/ UA 才能拿到真实数据（实测 curl/8.0 可正常返回）
                 String json = Jsoup.connect(url)
-                        .userAgent(USER_AGENT)
+                        .userAgent("curl/8.0")
                         .ignoreContentType(true)
                         .timeout(10000)
                         .execute()

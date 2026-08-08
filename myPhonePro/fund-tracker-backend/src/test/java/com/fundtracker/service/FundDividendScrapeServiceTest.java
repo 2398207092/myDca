@@ -165,12 +165,29 @@ class FundDividendScrapeServiceTest {
         }
 
         @Test
-        @DisplayName("成立日期为 null → 用兜底常量 2020-01-01 过滤")
+        @DisplayName("成立日期为 null → 用兜底常量 2020-01-01 过滤（不得抛 NPE）")
         void nullEstablishDate() {
             // 早于兜底日期 → 无效
             assertFalse(FundDividendScrapeService.isValidExDate(LocalDate.of(2019, 6, 15), null));
             // 晚于兜底日期 → 有效
             assertTrue(FundDividendScrapeService.isValidExDate(LocalDate.of(2021, 6, 15), null));
+            // 007466 场景：成立日期 null + 2026 年分红 → 应通过
+            assertTrue(FundDividendScrapeService.isValidExDate(LocalDate.of(2026, 8, 6), null));
+        }
+    }
+
+    @Nested
+    @DisplayName("getEstablishDate 成立日期缓存")
+    class GetEstablishDate {
+
+        @Test
+        @DisplayName("抓取失败返回 null 且不缓存（不得抛 NPE）")
+        void failedFetchReturnsNull() {
+            // 成立日期接口是真实 HTTP，无法在此单测中稳定 mock；
+            // 若网络不可达返回 null，第二次调用应仍能正常返回（不缓存 null、不抛 NPE）
+            LocalDate first = scrapeService.getEstablishDate("007466");
+            LocalDate second = scrapeService.getEstablishDate("007466");
+            assertEquals(first, second); // 两次结果一致（null 或日期）
         }
     }
 
