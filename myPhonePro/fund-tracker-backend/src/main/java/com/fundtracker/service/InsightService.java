@@ -142,21 +142,27 @@ public class InsightService {
     }
 
     public AnnualInsightResp getAnnualInsight(int year, String userId) {
+        // #4 N+1 优化：一次查全年事件，内存按月分组（替代原来 12 次循环查询）
+        LocalDate yearStart = LocalDate.of(year, 1, 1);
+        LocalDate yearEnd = LocalDate.of(year, 12, 31);
+        List<DividendEvent> yearAllEvents = eventRepository
+                .findByDateBetweenAndUserIdOrderByDate(yearStart, yearEnd, userId);
+
+        Map<Integer, BigDecimal> monthTotals = new HashMap<>();
+        for (DividendEvent e : yearAllEvents) {
+            if (e.getType() == EventType.payout) {
+                int month = e.getDate().getMonthValue();
+                monthTotals.merge(month, e.getAmount() != null ? e.getAmount() : BigDecimal.ZERO, BigDecimal::add);
+            }
+        }
+
         // 全年12个月的数据
         List<AnnualInsightResp.MonthBar> bars = new ArrayList<>();
         BigDecimal peakAmount = BigDecimal.ZERO;
         int peakMonth = 0;
 
         for (int m = 1; m <= 12; m++) {
-            LocalDate start = LocalDate.of(year, m, 1);
-            LocalDate end = start.plusMonths(1).minusDays(1);
-
-            BigDecimal monthAmount = eventRepository.findByDateBetweenAndUserIdOrderByDate(start, end, userId)
-                    .stream()
-                    .filter(e -> e.getType() == EventType.payout)
-                    .map(e -> e.getAmount() != null ? e.getAmount() : BigDecimal.ZERO)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
+            BigDecimal monthAmount = monthTotals.getOrDefault(m, BigDecimal.ZERO);
             bars.add(AnnualInsightResp.MonthBar.builder()
                     .month(m)
                     .amount(monthAmount)
@@ -176,11 +182,8 @@ public class InsightService {
                     .divide(finalPeak, 0, java.math.RoundingMode.HALF_UP).intValue());
         }
 
-        // 基金排名
-        LocalDate yearStart = LocalDate.of(year, 1, 1);
-        LocalDate yearEnd = LocalDate.of(year, 12, 31);
-        List<DividendEvent> yearEvents = eventRepository.findByDateBetweenAndUserIdOrderByDate(yearStart, yearEnd, userId)
-                .stream()
+        // 基金排名（复用已查询的 yearAllEvents）
+        List<DividendEvent> yearEvents = yearAllEvents.stream()
                 .filter(e -> e.getType() == EventType.payout)
                 .collect(Collectors.toList());
 

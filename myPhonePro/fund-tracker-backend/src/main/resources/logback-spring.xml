@@ -23,6 +23,24 @@
         <appender-ref ref="CONSOLE"/>
     </logger>
 
+    <!-- ==================== 监控日志文件 Appender ==================== -->
+    <appender name="MONITOR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/monitor/monitor.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/monitor/monitor.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <!-- 结构化：时间 | 级别 | 任务名 | 结果 | 耗时(ms) | 详情 -->
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%level] %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ==================== 监控日志 Logger ==================== -->
+    <logger name="com.fundtracker.monitor" level="INFO" additivity="false">
+        <appender-ref ref="MONITOR_FILE"/>
+    </logger>
+
     <!-- ==================== Root Logger ==================== -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>

@@ -2,13 +2,11 @@ package com.fundtracker.service;
 
 import com.fundtracker.model.entity.FundNavRecord;
 import com.fundtracker.repository.FundNavRecordRepository;
+import com.fundtracker.service.provider.NavDataProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
-import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -24,6 +22,7 @@ import java.util.regex.Pattern;
 /**
  * 基金历史净值爬取服务
  * 从天天基金 pingzhongdata/{code}.js 抓取净值数据
+ * 外部数据源逻辑已下沉到 NavDataProvider（#1 外部数据源层）
  */
 @Slf4j
 @Service
@@ -31,35 +30,14 @@ import java.util.regex.Pattern;
 public class FundNavScrapeService {
 
     private final FundNavRecordRepository navRecordRepository;
-
-    /** 天天基金净值数据接口（必须 HTTPS，防止中间人篡改） */
-    private static final String PINGZHONG_DATA_URL = "https://fund.eastmoney.com/pingzhongdata/%s.js";
-    private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
-
-    /** 外部 HTTP 抓取重试策略：最多 3 次，指数退避 500ms → 1s → 2s */
-    private static final RetryTemplate HTTP_RETRY = RetryTemplate.builder()
-            .maxAttempts(3)
-            .exponentialBackoff(500, 2, 5000)
-            .retryOn(IOException.class)
-            .build();
+    private final NavDataProvider navDataProvider;
 
     /**
-     * 抓取 pingzhongdata JS 内容（带重试）
+     * 抓取 pingzhongdata JS 原始内容（委托 provider，带重试）
      * 重试耗尽返回 null，由调用方决定是否降级到缓存
      */
     private String fetchPingZhongDataWithRetry(String fundCode, int timeoutMs) {
-        String url = String.format(PINGZHONG_DATA_URL, fundCode);
-        try {
-            return HTTP_RETRY.execute(context -> Jsoup.connect(url)
-                    .userAgent(USER_AGENT)
-                    .ignoreContentType(true)
-                    .timeout(timeoutMs)
-                    .execute()
-                    .body());
-        } catch (Exception e) {
-            log.warn("基金 {} 净值抓取重试 {} 次后仍失败: {}（可能为过期数据）", fundCode, 3, e.getMessage());
-            return null;
-        }
+        return navDataProvider.fetchRawJs(fundCode);
     }
 
     /**

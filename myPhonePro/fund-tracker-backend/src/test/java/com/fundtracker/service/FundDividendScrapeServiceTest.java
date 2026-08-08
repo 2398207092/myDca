@@ -30,7 +30,9 @@ class FundDividendScrapeServiceTest {
 
     @BeforeEach
     void setUp() {
-        scrapeService = new FundDividendScrapeService(recordRepository);
+        scrapeService = new FundDividendScrapeService(recordRepository,
+                new com.fundtracker.service.provider.EstablishDateProvider(new com.fundtracker.common.HttpClientWrapper()),
+                new com.fundtracker.service.provider.DividendTableProvider(new com.fundtracker.common.HttpClientWrapper()));
     }
 
     @Nested
@@ -137,42 +139,42 @@ class FundDividendScrapeServiceTest {
         @Test
         @DisplayName("null 除权日 → 无效")
         void nullExDate() {
-            assertFalse(FundDividendScrapeService.isValidExDate(null, LocalDate.of(2020, 1, 1)));
+            assertFalse(com.fundtracker.service.provider.DividendTableProvider.isValidExDate(null, LocalDate.of(2020, 1, 1)));
         }
 
         @Test
         @DisplayName("晚于今天的除权日 → 无效（未来异常数据）")
         void futureExDate() {
-            assertFalse(FundDividendScrapeService.isValidExDate(LocalDate.now().plusDays(1), LocalDate.of(2020, 1, 1)));
+            assertFalse(com.fundtracker.service.provider.DividendTableProvider.isValidExDate(LocalDate.now().plusDays(1), LocalDate.of(2020, 1, 1)));
         }
 
         @Test
         @DisplayName("早于成立日期的除权日 → 无效（代码复用脏数据）")
         void beforeEstablishDate() {
-            assertFalse(FundDividendScrapeService.isValidExDate(LocalDate.of(2019, 6, 15), LocalDate.of(2022, 11, 29)));
+            assertFalse(com.fundtracker.service.provider.DividendTableProvider.isValidExDate(LocalDate.of(2019, 6, 15), LocalDate.of(2022, 11, 29)));
         }
 
         @Test
         @DisplayName("成立日期之后的除权日 → 有效")
         void afterEstablishDate() {
-            assertTrue(FundDividendScrapeService.isValidExDate(LocalDate.of(2023, 6, 15), LocalDate.of(2022, 11, 29)));
+            assertTrue(com.fundtracker.service.provider.DividendTableProvider.isValidExDate(LocalDate.of(2023, 6, 15), LocalDate.of(2022, 11, 29)));
         }
 
         @Test
         @DisplayName("恰好等于成立日期 → 有效")
         void equalsEstablishDate() {
-            assertTrue(FundDividendScrapeService.isValidExDate(LocalDate.of(2022, 11, 29), LocalDate.of(2022, 11, 29)));
+            assertTrue(com.fundtracker.service.provider.DividendTableProvider.isValidExDate(LocalDate.of(2022, 11, 29), LocalDate.of(2022, 11, 29)));
         }
 
         @Test
         @DisplayName("成立日期为 null → 用兜底常量 2020-01-01 过滤（不得抛 NPE）")
         void nullEstablishDate() {
             // 早于兜底日期 → 无效
-            assertFalse(FundDividendScrapeService.isValidExDate(LocalDate.of(2019, 6, 15), null));
+            assertFalse(com.fundtracker.service.provider.DividendTableProvider.isValidExDate(LocalDate.of(2019, 6, 15), null));
             // 晚于兜底日期 → 有效
-            assertTrue(FundDividendScrapeService.isValidExDate(LocalDate.of(2021, 6, 15), null));
+            assertTrue(com.fundtracker.service.provider.DividendTableProvider.isValidExDate(LocalDate.of(2021, 6, 15), null));
             // 007466 场景：成立日期 null + 2026 年分红 → 应通过
-            assertTrue(FundDividendScrapeService.isValidExDate(LocalDate.of(2026, 8, 6), null));
+            assertTrue(com.fundtracker.service.provider.DividendTableProvider.isValidExDate(LocalDate.of(2026, 8, 6), null));
         }
     }
 

@@ -5,6 +5,7 @@ import com.fundtracker.repository.HoldingRepository;
 import com.fundtracker.service.DividendEventSyncService;
 import com.fundtracker.service.FundDividendScrapeService;
 import com.fundtracker.service.HoldingService;
+import com.fundtracker.service.MonitorLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,6 +26,7 @@ public class FundDividendScheduler {
     private final HoldingRepository holdingRepository;
     private final DividendEventSyncService dividendEventSyncService;
     private final HoldingService holdingService;
+    private final MonitorLogService monitorLogService;
 
     /**
      * 每天早上 6:00 运行，扫描所有持仓并抓取最新分红数据，抓完后刷新持仓指标
@@ -32,6 +34,7 @@ public class FundDividendScheduler {
      */
     @Scheduled(cron = "0 0 6 * * ?")
     public int refreshAllHoldingsDividendData() {
+        long startMs = System.currentTimeMillis();
         log.info("===== 开始定时刷新所有持仓分红数据 =====");
 
         try {
@@ -43,6 +46,7 @@ public class FundDividendScheduler {
 
             if (fundCodes.isEmpty()) {
                 log.info("无持仓，跳过定时分红抓取");
+                monitorLogService.record("分红数据刷新", true, System.currentTimeMillis() - startMs, "无持仓，跳过");
                 return 0;
             }
 
@@ -58,10 +62,14 @@ public class FundDividendScheduler {
             holdingService.refreshAllHoldings();
 
             log.info("===== 定时刷新完成 =====");
+            monitorLogService.record("分红数据刷新", true, System.currentTimeMillis() - startMs,
+                    String.format("刷新%d只基金,新增%d条,同步%d条事件", fundCodes.size(), total, synced));
             return total;
 
         } catch (Exception e) {
             log.error("定时刷新分红数据失败: {}", e.getMessage());
+            monitorLogService.record("分红数据刷新", false, System.currentTimeMillis() - startMs,
+                    "失败: " + e.getMessage());
             return 0;
         }
     }

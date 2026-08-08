@@ -41,7 +41,8 @@ class DataAuditorTest {
         dataAuditor = new DataAuditor(
                 holdingRepository, transactionRepository,
                 manualAssetRepository, dividendEventRepository,
-                fundDividendRecordRepository
+                fundDividendRecordRepository,
+                new com.fundtracker.service.MonitorLogService()
         );
         // 默认：无分红异常
         when(fundDividendRecordRepository.findDividendOutliers()).thenReturn(List.of());

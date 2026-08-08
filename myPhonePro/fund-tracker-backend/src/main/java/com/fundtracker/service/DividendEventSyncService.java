@@ -16,7 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -73,12 +76,20 @@ public class DividendEventSyncService {
             String effectiveUserId = userId != null ? userId : holding.getUserId();
             LocalDate firstBuyDate = transactionService.getFirstTransactionDate(holding.getId());
 
+            // #4 N+1 优化：预取该持仓全部事件到内存 Map（key = type + "|" + date），
+            // 替换循环内的 findByHoldingIdAndTypeAndDate 逐条查询
+            Map<String, List<DividendEvent>> existingByKey = new HashMap<>();
+            for (DividendEvent e : dividendEventRepository.findByHoldingIdOrderByDateDesc(holding.getId())) {
+                String key = e.getType() + "|" + (e.getDate() != null ? e.getDate() : "");
+                existingByKey.computeIfAbsent(key, k -> new ArrayList<>()).add(e);
+            }
+
             for (FundDividendRecord record : records) {
                 // 检查 payout 事件是否已被标记为"已复投"（防止 sync 时丢失 converted 状态）
                 boolean payoutWasConverted = false;
                 if (record.getPayDate() != null) {
-                    List<DividendEvent> existing = dividendEventRepository
-                            .findByHoldingIdAndTypeAndDate(holding.getId(), EventType.payout, record.getPayDate());
+                    List<DividendEvent> existing = existingByKey.getOrDefault(
+                            EventType.payout + "|" + record.getPayDate(), List.of());
                     for (DividendEvent e : existing) {
                         if (Boolean.TRUE.equals(e.getConverted())) {
                             payoutWasConverted = true;

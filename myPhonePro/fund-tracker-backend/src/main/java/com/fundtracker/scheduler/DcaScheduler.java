@@ -5,6 +5,7 @@ import com.fundtracker.model.enums.DcaPlanStatus;
 import com.fundtracker.repository.DcaPlanRepository;
 import com.fundtracker.service.DcaPlanService;
 import com.fundtracker.service.HoldingService;
+import com.fundtracker.service.MonitorLogService;
 import com.fundtracker.service.TradingCalendar;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,9 +28,11 @@ public class DcaScheduler {
     private final DcaPlanService dcaPlanService;
     private final TradingCalendar tradingCalendar;
     private final HoldingService holdingService;
+    private final MonitorLogService monitorLogService;
 
     @Scheduled(cron = "0 0 20 * * ?")
     public void processDcaPlans() {
+        long startMs = System.currentTimeMillis();
         LocalDate today = LocalDate.now();
         log.info("[定投定时任务] 开始执行, 日期={}", today);
 
@@ -39,6 +42,7 @@ public class DcaScheduler {
 
         if (duePlans.isEmpty()) {
             log.info("[定投定时任务] 无到期计划");
+            monitorLogService.record("定投执行", true, System.currentTimeMillis() - startMs, "无到期计划");
             return;
         }
 
@@ -70,5 +74,7 @@ public class DcaScheduler {
         }
 
         log.info("[定投定时任务] 执行完毕, 成功={}, 失败={}", successCount, failCount);
+        monitorLogService.record("定投执行", failCount == 0, System.currentTimeMillis() - startMs,
+                String.format("成功%d个,失败%d个", successCount, failCount));
     }
 }

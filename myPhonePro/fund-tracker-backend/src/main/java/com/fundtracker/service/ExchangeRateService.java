@@ -1,23 +1,17 @@
 package com.fundtracker.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fundtracker.exception.BusinessException;
 import com.fundtracker.model.dto.ExchangeRateDTO;
 import com.fundtracker.model.dto.RefreshExchangeRatesResp;
 import com.fundtracker.model.entity.ExchangeRate;
 import com.fundtracker.repository.ExchangeRateRepository;
+import com.fundtracker.service.provider.ExchangeRateProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -31,19 +25,10 @@ import java.util.stream.Collectors;
 public class ExchangeRateService {
 
     private final ExchangeRateRepository repository;
+    private final ExchangeRateProvider exchangeRateProvider;
 
     // 记录上次刷新时间
     private LocalDateTime lastRefreshTime = LocalDateTime.MIN;
-
-    // Frankfurter API（基于欧洲央行数据，免费，无需 API Key）
-    private static final String API_BASE = "https://api.frankfurter.app/latest";
-
-    private static final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(5))
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build();
-
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public List<ExchangeRateDTO> listAll() {
         List<ExchangeRate> rates = repository.findAll();
@@ -128,38 +113,7 @@ public class ExchangeRateService {
 
     private ExchangeRate fetchSinglePair(String from, String to, String label) {
         try {
-            String url = API_BASE + "?from=" + from + "&to=" + to;
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(5))
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() != 200) {
-                log.warn("汇率API返回非200状态: {} {}", from, response.statusCode());
-                return null;
-            }
-
-            JsonNode root = objectMapper.readTree(response.body());
-            JsonNode ratesNode = root.get("rates");
-
-            if (ratesNode == null || !ratesNode.has(to)) {
-                log.warn("汇率API响应中无目标货币: {}", response.body());
-                return null;
-            }
-
-            BigDecimal rate = new BigDecimal(ratesNode.get(to).asText());
-
-            return ExchangeRate.builder()
-                    .id(UUID.randomUUID().toString())
-                    .pair(from + "/" + to)
-                    .label(label)
-                    .rate(rate)
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-
+            return exchangeRateProvider.fetchSinglePair(from, to, label);
         } catch (Exception e) {
             log.warn("获取汇率 {}/{} 失败: {}", from, to, e.getMessage());
             return null;

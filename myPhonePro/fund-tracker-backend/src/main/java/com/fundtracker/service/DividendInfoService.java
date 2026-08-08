@@ -1,25 +1,20 @@
 package com.fundtracker.service;
 
+import com.fundtracker.common.HttpClientWrapper;
 import com.fundtracker.model.dto.DividendInfoDTO;
 import com.fundtracker.model.entity.FundDividendRecord;
 import com.fundtracker.repository.FundDividendRecordRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.HttpURLConnection;
-import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,18 +31,19 @@ public class DividendInfoService {
 
     private final FundDividendRecordRepository fundDividendRecordRepository;
     private final FundDividendScrapeService fundDividendScrapeService;
+    private final HttpClientWrapper httpClient;
 
-    /** 外部 HTTP 抓取重试策略：最多 3 次，指数退避 500ms → 1s → 2s */
-    private static final RetryTemplate HTTP_RETRY = RetryTemplate.builder()
-            .maxAttempts(3)
-            .exponentialBackoff(500, 2, 5000)
-            .retryOn(IOException.class)
-            .build();
+    /** pingzhongdata 净值 JS 接口 UA：HTML/JS 页面需浏览器 UA（与 fhsp 分红页一致） */
+    private static final Map<String, String> PINGZHONG_HEADERS = Map.of(
+            "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept", "*/*");
 
     public DividendInfoService(FundDividendRecordRepository fundDividendRecordRepository,
-                               FundDividendScrapeService fundDividendScrapeService) {
+                               FundDividendScrapeService fundDividendScrapeService,
+                               HttpClientWrapper httpClient) {
         this.fundDividendRecordRepository = fundDividendRecordRepository;
         this.fundDividendScrapeService = fundDividendScrapeService;
+        this.httpClient = httpClient;
     }
 
     public DividendInfoDTO getDividendInfo(String code, String type,
@@ -240,49 +236,19 @@ public class DividendInfoService {
 
     private String fetchPingZhongData(String code) {
         String urlStr = "https://fund.eastmoney.com/pingzhongdata/" + code + ".js";
-        try {
-            return HTTP_RETRY.execute(context -> {
-                log.info("DividendInfo: 开始获取 {}", urlStr);
-                URI uri = new URI(urlStr);
-                HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
-                conn.setRequestMethod("GET");
-                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-                conn.setRequestProperty("Accept", "*/*");
-                conn.setConnectTimeout(5000);
-                conn.setReadTimeout(8000);
-
-                int responseCode = conn.getResponseCode();
-                log.info("DividendInfo: HTTP响应码={}", responseCode);
-
-                if (responseCode != 200) {
-                    log.warn("DividendInfo: HTTP {} {}", responseCode, urlStr);
-                    throw new IOException("HTTP " + responseCode); // 触发重试
-                }
-
-                StringBuilder sb = new StringBuilder();
-                String charset = "UTF-8";
-                try (InputStream is = conn.getInputStream();
-                     BufferedReader reader = new BufferedReader(new InputStreamReader(is, charset))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line).append("\n");
-                    }
-                }
-
-                String result = sb.toString();
-                int len = result.length();
-                log.info("DividendInfo: 获取成功, {} chars", len);
-
-                if (len < 100) {
-                    log.warn("DividendInfo: 内容过短 {} chars", len);
-                    return null;
-                }
-                return result;
-            });
-        } catch (Exception e) {
-            log.warn("DividendInfo: 获取 {} 重试 3 次后仍失败 {}: {}", code, e.getClass().getSimpleName(), e.getMessage());
+        log.info("DividendInfo: 开始获取 {}", urlStr);
+        String result = httpClient.getText(urlStr, PINGZHONG_HEADERS);
+        if (result == null) {
+            log.warn("DividendInfo: 获取 {} 重试 3 次后仍失败", code);
             return null;
         }
+        int len = result.length();
+        log.info("DividendInfo: 获取成功, {} chars", len);
+        if (len < 100) {
+            log.warn("DividendInfo: 内容过短 {} chars, 响应={}", len, HttpClientWrapper.truncate(result, 200));
+            return null;
+        }
+        return result;
     }
 
     // ==================== 辅助方法 ====================

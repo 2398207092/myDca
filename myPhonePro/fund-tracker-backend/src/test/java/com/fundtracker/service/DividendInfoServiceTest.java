@@ -35,7 +35,8 @@ class DividendInfoServiceTest {
 
     @BeforeEach
     void setUp() {
-        dividendInfoService = new DividendInfoService(fundDividendRecordRepository, fundDividendScrapeService);
+        dividendInfoService = new DividendInfoService(
+                fundDividendRecordRepository, fundDividendScrapeService, new com.fundtracker.common.HttpClientWrapper());
     }
 
     @Nested

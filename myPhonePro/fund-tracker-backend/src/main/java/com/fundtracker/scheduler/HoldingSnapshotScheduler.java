@@ -1,5 +1,6 @@
 package com.fundtracker.scheduler;
 
+import com.fundtracker.service.MonitorLogService;
 import com.fundtracker.service.SnapshotGenerationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,15 +18,20 @@ import org.springframework.stereotype.Component;
 public class HoldingSnapshotScheduler {
 
     private final SnapshotGenerationService snapshotGenerationService;
+    private final MonitorLogService monitorLogService;
 
     @Scheduled(cron = "0 30 23 1/5 * ?")
     public void snapshotTask() {
+        long startMs = System.currentTimeMillis();
         log.info("开始执行持仓快照定时任务...");
         try {
             snapshotGenerationService.snapshotAllHoldings();
             log.info("持仓快照定时任务完成");
+            monitorLogService.record("持仓快照", true, System.currentTimeMillis() - startMs, "全部持仓快照生成完成");
         } catch (Exception e) {
             log.error("持仓快照定时任务执行失败", e);
+            monitorLogService.record("持仓快照", false, System.currentTimeMillis() - startMs,
+                    "失败: " + e.getMessage());
         }
     }
 }

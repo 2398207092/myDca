@@ -5,6 +5,7 @@ import com.fundtracker.model.enums.EventStatus;
 import com.fundtracker.model.enums.EventType;
 import com.fundtracker.repository.DividendEventRepository;
 import com.fundtracker.service.EventService;
+import com.fundtracker.service.MonitorLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -27,9 +28,11 @@ public class DividendAutoDistributeScheduler {
 
     private final DividendEventRepository eventRepository;
     private final EventService eventService;
+    private final MonitorLogService monitorLogService;
 
     @Scheduled(cron = "0 30 9 * * ?")
     public void autoDistributeDividends() {
+        long startMs = System.currentTimeMillis();
         LocalDate today = LocalDate.now();
         log.info("[分红自动分发] 开始检查, 日期={}", today);
 
@@ -44,6 +47,7 @@ public class DividendAutoDistributeScheduler {
 
         if (dueEvents.isEmpty()) {
             log.info("[分红自动分发] 无到期分红事件");
+            monitorLogService.record("分红自动分发", true, System.currentTimeMillis() - startMs, "无到期分红事件");
             return;
         }
 
@@ -64,5 +68,7 @@ public class DividendAutoDistributeScheduler {
         }
 
         log.info("[分红自动分发] 执行完毕, 成功={}, 失败={}", successCount, failCount);
+        monitorLogService.record("分红自动分发", failCount == 0, System.currentTimeMillis() - startMs,
+                String.format("成功%d个,失败%d个", successCount, failCount));
     }
 }

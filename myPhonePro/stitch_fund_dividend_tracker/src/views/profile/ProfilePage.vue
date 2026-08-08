@@ -12,6 +12,8 @@ import type { UserInfoResp } from '@/types/api'
 import PageStateView from '@/components/shared/PageState.vue'
 import { getAuditDates, getAuditContent } from '@/api/audit'
 import type { AuditContent } from '@/api/audit'
+import { getMonitorDates, getMonitorContent } from '@/api/monitor'
+import type { MonitorContent } from '@/api/monitor'
 import ToastNotification from '@/components/shared/ToastNotification.vue'
 import AppHeader from '@/components/shared/AppHeader.vue'
 
@@ -172,6 +174,37 @@ async function selectDate(date: string) {
     showAuditContent.value = true
   } catch (e) {
     console.error('获取审计内容失败:', e)
+  }
+}
+
+// ── Monitor Logs (每日监控日志) ──
+const showMonitorDatePicker = ref(false)
+const monitorDates = ref<string[]>([])
+const loadingMonitorDates = ref(false)
+const showMonitorContent = ref(false)
+const monitorContent = ref<MonitorContent | null>(null)
+
+async function openMonitorDatePicker() {
+  showMonitorDatePicker.value = true
+  if (monitorDates.value.length === 0) {
+    loadingMonitorDates.value = true
+    try {
+      monitorDates.value = await getMonitorDates()
+    } catch (e) {
+      console.error('获取监控日志日期列表失败:', e)
+    } finally {
+      loadingMonitorDates.value = false
+    }
+  }
+}
+
+async function selectMonitorDate(date: string) {
+  showMonitorDatePicker.value = false
+  try {
+    monitorContent.value = await getMonitorContent(date)
+    showMonitorContent.value = true
+  } catch (e) {
+    console.error('获取监控日志内容失败:', e)
   }
 }
 
@@ -428,6 +461,21 @@ onActivated(() => {
               <div>
                 <p class="font-body text-sm font-medium text-text-primary">数据审计报告</p>
                 <p class="font-body text-xs text-text-tertiary mt-0.5">查看每日自动对账结果</p>
+              </div>
+            </div>
+            <span class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform">chevron_right</span>
+          </div>
+
+          <!-- Daily Monitor Logs -->
+          <div
+            class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group active:scale-[0.99] active:transition-transform"
+            @click="openMonitorDatePicker"
+          >
+            <div class="flex items-center gap-md">
+              <span class="material-symbols-outlined text-brand">monitor_heart</span>
+              <div>
+                <p class="font-body text-sm font-medium text-text-primary">每日监控日志</p>
+                <p class="font-body text-xs text-text-tertiary mt-0.5">查看定时任务执行与系统运行日志</p>
               </div>
             </div>
             <span class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform">chevron_right</span>
@@ -762,6 +810,114 @@ onActivated(() => {
               <span v-if="auditContent.errorCount > 0 && auditContent.warningCount > 0">，</span>
               <span v-if="auditContent.warningCount > 0" class="text-gold font-medium">{{ auditContent.warningCount }} 个警告</span>
               <span v-if="auditContent.errorCount === 0 && auditContent.warningCount === 0" class="text-pos font-medium">全部正常</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+    <!-- ==================== Monitor: Date Picker Modal ==================== -->
+    <Teleport to="body">
+      <div
+        v-if="showMonitorDatePicker"
+        class="fixed inset-0 z-modal flex items-end justify-center bg-black/40"
+        @click.self="showMonitorDatePicker = false"
+      >
+        <div class="bg-card-bg rounded-t-2xl w-full max-w-lg px-gutter pt-lg pb-8 animate-slide-up max-h-[70vh] flex flex-col">
+          <div class="flex items-center justify-between mb-md shrink-0">
+            <h3 class="font-body text-base font-medium text-text-primary">选择日期</h3>
+            <button
+              class="w-8 h-8 flex items-center justify-center text-text-tertiary hover:bg-card-alt rounded-lg transition-colors"
+              @click="showMonitorDatePicker = false"
+            >
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          <div v-if="loadingMonitorDates" class="flex items-center justify-center py-12">
+            <span class="material-symbols-outlined text-brand animate-spin text-3xl">refresh</span>
+          </div>
+          <div v-else-if="monitorDates.length === 0" class="text-center py-12">
+            <span class="material-symbols-outlined text-text-tertiary text-4xl mb-3">monitor_heart</span>
+            <p class="font-body text-sm text-text-tertiary">暂无监控日志</p>
+            <p class="font-body text-xs text-text-tertiary mt-1 opacity-60">定时任务执行后会自动记录</p>
+          </div>
+          <div v-else class="overflow-y-auto flex-1 -mx-gutter px-gutter space-y-1">
+            <div
+              v-for="date in monitorDates"
+              :key="date"
+              class="flex items-center justify-between p-md rounded-xl hover:bg-card-alt cursor-pointer transition-colors active:scale-[0.98] active:transition-transform"
+              @click="selectMonitorDate(date)"
+            >
+              <div class="flex items-center gap-md">
+                <span class="material-symbols-outlined text-brand text-xl">monitor_heart</span>
+                <span class="font-body text-sm text-text-primary">{{ date }}</span>
+              </div>
+              <span class="material-symbols-outlined text-text-tertiary text-xl">chevron_right</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ==================== Monitor: Content Modal ==================== -->
+    <Teleport to="body">
+      <div
+        v-if="showMonitorContent && monitorContent"
+        class="fixed inset-0 z-modal flex items-end justify-center bg-black/40"
+        @click.self="showMonitorContent = false"
+      >
+        <div class="bg-card-bg rounded-t-2xl w-full max-w-lg px-gutter pt-lg pb-8 animate-slide-up max-h-[80vh] flex flex-col">
+          <div class="flex items-center justify-between mb-md shrink-0">
+            <div class="flex items-center gap-sm">
+              <span class="material-symbols-outlined text-brand">monitor_heart</span>
+              <h3 class="font-body text-base font-medium text-text-primary">每日监控日志</h3>
+            </div>
+            <button
+              class="w-8 h-8 flex items-center justify-center text-text-tertiary hover:bg-card-alt rounded-lg transition-colors"
+              @click="showMonitorContent = false"
+            >
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          <div class="text-center mb-md shrink-0">
+            <p class="font-display text-lg font-semibold text-text-primary">{{ monitorContent.date }}</p>
+          </div>
+          <div
+            class="rounded-xl p-md mb-md shrink-0"
+            :class="monitorContent.failCount > 0
+              ? 'bg-neg-soft border border-neg/30'
+              : 'bg-pos-soft border border-pos/30'"
+          >
+            <p
+              class="font-body text-sm font-medium text-center"
+              :class="monitorContent.failCount > 0 ? 'text-neg-strong' : 'text-pos-strong'"
+            >{{ monitorContent.summary }}</p>
+          </div>
+          <div v-if="monitorContent.entries.length > 0" class="overflow-y-auto flex-1 -mx-gutter px-gutter space-y-2">
+            <div
+              v-for="(entry, i) in monitorContent.entries"
+              :key="i"
+              class="flex items-start gap-sm p-md rounded-xl"
+              :class="entry.success ? 'bg-card-alt' : 'bg-neg-soft/50'"
+            >
+              <span v-if="entry.success" class="material-symbols-outlined text-pos text-lg shrink-0 mt-0.5">check_circle</span>
+              <span v-else class="material-symbols-outlined text-neg text-lg shrink-0 mt-0.5">error</span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-sm mb-0.5">
+                  <p class="font-body text-sm font-medium" :class="entry.success ? 'text-text-primary' : 'text-neg-strong'">
+                    {{ entry.taskName }}
+                  </p>
+                  <span class="font-body text-[11px] text-text-tertiary shrink-0">{{ (entry.durationMs / 1000).toFixed(1) }}s</span>
+                </div>
+                <p class="font-body text-xs leading-relaxed break-all" :class="entry.success ? 'text-text-secondary' : 'text-neg-strong'">
+                  {{ entry.detail }}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="mt-md pt-md border-t border-border-light shrink-0">
+            <p class="font-body text-xs text-text-tertiary text-center">
+              共 <span class="font-medium text-text-primary">{{ monitorContent.totalCount }}</span> 条记录
+              <span v-if="monitorContent.failCount > 0" class="text-neg font-medium"> · {{ monitorContent.failCount }} 条异常</span>
             </p>
           </div>
         </div>

@@ -98,6 +98,12 @@
             <artifactId>spring-aspects</artifactId>
         </dependency>
 
+        <!-- Actuator - 运行监控（健康检查/指标） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
         <!-- Spring Security Crypto (BCrypt) -->
         <dependency>
             <groupId>org.springframework.security</groupId>

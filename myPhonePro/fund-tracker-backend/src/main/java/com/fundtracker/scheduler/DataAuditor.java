@@ -33,9 +33,11 @@ public class DataAuditor {
     private final ManualAssetRepository manualAssetRepository;
     private final DividendEventRepository dividendEventRepository;
     private final FundDividendRecordRepository fundDividendRecordRepository;
+    private final com.fundtracker.service.MonitorLogService monitorLogService;
 
     @Scheduled(cron = "0 0 3 * * ?")
     public void auditAll() {
+        long startMs = System.currentTimeMillis();
         log.info("===== 开始数据对账 =====");
 
         List<String> errors = new ArrayList<>();
@@ -45,6 +47,7 @@ public class DataAuditor {
         List<String> userIds = holdingRepository.findDistinctUserIdsByDeletedFalse();
         if (userIds.isEmpty()) {
             log.info("无用户数据，跳过对账");
+            monitorLogService.record("数据对账审计", true, System.currentTimeMillis() - startMs, "无用户数据，跳过");
             return;
         }
 
@@ -73,6 +76,10 @@ public class DataAuditor {
             log.info("✅ 对账完成，未发现异常");
         }
         log.info("===== 数据对账完成，错误={}, 警告={} =====", errors.size(), warnings.size());
+
+        boolean success = errors.isEmpty();
+        monitorLogService.record("数据对账审计", success, System.currentTimeMillis() - startMs,
+                String.format("错误%d个,警告%d个", errors.size(), warnings.size()));
     }
 
     // ==================== P0: 数据一致性 ====================

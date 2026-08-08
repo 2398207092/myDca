@@ -44,3 +44,13 @@ springdoc:
 app:
   auth:
     token: ${APP_AUTH_TOKEN:CHANGE_ME}  # 生产环境必须通过环境变量注入随机 Token
+
+# Actuator 运行监控（安全：只暴露 health/info，不暴露 env/metrics 等敏感端点）
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never  # 不显示数据库连接等明细，避免泄露内部信息

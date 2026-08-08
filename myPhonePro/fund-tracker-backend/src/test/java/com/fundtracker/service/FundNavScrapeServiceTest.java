@@ -30,7 +30,8 @@ class FundNavScrapeServiceTest {
 
     @BeforeEach
     void setUp() {
-        navScrapeService = new FundNavScrapeService(navRecordRepository);
+        navScrapeService = new FundNavScrapeService(navRecordRepository,
+                new com.fundtracker.service.provider.NavDataProvider(new com.fundtracker.common.HttpClientWrapper()));
     }
 
     @Nested
