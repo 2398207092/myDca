@@ -15,8 +15,7 @@
 | 第三期 | #13 #14 #15 #16 #17 | ⏳ 待启动 | — | — |
 | 第四期 | #18 #19 #20 #21 #22 | ⏳ 待启动 | — | — |
 
-> 第一期验证：本地快速回归清单 7 项全部通过（首页加载/持仓详情市值净值/交易更新/删除级联/发现页总资产/5年预测动态年份/后端日志无异常），详见 `phase1-test-plan.md`。
-> 第二期验证：`mvn clean compile` 通过；**全量测试 104 个用例全部通过（0 失败）**。含：存量测试债修复（TransactionServiceTest/EventServiceTest/DcaPlanServiceTest 的 mock 对齐第一期 userId 改造）+ 本次改动新增测试（DividendInfoServiceTest 数据源统一、AssetOverviewServiceTest 周月口径、FundNavScrapeServiceTest 缓存回退、FundDividendScrapeServiceTest 成立日期过滤）。
+> 第一期验证：本地快速回归清单 7 项全部通过（首页加载/持仓详情市值净值/交易更新/删除级联/发现页总资产/5年预测动态年份/后端日志无异常）。第三、第四期内容已被架构优化 3→1→2→4 替代（2026-08-08），详见 commit 10a9190。
 
 ---
 

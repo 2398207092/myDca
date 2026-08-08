@@ -94,6 +94,21 @@ npm run dev
 - ✅ 数据审计器（每日自动对账）
 - ✅ 修复 6 个核心 Bug（股息率异常、市值计算、数据抓取等）
 
+## 快速启动
+
+```bash
+# 后端
+cd myPhonePro/fund-tracker-backend && mvn spring-boot:run
+
+# 前端
+cd myPhonePro/stitch_fund_dividend_tracker && npm run dev
+# → http://localhost:5173
+```
+
+文档：main docs in `docs/` (优化进度 → docs/optimization/plan.md, 参考 → docs/reference/)
+
+*种树最好的时间是十年前，其次是现在。*
+
 ---
 
 *种树最好的时间是十年前，其次是现在。*
