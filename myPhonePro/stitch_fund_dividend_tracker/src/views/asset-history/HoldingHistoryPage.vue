@@ -277,6 +277,13 @@ async function loadData() {
   }
 }
 
+// 监听路由参数变化（同一路由不同 id 时 Vue 复用组件不会重建）
+watch(holdingId, () => {
+  if (pageState.value === 'ready' || pageState.value === 'error') {
+    loadData()
+  }
+})
+
 function selectRange(r: HistoryRange) {
   range.value = r
   loadData()
