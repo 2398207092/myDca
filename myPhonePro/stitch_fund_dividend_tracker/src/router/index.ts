@@ -97,6 +97,12 @@ const router = createRouter({
       meta: { level: 2 },
     },
     {
+      path: '/asset-history/holding/:id',
+      name: 'holding-history',
+      component: () => import('@/views/asset-history/HoldingHistoryPage.vue'),
+      meta: { level: 2 },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/home/HomePage.vue'),
