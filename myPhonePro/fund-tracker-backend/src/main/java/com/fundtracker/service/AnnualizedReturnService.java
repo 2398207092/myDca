@@ -108,10 +108,12 @@ public class AnnualizedReturnService {
 
         // 构建现金流序列：buy=流出(负)，sell=流入(正)，reinvest=净0，bonus_share=0
         // 终值 = 当前市值（最后一笔正现金流）
+        // 时间权重采用"持有期相对比例"(0~1)，使 irr 为持有期收益率，
+        // 再经 (1+irr)^(365/holdingDays) 换算成年化，避免双重年化导致短期持仓虚高到几百%
         List<Double> cashflows = new ArrayList<>();
         List<Double> timeWeights = new ArrayList<>();
         for (Transaction t : txList) {
-            double tYears = ChronoUnit.DAYS.between(firstDate, t.getDate()) / 365.0;
+            double tWeight = (double) ChronoUnit.DAYS.between(firstDate, t.getDate()) / holdingDays;
             double cf;
             switch (t.getType()) {
                 case buy:
@@ -130,16 +132,16 @@ public class AnnualizedReturnService {
                     break;
             }
             cashflows.add(cf);
-            timeWeights.add(tYears);
+            timeWeights.add(tWeight);
         }
-        // 加入终值（当前市值作为最后一笔正现金流，时间权重=持有年限）
+        // 加入终值（当前市值作为最后一笔正现金流，持有期结束权重=1）
         cashflows.add(currentValue.doubleValue());
-        timeWeights.add(holdingDays / 365.0);
+        timeWeights.add(1.0);
 
         double irr = calculateIRR(cashflows.stream().mapToDouble(Double::doubleValue).toArray(),
                 timeWeights.stream().mapToDouble(Double::doubleValue).toArray());
 
-        // IRR 未收敛（无解或现金流结构异常）→ 返回 null
+        // IRR 未收敛（无解或现金流结构异常）→ 返回 null，标记为结果异常
         if (Double.isNaN(irr)) {
             return AnnualizedReturnDTO.builder()
                     .holdingId(holdingId)
@@ -150,12 +152,14 @@ public class AnnualizedReturnService {
                     .holdingDays(holdingDays)
                     .firstTransactionDate(firstDate)
                     .irr(null)
+                    .status("abnormal")
                     .build();
         }
 
         // 年化收益率 = (1 + irr)^(365/holdingDays) - 1
         double annualized = Math.pow(1 + irr, 365.0 / holdingDays) - 1;
-        // 合理性保护：年化超出 [-95%, 1000%] 视为异常（如短期负收益被指数放大到 -100%）
+        // 合理性保护：年化超出 [-95%, 1000%] 视为异常（如短期负收益被指数放大到 -100%），
+        // 属"结果异常"而非"数据不足"，前端应据此给出准确提示
         if (annualized < -0.95 || annualized > 10.0) {
             return AnnualizedReturnDTO.builder()
                     .holdingId(holdingId)
@@ -166,6 +170,7 @@ public class AnnualizedReturnService {
                     .holdingDays(holdingDays)
                     .firstTransactionDate(firstDate)
                     .irr(null)
+                    .status("abnormal")
                     .build();
         }
         BigDecimal annualizedPct = BigDecimal.valueOf(annualized * 100).setScale(2, RoundingMode.HALF_UP);
@@ -180,6 +185,7 @@ public class AnnualizedReturnService {
                 .holdingDays(holdingDays)
                 .firstTransactionDate(firstDate)
                 .irr(irrBd)
+                .status("ok")
                 .build();
     }
 

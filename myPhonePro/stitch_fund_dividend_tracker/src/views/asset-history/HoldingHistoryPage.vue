@@ -441,7 +441,11 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
           </div>
         </div>
         <div v-else class="py-4 text-center">
-          <p class="text-xs text-text-tertiary">数据不足，无法计算年化收益率</p>
+          <p class="text-xs text-text-tertiary">
+            {{ annualized.status === 'abnormal'
+              ? '收益波动异常或暂不可信，未计算年化收益率'
+              : '数据不足，暂无法计算年化收益率' }}
+          </p>
         </div>
       </section>
 

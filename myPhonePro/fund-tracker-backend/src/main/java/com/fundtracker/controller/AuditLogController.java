@@ -1,6 +1,8 @@
 package com.fundtracker.controller;
 
 import com.fundtracker.model.dto.ApiResponse;
+import com.fundtracker.service.AdminAccessService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +23,8 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class AuditLogController {
 
+    private final AdminAccessService adminAccessService;
+
     /** 审计日志目录 */
     private static final String AUDIT_LOG_DIR = "logs/audit";
 
@@ -38,7 +42,9 @@ public class AuditLogController {
      * 获取有审计日志的日期列表
      */
     @GetMapping("/dates")
-    public ApiResponse<List<String>> getAvailableDates() {
+    public ApiResponse<List<String>> getAvailableDates(HttpServletRequest request) {
+        adminAccessService.check((String) request.getAttribute("userId"));
+
         File dir = new File(AUDIT_LOG_DIR);
         if (!dir.exists() || !dir.isDirectory()) {
             return ApiResponse.success(List.of());
@@ -73,7 +79,9 @@ public class AuditLogController {
      * 获取指定日期的审计日志内容（结构化）
      */
     @GetMapping("/content")
-    public ApiResponse<AuditContent> getAuditContent(@RequestParam String date) {
+    public ApiResponse<AuditContent> getAuditContent(@RequestParam String date, HttpServletRequest request) {
+        adminAccessService.check((String) request.getAttribute("userId"));
+
         // 校验日期格式
         if (!date.matches("\\d{4}-\\d{2}-\\d{2}")) {
             return ApiResponse.error(400, "日期格式错误，应为 YYYY-MM-DD");

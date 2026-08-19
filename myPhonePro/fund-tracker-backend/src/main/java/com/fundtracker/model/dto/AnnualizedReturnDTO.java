@@ -29,4 +29,10 @@ public class AnnualizedReturnDTO {
     private LocalDate firstTransactionDate;
     /** IRR 原始值（未年化），无法计算时为 null */
     private BigDecimal irr;
+    /**
+     * 计算状态：ok=正常 / insufficient=数据不足 / abnormal=结果异常（超出合理区间或未收敛）。
+     * 默认 insufficient，服务仅在明确情况下写 ok / abnormal。
+     */
+    @Builder.Default
+    private String status = "insufficient";
 }

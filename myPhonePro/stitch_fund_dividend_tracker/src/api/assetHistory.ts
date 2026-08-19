@@ -73,6 +73,8 @@ export interface AnnualizedReturn {
   holdingDays: number
   firstTransactionDate: string
   irr: number | null
+  /** ok=正常 / insufficient=数据不足 / abnormal=结果异常 */
+  status?: string
 }
 
 export type HistoryRange = 'month' | 'quarter' | 'all'

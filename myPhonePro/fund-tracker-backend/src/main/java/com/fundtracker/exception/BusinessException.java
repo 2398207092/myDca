@@ -59,4 +59,9 @@ public class BusinessException extends RuntimeException {
     public static BusinessException bizError(String message) {
         return new BusinessException(7001, message);
     }
+
+    /** 无权限访问（管理接口 / 越权操作） */
+    public static BusinessException forbidden(String message) {
+        return new BusinessException(403, message);
+    }
 }

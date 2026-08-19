@@ -16,9 +16,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
@@ -41,6 +44,19 @@ public class AuthService {
     private static final int DAILY_MAX_SEND = 5;
     /** Token 有效期（天） */
     private static final int TOKEN_EXPIRE_DAYS = 30;
+    /** 密码登录失败最大次数 */
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
+    /** 超过最大次数后的锁定时长（分钟） */
+    private static final long LOCK_MINUTES = 15;
+
+    /** 密码登录失败计数（内存，email → 尝试记录） */
+    private final Map<String, LoginAttempt> loginAttempts = new ConcurrentHashMap<>();
+
+    /** 密码登录失败尝试记录 */
+    private static class LoginAttempt {
+        int count;
+        LocalDateTime lockUntil;
+    }
 
     // ======================================================================
     // 应用级 Token（兼容旧版）
@@ -154,6 +170,14 @@ public class AuthService {
             throw BusinessException.invalidParam("邮箱和密码不能为空");
         }
 
+        // 安全加固（2026-08）：密码登录限流，防暴力破解
+        // 同一邮箱连续失败 5 次后锁定 15 分钟
+        LoginAttempt attempt = loginAttempts.get(email);
+        if (attempt != null && attempt.lockUntil != null && attempt.lockUntil.isAfter(LocalDateTime.now())) {
+            long minutes = Duration.between(LocalDateTime.now(), attempt.lockUntil).toMinutes() + 1;
+            throw BusinessException.bizError("登录失败次数过多，请 " + minutes + " 分钟后再试");
+        }
+
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> BusinessException.bizError("该邮箱未注册，请先注册"));
 
@@ -162,8 +186,19 @@ public class AuthService {
         }
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            // 密码错误：递增失败计数
+            LoginAttempt a = loginAttempts.computeIfAbsent(email, k -> new LoginAttempt());
+            a.count++;
+            if (a.count >= MAX_LOGIN_ATTEMPTS) {
+                a.lockUntil = LocalDateTime.now().plusMinutes(LOCK_MINUTES);
+                a.count = 0;
+                log.warn("账号 {} 密码连续失败 {} 次，锁定 {} 分钟", email, MAX_LOGIN_ATTEMPTS, LOCK_MINUTES);
+            }
             throw BusinessException.bizError("密码错误");
         }
+
+        // 登录成功：清除失败记录
+        loginAttempts.remove(email);
 
         String tokenValue = generateUserToken(user);
 

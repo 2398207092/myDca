@@ -1,6 +1,8 @@
 package com.fundtracker.controller;
 
 import com.fundtracker.model.dto.ApiResponse;
+import com.fundtracker.service.AdminAccessService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
@@ -19,6 +21,8 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class DbBackupController {
 
+    private final AdminAccessService adminAccessService;
+
     @Value("${spring.datasource.username}")
     private String dbUser;
 
@@ -26,7 +30,10 @@ public class DbBackupController {
     private String dbPassword;
 
     @GetMapping("/db/backup")
-    public ResponseEntity<?> backupDatabase() {
+    public ResponseEntity<?> backupDatabase(HttpServletRequest request) {
+        // 安全加固（2026-08）：仅允许管理员访问，应用级 Token（userId=null）或非管理员一律拒绝
+        adminAccessService.check((String) request.getAttribute("userId"));
+
         LocalDate today = LocalDate.now();
         String dateStr = today.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         String filename = "fund_tracker_" + dateStr + ".sql.gz";

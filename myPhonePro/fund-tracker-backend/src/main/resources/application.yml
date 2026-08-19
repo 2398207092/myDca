@@ -44,6 +44,10 @@ springdoc:
 app:
   auth:
     token: ${APP_AUTH_TOKEN:CHANGE_ME}  # 生产环境必须通过环境变量注入随机 Token
+  # 管理员邮箱（用于备份/审计日志/监控日志等系统级接口的访问控制）
+  # 未配置或保持 CHANGE_ME 时，这些接口默认全部拒绝访问，安全开箱
+  admin:
+    email: ${APP_ADMIN_EMAIL:CHANGE_ME}
 
 # Actuator 运行监控（安全：只暴露 health/info，不暴露 env/metrics 等敏感端点）
 management:

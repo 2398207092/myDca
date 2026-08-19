@@ -41,10 +41,9 @@ public class AuthInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        // /api/funds/* 无需认证（基金数据刷新接口）
-        if (path.startsWith("/api/funds/")) {
-            return true;
-        }
+        // 安全加固（2026-08）：移除 /api/funds/* 放行白名单。
+        // 原白名单导致未认证用户可触发全用户爬虫、删除分红记录，
+        // 前端所有请求均已统一携带 Bearer Token，此处收紧为必须认证。
 
         // 从 Header 中获取 Token
         String authHeader = request.getHeader("Authorization");
