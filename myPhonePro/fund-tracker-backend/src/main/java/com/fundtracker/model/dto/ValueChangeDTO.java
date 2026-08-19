@@ -40,5 +40,7 @@ public class ValueChangeDTO {
         private BigDecimal percent;
         private BigDecimal currentValue;
         private BigDecimal pastValue;
+        /** 计算口径：fund=基金真实收益 / manual=手动资产余额差 / nav=无流水按净值估算 */
+        private String basis;
     }
 }

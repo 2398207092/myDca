@@ -1134,19 +1134,27 @@ async function doDelete() {
                   {{ formatPercent(valueChange.periods[detailTab].percent) }}
                 </span>
               </div>
+              <p class="font-body text-[10px] text-text-tertiary/50 mt-2 leading-relaxed">
+                基金为扣减本金的真实收益；现金 / 数字货币为余额变动（含转入转出，非纯收益）。
+              </p>
             </div>
 
             <!-- Holding list -->
             <div v-if="valueChange.periods[detailTab].details.length" class="space-y-1">
               <div v-for="d in valueChange.periods[detailTab].details" :key="d.holdingId"
                    class="flex items-center justify-between py-2 px-2 rounded-lg cursor-pointer hover:bg-card-alt transition-colors"
-                   @click="router.push(`/holding/${d.holdingId}`)">
+                   @click="d.holdingId && !d.holdingId.startsWith('manual:') && router.push(`/holding/${d.holdingId}`)">
                 <div class="flex items-center gap-2 min-w-0 flex-1">
                   <span class="material-symbols-outlined text-[16px] shrink-0"
                         :class="(d.change ?? 0) >= 0 ? 'text-brand' : 'text-error'">
                     {{ (d.change ?? 0) >= 0 ? 'trending_up' : 'trending_down' }}
                   </span>
                   <span class="font-body text-xs text-text-primary truncate">{{ d.name }}</span>
+                  <span v-if="d.basis && d.basis !== 'fund'"
+                        class="font-body text-[10px] text-text-tertiary/50 shrink-0 border border-border-light/60 rounded px-1 py-px"
+                        :title="d.basis === 'nav' ? '该持仓无资金流水，按净值估算涨跌' : '余额变动：含转入 / 转出，非纯收益'">
+                    {{ d.basis === 'nav' ? '估算' : '余额' }}
+                  </span>
                 </div>
                 <div class="flex items-center gap-3 shrink-0 ml-2">
                   <span class="font-body text-xs" :class="(d.change ?? 0) >= 0 ? 'text-brand' : 'text-error'">
