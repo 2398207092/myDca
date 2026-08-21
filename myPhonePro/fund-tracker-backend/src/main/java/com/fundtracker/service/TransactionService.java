@@ -122,11 +122,13 @@ public class TransactionService {
             manualAssetService.adjustCash(holding.getId(), total, userId);
         }
 
-        // 刷新最新净值，更新市值
+        // 刷新最新净值，更新市值 —— 本地优先：交易时不再调用外部净值 API
+        // 净值仅在每日定时任务（FundNavScheduler 22:00）喂入 fund_nav_records，
+        // 这里直接读取本地表；仅当本地无任何净值时才触发一次外部抓取（冷启动兜底）
         try {
-            FundNavScrapeService.LatestNavResult navResult = fundNavScrapeService.incrementalUpdate(holding.getCode());
+            FundNavScrapeService.LatestNavResult navResult = fundNavScrapeService.getLatestNavFromDb(holding.getCode());
             if (navResult == null) {
-                navResult = fundNavScrapeService.getLatestNavFromDb(holding.getCode());
+                navResult = fundNavScrapeService.incrementalUpdate(holding.getCode());
             }
             if (navResult != null && navResult.unitNav() != null) {
                 BigDecimal newMarketValue = holding.getShares()

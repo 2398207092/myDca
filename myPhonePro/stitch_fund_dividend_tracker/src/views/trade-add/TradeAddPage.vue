@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createTransaction } from '@/api/transaction'
-import { listHoldings } from '@/api/holding'
-import type { HoldingItem } from '@/api/holding'
+import { listHoldings, getNavByDate } from '@/api/holding'
+import type { HoldingItem, NavByDateResult } from '@/api/holding'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,6 +21,11 @@ const date = ref(new Date().toISOString().split('T')[0])
 const quantity = ref(0)
 const price = ref(0)
 const fee = ref(0)
+
+// Buy auto-calc: 金额 → 自动算手续费/份额
+const buyAmount = ref(0)
+const navResult = ref<NavByDateResult | null>(null)
+const navState = ref<'idle' | 'loading' | 'found' | 'notfound' | 'error'>('idle')
 
 // Labels that change based on type
 const qtyLabel = ref('买入数量')
@@ -41,7 +46,9 @@ const pricePlaceholder = computed(() => {
 // Estimated impact (shares + total amount)
 const estimatedImpact = computed(() => {
   const qty = quantity.value || 0
-  const total = price.value || 0
+  const unit = price.value || 0
+  const feeVal = fee.value || 0
+  const total = qty * unit + feeVal
   const sign = transactionType.value === 'buy' || transactionType.value === 'bonus_share' || transactionType.value === 'reinvest' ? '+' : '-'
   const totalStr = total.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return `${sign}${qty.toLocaleString()} 份 / ¥${totalStr}`
@@ -58,13 +65,65 @@ const holdingItem = computed(() =>
   holdings.value.find(h => h.id === selectedHoldingId.value)
 )
 
+// 该持仓买入费率（后端返回百分数值，如 0.15 表示 0.15%）
+const currentBuyFeeRate = computed(() => holdingItem.value?.buyFeeRate ?? 0.15)
+
+// 按选中日期拉取本地净值，并基于买入金额自动计算手续费与份额
+async function fetchNav() {
+  if (transactionType.value !== 'buy') {
+    navState.value = 'idle'
+    navResult.value = null
+    return
+  }
+  const h = holdingItem.value
+  if (!h || !date.value || !h.code) return
+  navState.value = 'loading'
+  try {
+    const r = await getNavByDate(h.code, date.value)
+    if (r && r.unitNav && r.unitNav > 0) {
+      navState.value = 'found'
+      navResult.value = r
+      price.value = r.unitNav
+      applyBuyAutoCalc()
+    } else {
+      navState.value = 'notfound'
+      navResult.value = null
+    }
+  } catch (e) {
+    navState.value = 'error'
+    navResult.value = null
+  }
+}
+
+function applyBuyAutoCalc() {
+  if (transactionType.value !== 'buy') return
+  const nav = navResult.value?.unitNav
+  const amount = buyAmount.value || 0
+  const rate = currentBuyFeeRate.value
+  if (nav && nav > 0 && amount > 0) {
+    const feeVal = amount * rate / 100
+    const shares = (amount - feeVal) / nav
+    fee.value = Number(feeVal.toFixed(2))
+    quantity.value = Number(shares.toFixed(4))
+    price.value = nav
+  }
+}
+
+// 标的、日期或交易类型变化时重新拉净值
+watch([selectedHoldingId, date, transactionType], () => {
+  buyAmount.value = 0
+  fetchNav()
+})
+// 买入金额变化时自动算手续费与份额（后续仍可手动修改）
+watch(buyAmount, () => applyBuyAutoCalc())
+
 function setType(type: 'buy' | 'sell' | 'bonus_share' | 'reinvest') {
   transactionType.value = type
 
   switch (type) {
     case 'buy':
       qtyLabel.value = '买入数量'
-      priceLabel.value = '买入金额 (总价)'
+      priceLabel.value = '买入单价'
       dateLabel.value = '交易日期'
       qtySuffix.value = '份'
       priceSuffix.value = 'CNY'
@@ -142,9 +201,9 @@ async function handleSubmit() {
     return
   }
 
-  // 计算每份单价 = 总金额 / 数量（仅买入/卖出使用总价模式）
+  // 计算提交单价：卖出仍用"总价 → 单价"；买入已直接使用当日净值单价，不再折算
   let perSharePrice = price.value
-  if ((transactionType.value === 'buy' || transactionType.value === 'sell') && quantity.value > 0) {
+  if (transactionType.value === 'sell' && quantity.value > 0) {
     perSharePrice = price.value / quantity.value
   }
 
@@ -208,6 +267,18 @@ async function handleSubmit() {
 
       <!-- Form Card -->
       <section class="bg-card-bg rounded-xl card-shadow border border-border-light/40 p-lg space-y-md">
+        <!-- Holding Selector -->
+        <div class="group">
+          <label class="block font-body text-xs text-text-tertiary mb-1 ml-1">标的</label>
+          <div class="relative">
+            <select v-model="selectedHoldingId"
+                    class="w-full bg-card-alt border-none rounded-lg px-md py-3 font-body text-sm text-text-primary focus:ring-2 focus:ring-brand outline-none transition-all appearance-none pr-md">
+              <option v-for="h in holdings" :key="h.id" :value="h.id">{{ h.name }}（{{ h.code }}）</option>
+            </select>
+            <span class="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-text-tertiary">expand_more</span>
+          </div>
+        </div>
+
         <!-- Transaction Date -->
         <div class="group">
           <label class="block font-body text-xs text-text-tertiary mb-1 ml-1">{{ dateLabel }}</label>
@@ -219,6 +290,39 @@ async function handleSubmit() {
               placeholder="选择日期"
             />
             <span class="material-symbols-outlined absolute right-md pointer-events-none text-text-tertiary">calendar_month</span>
+          </div>
+        </div>
+
+        <!-- Buy-only: 当日净值状态 -->
+        <div v-if="transactionType === 'buy'"
+             class="flex items-center gap-2 px-md py-2 rounded-lg text-xs font-body"
+             :class="navState === 'found' ? 'bg-brand-light/60 text-brand' : navState === 'loading' ? 'bg-card-alt text-text-secondary' : navState === 'notfound' || navState === 'error' ? 'bg-error/10 text-error' : 'bg-card-alt text-text-tertiary'">
+          <span class="material-symbols-outlined text-[14px]">
+            {{ navState === 'loading' ? 'progress_activity' : navState === 'found' ? 'check_circle' : navState === 'notfound' ? 'search_off' : navState === 'error' ? 'error' : 'query_stats' }}
+          </span>
+          <span v-if="navState === 'loading'">正在读取 {{ navState === 'loading' ? '当日净值' : '' }}...</span>
+          <span v-else-if="navState === 'notfound'">该日期暂无净值记录，请手动填写单价与数量</span>
+          <span v-else-if="navState === 'error'">净值读取失败，请手动填写</span>
+          <span v-else-if="navState === 'found' && navResult">
+            当日净值 ¥{{ navResult.unitNav.toFixed(4) }}（{{ navResult.navDate }}）
+            <span class="ml-1 opacity-70">费率 {{ currentBuyFeeRate }}%</span>
+          </span>
+          <span v-else>选择日期后自动读取本地净值</span>
+        </div>
+
+        <!-- Buy-only: 买入金额（自动算手续费/份额） -->
+        <div v-if="transactionType === 'buy'" class="group">
+          <label class="block font-body text-xs text-text-tertiary mb-1 ml-1">买入金额</label>
+          <div class="relative">
+            <input
+              v-model.number="buyAmount"
+              class="w-full bg-card-alt border-none rounded-lg px-md py-3 font-body text-sm text-text-primary focus:ring-2 focus:ring-brand outline-none transition-all"
+              placeholder="输入金额后自动计算手续费与份额"
+              type="number"
+              step="any"
+              min="0"
+            />
+            <span class="absolute right-md top-1/2 -translate-y-1/2 font-body text-xs text-text-tertiary">CNY</span>
           </div>
         </div>
 

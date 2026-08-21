@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -119,8 +120,19 @@ public class MonitorLogService {
         }
 
         try {
-            List<String> lines = Files.readAllLines(filePath, StandardCharsets.UTF_8);
+            // 优先按 UTF-8 解码；兼容历史 GBK 日志（Windows 下旧文件可能为 GBK 编码）
+            List<String> lines;
+            try {
+                lines = Files.readAllLines(filePath, StandardCharsets.UTF_8);
+            } catch (java.nio.charset.MalformedInputException e) {
+                lines = Files.readAllLines(filePath, Charset.forName("GBK"));
+            }
             for (String line : lines) {
+                // 提取行首时间戳 "yyyy-MM-dd HH:mm:ss"
+                String timestamp = "";
+                if (line.length() >= 19 && line.charAt(4) == '-' && line.charAt(7) == '-') {
+                    timestamp = line.substring(0, 19);
+                }
                 // 去掉 logback 前缀 "2026-08-08 19:00:00 [INFO] " 或 "[ERROR] "
                 String stripped = stripLogPrefix(line);
                 Matcher m = LOG_PATTERN.matcher(stripped);
@@ -134,7 +146,7 @@ public class MonitorLogService {
                 boolean success = "SUCCESS".equals(result);
                 if (success) successCount++; else failCount++;
 
-                entries.add(new MonitorLogEntry(taskName, success, durationMs, detail));
+                entries.add(new MonitorLogEntry(taskName, success, durationMs, detail, timestamp));
             }
         } catch (IOException e) {
             log.warn("读取监控日志失败: {}", e.getMessage());
@@ -142,6 +154,28 @@ public class MonitorLogService {
         }
 
         return new MonitorLogContent(date, entries.size(), failCount, buildSummary(successCount, failCount), entries);
+    }
+
+    /**
+     * 获取最近 N 天内指定任务名的最近一次执行记录（无则返回 null）。
+     * 供"定时任务"页面展示各任务最近状态。
+     */
+    public MonitorLogEntry getRecentEntryByTask(String taskName, int days) {
+        List<String> dates = getAvailableDates().stream().limit(days).toList();
+        // 日期列表为倒序（最新在前），在每天内取该任务最后一条（文件按时间正序）
+        for (String date : dates) {
+            MonitorLogContent content = getContent(date);
+            MonitorLogEntry last = null;
+            for (MonitorLogEntry e : content.entries()) {
+                if (taskName.equals(e.taskName())) {
+                    last = e;
+                }
+            }
+            if (last != null) {
+                return last;
+            }
+        }
+        return null;
     }
 
     private String stripLogPrefix(String line) {
@@ -165,7 +199,7 @@ public class MonitorLogService {
 
     // ==================== DTO ====================
 
-    public record MonitorLogEntry(String taskName, boolean success, long durationMs, String detail) {}
+    public record MonitorLogEntry(String taskName, boolean success, long durationMs, String detail, String timestamp) {}
 
     public record MonitorLogContent(
             String date, int totalCount, int failCount, String summary, List<MonitorLogEntry> entries) {

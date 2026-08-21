@@ -103,6 +103,12 @@ const router = createRouter({
       meta: { level: 2 },
     },
     {
+      path: '/scheduler',
+      name: 'scheduler',
+      component: () => import('@/views/scheduler/SchedulerPage.vue'),
+      meta: { level: 2 },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/home/HomePage.vue'),

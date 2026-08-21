@@ -3,6 +3,7 @@ package com.fundtracker.controller;
 import com.fundtracker.model.dto.*;
 import com.fundtracker.service.DividendInfoService;
 import com.fundtracker.service.ForecastService;
+import com.fundtracker.service.FundNavScrapeService;
 import com.fundtracker.service.FundSearchService;
 import com.fundtracker.service.HoldingService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -21,6 +23,7 @@ public class HoldingController {
     private final ForecastService forecastService;
     private final FundSearchService fundSearchService;
     private final DividendInfoService dividendInfoService;
+    private final FundNavScrapeService fundNavScrapeService;
 
     @GetMapping
     public ApiResponse<List<HoldingDTO>> listHoldings(
@@ -29,6 +32,16 @@ public class HoldingController {
             @RequestParam(required = false) String keyword) {
         String userId = (String) request.getAttribute("userId");
         return ApiResponse.success(holdingService.listHoldings(userId, type, keyword));
+    }
+
+    @GetMapping("/nav")
+    public ApiResponse<FundNavScrapeService.LatestNavResult> getNavByDate(
+            @RequestParam String code,
+            @RequestParam(value = "date", required = false) String date) {
+        // 仅读取本地 fund_nav_records：外部净值 API 只在每日定时任务（22:00）喂表
+        LocalDate d = (date != null && !date.isBlank()) ? LocalDate.parse(date) : LocalDate.now();
+        FundNavScrapeService.LatestNavResult result = fundNavScrapeService.getLatestNavBefore(code, d);
+        return ApiResponse.success(result);
     }
 
     @GetMapping("/{id}")

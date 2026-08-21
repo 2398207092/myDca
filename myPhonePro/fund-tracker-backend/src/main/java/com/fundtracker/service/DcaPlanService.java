@@ -304,8 +304,15 @@ public class DcaPlanService {
             throw BusinessException.invalidParam("无法获取基金 " + fundCode + " 的净值数据，请确认净值已更新");
         }
 
-        // 计算份额 = 金额 / 净值
-        BigDecimal quantity = plan.getAmount()
+        // 手续费 = 定投金额 × 持仓买入费率%，净额用于申购份额
+        BigDecimal amount = plan.getAmount();
+        BigDecimal feeRate = holding.getBuyFeeRate() != null ? holding.getBuyFeeRate() : new BigDecimal("0.15");
+        BigDecimal fee = amount.multiply(feeRate)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        BigDecimal netPrincipal = amount.subtract(fee).max(BigDecimal.ZERO);
+
+        // 计算份额 = 净额 / 净值
+        BigDecimal quantity = netPrincipal
                 .divide(nav.unitNav(), 4, RoundingMode.HALF_UP);
 
         // 使用 TransactionService 创建买入交易
@@ -315,7 +322,7 @@ public class DcaPlanService {
         txReq.setDate(today.toString());
         txReq.setQuantity(quantity);
         txReq.setPrice(nav.unitNav());
-        txReq.setFee(BigDecimal.ZERO);
+        txReq.setFee(fee);
         txReq.setSource("dca");
         txReq.setDcaPlanId(id);
 

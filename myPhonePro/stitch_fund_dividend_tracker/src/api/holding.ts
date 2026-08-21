@@ -23,6 +23,8 @@ export interface HoldingItem {
   color: string
   assetCategory?: string
   dividendReinvest?: boolean
+  buyFeeRate?: number
+  sellFeeRate?: number
 }
 
 export interface CreateHoldingReq {
@@ -33,6 +35,8 @@ export interface CreateHoldingReq {
   shares: number
   cost: number
   assetCategory?: string
+  buyFeeRate?: number
+  sellFeeRate?: number
 }
 
 export interface HoldingSearchResult {
@@ -50,6 +54,8 @@ export interface UpdateHoldingReq {
   shares?: number
   costPerShare?: number
   assetCategory?: string
+  buyFeeRate?: number
+  sellFeeRate?: number
 }
 
 export interface ForecastPoint {
@@ -100,6 +106,17 @@ export interface DividendInfo {
 
 export async function getDividendInfo(code: string, type?: string, method?: string, horizon?: string): Promise<DividendInfo> {
   return get<DividendInfo>('/holdings/dividend-info', { code, type, method, horizon })
+}
+
+export interface NavByDateResult {
+  unitNav: number
+  navDate: string
+  newRecordCount: number
+}
+
+/** 按日期查询本地基金净值（当日之前最近一条；仅读本地 fund_nav_records，不触发外部 API） */
+export async function getNavByDate(code: string, date?: string): Promise<NavByDateResult | null> {
+  return get<NavByDateResult | null>('/holdings/nav', { code, date })
 }
 
 export async function updateHoldingCategory(id: string, assetCategory: string): Promise<HoldingItem> {

@@ -83,39 +83,48 @@ public class HoldingService {
     }
     
     /**
-     * 刷新持仓市值（从数据库获取最新净值，若数据库无数据则触发抓取）
+     * 刷新持仓市值（本地优先）：直接读 fund_nav_records 最新净值，不调外部 API。
+     * 供查看持仓（getHolding）与交易链路使用，符合"净值只在每日定时喂表"的约定。
      */
     private void refreshMarketValue(Holding holding) {
-        // 增量更新（抓取最新一条保存到数据库）
-        FundNavScrapeService.LatestNavResult result = fundNavScrapeService.incrementalUpdate(holding.getCode());
-        
-        // 如果增量更新没返回结果，尝试从数据库直接读取
-        if (result == null) {
-            result = fundNavScrapeService.getLatestNavFromDb(holding.getCode());
+        FundNavScrapeService.LatestNavResult result = fundNavScrapeService.getLatestNavFromDb(holding.getCode());
+        applyLatestNav(holding, result);
+    }
+
+    /**
+     * 定时任务入口：抓取并保存最新净值到 fund_nav_records（外部 API 只在此时调用），
+     * 随后用本地最新净值刷新市值/价格。
+     */
+    private void fetchAndRefreshMarketValue(Holding holding) {
+        // 外部 API 抓取最新一条并写入 fund_nav_records
+        try {
+            fundNavScrapeService.incrementalUpdate(holding.getCode());
+        } catch (Exception e) {
+            log.warn("定时抓取基金 {} 净值失败: {}", holding.getCode(), e.getMessage());
         }
-        
-        // 如果数据库也没有数据，则触发首次全量抓取
-        if (result == null) {
-            log.info("基金 {} 净值数据为空，触发首次拉取", holding.getCode());
-            result = fundNavScrapeService.fetchAndSaveNavRecords(holding.getCode());
-        }
-        
+        // 用本地最新净值刷新市值
+        FundNavScrapeService.LatestNavResult result = fundNavScrapeService.getLatestNavFromDb(holding.getCode());
+        applyLatestNav(holding, result);
+    }
+
+    /** 将最新净值应用到持仓的市值/价格字段（仅当净值日期更新时刷新，避免回退） */
+    private void applyLatestNav(Holding holding, FundNavScrapeService.LatestNavResult result) {
         if (result != null && result.unitNav() != null) {
             BigDecimal latestPrice = result.unitNav();
             LocalDate priceDate = result.navDate();
-            
+
             // 只在净值日期更新时才刷新
             LocalDate currentPriceDate = holding.getPriceDate();
             if (currentPriceDate == null || priceDate.isAfter(currentPriceDate)) {
                 holding.setLatestPrice(latestPrice);
                 holding.setPriceDate(priceDate);
-                
+
                 // 计算新的市值 = 份额 × 最新净值
                 BigDecimal newMarketValue = holding.getShares()
                         .multiply(latestPrice)
                         .setScale(2, RoundingMode.HALF_UP);
                 holding.setMarketValue(newMarketValue);
-                
+
                 holdingRepository.save(holding);
                 log.info("刷新持仓 {}({}) 市值成功: ¥{}", holding.getName(), holding.getCode(), newMarketValue);
             }
@@ -133,6 +142,9 @@ public class HoldingService {
 
         CostAlgorithm algorithm = req.getCostAlgorithm() != null ?
                 CostAlgorithm.valueOf(req.getCostAlgorithm()) : CostAlgorithm.diluted;
+
+        BigDecimal buyFeeRate = req.getBuyFeeRate() != null ? req.getBuyFeeRate() : new BigDecimal("0.15");
+        BigDecimal sellFeeRate = req.getSellFeeRate() != null ? req.getSellFeeRate() : BigDecimal.ZERO;
 
         BigDecimal shares = req.getShares();
         BigDecimal costPerShare = req.getCost();  // 用户输入的是每份成本
@@ -167,6 +179,8 @@ public class HoldingService {
                 .reinvestRecoveryYears(BigDecimal.ZERO)
                 .color(color)
                 .assetCategory(req.getAssetCategory())
+                .buyFeeRate(buyFeeRate)
+                .sellFeeRate(sellFeeRate)
                 .userId(userId)
                 .deleted(false)
                 .build();
@@ -190,7 +204,12 @@ public class HoldingService {
         // 创建初始买入交易记录（含现金扣减、净值刷新、分红事件同步）
         try {
             BigDecimal price = costPerShare; // 买入单价 = 每份成本
-            BigDecimal total = shares.multiply(price).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal principal = shares.multiply(price).setScale(2, RoundingMode.HALF_UP);
+            // 按持仓买入费率计算手续费：fee = 本金 × 费率%
+            BigDecimal feeRate = buyFeeRate != null ? buyFeeRate : new BigDecimal("0.15");
+            BigDecimal fee = principal.multiply(feeRate)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            BigDecimal total = principal.add(fee).setScale(2, RoundingMode.HALF_UP);
             Transaction initTx = Transaction.builder()
                     .id(UUID.randomUUID().toString())
                     .holdingId(holding.getId())
@@ -199,24 +218,26 @@ public class HoldingService {
                     .date(LocalDate.now())
                     .quantity(shares)
                     .price(price)
-                    .fee(BigDecimal.ZERO)
+                    .fee(fee)
                     .total(total)
                     .source("manual")
                     .build();
             transactionRepository.save(initTx);
-            log.info("为持仓 {} 创建初始买入交易: {}份 @ ¥{}", holding.getName(), shares, price);
+            log.info("为持仓 {} 创建初始买入交易: {}份 @ ¥{}, 手续费={}, 总额={}",
+                    holding.getName(), shares, price, fee, total);
 
-            // 扣减现金（买入交易）
+            // 扣减现金（买入交易，含手续费）
             manualAssetService.adjustCash(holding.getId(), total.negate(), userId);
         } catch (Exception e) {
             log.warn("创建初始交易记录或扣减现金失败: {}", e.getMessage());
         }
 
         // 初始交易后刷新净值（非关键路径，异常仅记日志）
+        // 本地优先：仅当本地无该基金任何净值时才触发外部抓取（冷启动兜底），避免每笔交易打外部 API
         try {
-            FundNavScrapeService.LatestNavResult navResult = fundNavScrapeService.incrementalUpdate(holding.getCode());
+            FundNavScrapeService.LatestNavResult navResult = fundNavScrapeService.getLatestNavFromDb(holding.getCode());
             if (navResult == null) {
-                navResult = fundNavScrapeService.getLatestNavFromDb(holding.getCode());
+                navResult = fundNavScrapeService.incrementalUpdate(holding.getCode());
             }
             if (navResult != null && navResult.unitNav() != null) {
                 BigDecimal newMarketValue = holding.getShares()
@@ -272,6 +293,8 @@ public class HoldingService {
             holding.setCost(totalCost);
         }
         if (req.getAssetCategory() != null) holding.setAssetCategory(req.getAssetCategory());
+        if (req.getBuyFeeRate() != null) holding.setBuyFeeRate(req.getBuyFeeRate());
+        if (req.getSellFeeRate() != null) holding.setSellFeeRate(req.getSellFeeRate());
 
         // 如果份额或每份成本被手动改了，跳过交易记录推算的成本，直接用用户输入值
         // 只重算衍生指标（息率、回本年限等）
@@ -595,7 +618,9 @@ public class HoldingService {
     private void refreshSingleHoldingInternal(Holding holding) {
         // 仅对基金/ETF 类型刷新净值
         if (holding.getType() == HoldingType.fund || holding.getType() == HoldingType.ETF) {
-            refreshMarketValue(holding);
+            // 定时任务入口：显式抓取最新净值并写入 fund_nav_records（每日喂表，
+            // 外部 API 只在定时刷新时调用；本次抓取结果同样更新市值/价格）
+            fetchAndRefreshMarketValue(holding);
         }
         calculatePredictedDividend(holding);
         calculateTotalDividendReceived(holding);
@@ -642,6 +667,8 @@ public class HoldingService {
                 .color(holding.getColor())
                 .assetCategory(holding.getAssetCategory())
                 .dividendReinvest(holding.getDividendReinvest())
+                .buyFeeRate(holding.getBuyFeeRate())
+                .sellFeeRate(holding.getSellFeeRate())
                 .build();
     }
 }

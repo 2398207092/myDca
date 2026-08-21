@@ -452,6 +452,21 @@ onActivated(() => {
           </div>
         </div>
         <div class="divide-y divide-border-light">
+          <!-- Scheduler Tasks -->
+          <div
+            class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group active:scale-[0.99] active:transition-transform"
+            @click="router.push('/scheduler')"
+          >
+            <div class="flex items-center gap-md">
+              <span class="material-symbols-outlined text-brand">schedule</span>
+              <div>
+                <p class="font-body text-sm font-medium text-text-primary">定时任务</p>
+                <p class="font-body text-xs text-text-tertiary mt-0.5">查看定时计划，手动立即执行</p>
+              </div>
+            </div>
+            <span class="material-symbols-outlined text-text-tertiary group-hover:translate-x-1 transition-transform">chevron_right</span>
+          </div>
+
           <div
             class="flex items-center justify-between p-lg hover:bg-card-alt transition-colors cursor-pointer group active:scale-[0.99] active:transition-transform"
             @click="openDatePicker"

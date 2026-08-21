@@ -263,6 +263,8 @@ function showEditHolding() {
   editCostPerShare.value = holding.value.costPerShare
   editAlgorithm.value = (holding.value.costAlgorithm as 'diluted' | 'diluted_only' | 'weighted_avg') || 'diluted'
   editCategory.value = holding.value.assetCategory || ''
+  editBuyFeeRate.value = holding.value.buyFeeRate ?? 0.15
+  editSellFeeRate.value = holding.value.sellFeeRate ?? 0
   showEditSheet.value = true
 }
 
@@ -272,6 +274,8 @@ const editShares = ref(0)
 const editCostPerShare = ref(0)
 const editAlgorithm = ref<'diluted' | 'diluted_only' | 'weighted_avg'>('diluted')
 const editCategory = ref('')
+const editBuyFeeRate = ref(0.15)
+const editSellFeeRate = ref(0)
 const editSaving = ref(false)
 
 async function saveEditHolding() {
@@ -284,6 +288,8 @@ async function saveEditHolding() {
       costPerShare: editCostPerShare.value,
       costAlgorithm: editAlgorithm.value,
       assetCategory: editCategory.value || undefined,
+      buyFeeRate: editBuyFeeRate.value,
+      sellFeeRate: editSellFeeRate.value,
     }
     await updateHolding(route.params.id as string, req)
     showEditSheet.value = false
@@ -716,6 +722,20 @@ onActivated(() => {
           <label class="font-body text-xs text-text-tertiary mb-sm block">每份成本 (¥)</label>
           <input v-model.number="editCostPerShare" type="number" step="0.0001" min="0"
                  class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none mb-lg transition-colors focus:ring-2 focus:ring-brand" />
+
+          <!-- Fee Rates -->
+          <div class="grid grid-cols-2 gap-md mb-lg">
+            <div>
+              <label class="font-body text-xs text-text-tertiary mb-sm block">买入费率 (%)</label>
+              <input v-model.number="editBuyFeeRate" type="number" step="0.01" min="0"
+                     class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand" />
+            </div>
+            <div>
+              <label class="font-body text-xs text-text-tertiary mb-sm block">卖出费率 (%)</label>
+              <input v-model.number="editSellFeeRate" type="number" step="0.01" min="0"
+                     class="w-full h-11 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand" />
+            </div>
+          </div>
 
           <!-- Asset Category -->
           <label class="font-body text-xs text-text-tertiary mb-sm block">资产分类</label>

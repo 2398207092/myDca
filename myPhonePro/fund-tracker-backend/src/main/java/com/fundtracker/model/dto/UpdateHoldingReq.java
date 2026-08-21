@@ -10,4 +10,6 @@ public class UpdateHoldingReq {
     private BigDecimal shares;
     private BigDecimal costPerShare;
     private String assetCategory;
+    private BigDecimal buyFeeRate;
+    private BigDecimal sellFeeRate;
 }

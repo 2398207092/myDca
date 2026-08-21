@@ -19,7 +19,8 @@ const showResults = ref(false)
 // Step 2: Holding Info
 const shares = ref<number | null>(null)
 const buyDate = ref(new Date().toISOString().split('T')[0])
-const fee = ref(0)
+const buyFeeRate = ref(0.15)
+const sellFeeRate = ref(0)
 const costAlgorithm = ref<'diluted' | 'diluted_only' | 'weighted_avg'>('diluted')
 const costInput = ref<number | null>(null)
 const isNegativeCost = ref(false)
@@ -158,6 +159,8 @@ async function handleSubmit() {
       costAlgorithm: costAlgorithm.value,
       shares: shares.value!,
       cost: costInput.value!,
+      buyFeeRate: buyFeeRate.value,
+      sellFeeRate: sellFeeRate.value,
     })
     router.push('/')
   } catch (e: any) {
@@ -275,9 +278,15 @@ const estimatedAnnualDividend = computed(() => {
           </div>
         </div>
 
-        <div class="mb-lg">
-          <label class="font-body text-xs font-medium text-text-secondary block mb-1">交易费用</label>
-          <input v-model.number="fee" type="number" placeholder="交易费用（可选）" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
+        <div class="grid grid-cols-2 gap-lg mb-lg">
+          <div class="space-y-1">
+            <label class="font-body text-xs font-medium text-text-secondary block">买入费率 (%)</label>
+            <input v-model.number="buyFeeRate" type="number" step="0.01" min="0" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
+          </div>
+          <div class="space-y-1">
+            <label class="font-body text-xs font-medium text-text-secondary block">卖出费率 (%)</label>
+            <input v-model.number="sellFeeRate" type="number" step="0.01" min="0" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
+          </div>
         </div>
 
         <div class="space-y-lg">

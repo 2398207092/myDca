@@ -34,4 +34,6 @@ public class HoldingDTO {
     private String color;
     private String assetCategory;
     private Boolean dividendReinvest;
+    private BigDecimal buyFeeRate;
+    private BigDecimal sellFeeRate;
 }

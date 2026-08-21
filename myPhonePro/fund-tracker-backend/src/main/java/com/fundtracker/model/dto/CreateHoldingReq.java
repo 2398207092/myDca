@@ -25,4 +25,7 @@ public class CreateHoldingReq {
     private BigDecimal cost;
 
     private String assetCategory; // us_stock / gold / dividend / null=未分类
+
+    private BigDecimal buyFeeRate;  // 可选，默认 0.15（百分数值）
+    private BigDecimal sellFeeRate; // 可选，默认 0（百分数值）
 }

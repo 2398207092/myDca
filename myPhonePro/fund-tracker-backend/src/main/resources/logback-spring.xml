@@ -11,7 +11,7 @@
             <fileNamePattern>logs/audit/audit.%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>30</maxHistory>
         </rollingPolicy>
-        <encoder>
+        <encoder charset="UTF-8">
             <!-- 只保留：日期时间 [级别] 消息 -->
             <pattern>%d{yyyy-MM-dd HH:mm:ss} [%level] %msg%n</pattern>
         </encoder>
@@ -30,7 +30,7 @@
             <fileNamePattern>logs/monitor/monitor.%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>30</maxHistory>
         </rollingPolicy>
-        <encoder>
+        <encoder charset="UTF-8">
             <!-- 结构化：时间 | 级别 | 任务名 | 结果 | 耗时(ms) | 详情 -->
             <pattern>%d{yyyy-MM-dd HH:mm:ss} [%level] %msg%n</pattern>
         </encoder>
