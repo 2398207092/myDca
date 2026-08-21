@@ -105,7 +105,7 @@ cd myPhonePro/stitch_fund_dividend_tracker && npm run dev
 # → http://localhost:5173
 ```
 
-文档：main docs in `docs/` (优化进度 → docs/optimization/plan.md, 参考 → docs/reference/)
+文档：main docs in `docs/` (优化进度 → docs/优化/计划.md, 参考 → docs/参考/, 算法说明 → docs/参考/年化收益率IRR算法.md)
 
 *种树最好的时间是十年前，其次是现在。*
 
