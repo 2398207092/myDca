@@ -31,6 +31,7 @@ public class SnapshotGenerationService {
     private final HoldingRepository holdingRepository;
     private final HoldingSnapshotRepository holdingSnapshotRepository;
     private final ManualAssetRepository manualAssetRepository;
+    private final AssetOverviewService assetOverviewService;
 
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
@@ -96,6 +97,10 @@ public class SnapshotGenerationService {
             created++;
         }
         log.info("快照任务完成：共 {} 个持仓，新建快照 {} 条", holdings.size(), created);
+
+        // 同步生成当天资产级快照（现金/BTC/分类总值），
+        // 否则走势图"今天"的现金/BTC 会回退沿用上一天，导致金额不即时。
+        assetOverviewService.snapshotToday(userId);
     }
 
     /** 计算当前总资产 = Σ持仓市值 + Σ现金 + Σ比特币 */
