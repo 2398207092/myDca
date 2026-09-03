@@ -36,14 +36,25 @@ let totalChart: any = null
 const totalChartRef = ref<HTMLElement | null>(null)
 const crosshairActive = ref(false)
 const crosshairIdx = ref(-1)
+// 当前图表中激活的分类折线（用于图例展示）
+const activeCatLines = ref<{ key: string }[]>([])
 
-// 类别色
+// 类别色（折线与持仓卡片圆点共用，gold/dividend 需区分）
 const catColors: Record<string, string> = {
   us_stock: '#3B82F6',
   gold: '#8A6B08',
-  dividend: '#8A6B08',
+  dividend: '#C2571C',
   crypto: '#6366F1',
   cash: '#1A6B56',
+  uncategorized: '#6F6F6E',
+}
+const catLabels: Record<string, string> = {
+  us_stock: '美股',
+  gold: '黄金',
+  dividend: '红利',
+  crypto: '比特币',
+  cash: '现金',
+  uncategorized: '未分类',
 }
 const brandColor = '#1A6B56'
 
@@ -89,7 +100,13 @@ function computeLabelInterval(count: number): number {
   return Math.floor(count / 10)
 }
 
-function buildOption(data: number[], xLabels: string[], color: string) {
+// 分类折线序列（市值 tab 用）
+interface CatLine {
+  key: string
+  data: (number | null)[]
+}
+
+function buildOption(data: number[], xLabels: string[], color: string, catLines: CatLine[] = []) {
   const vals = data.filter(v => v != null)
   const dataMin = vals.length > 0 ? Math.min(...vals) : 0
   const dataMax = vals.length > 0 ? Math.max(...vals) : 1
@@ -136,29 +153,48 @@ function buildOption(data: number[], xLabels: string[], color: string) {
         },
       },
     },
-    series: [{
-      data: data.map((v, i) => ({
-        value: v,
-        itemStyle: i === crosshairIdx.value
-          ? { color, borderColor: '#fff', borderWidth: 3 }
-          : { color, borderColor: '#fff', borderWidth: 1.5 },
-      })),
-      type: 'line',
-      smooth: false,
-      symbol: 'circle',
-      symbolSize: (_val: any, params: any) => params.dataIndex === crosshairIdx.value ? 8 : 4,
-      showSymbol: true,
-      lineStyle: { color, width: 2 },
-      areaStyle: {
-        color: {
-          type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-          colorStops: [
-            { offset: 0, color: color + '33' },
-            { offset: 1, color: color + '00' },
-          ],
+    series: [
+      // 总计线（seriesIndex 0，十字交互以此为准）
+      {
+        name: '总计',
+        data: data.map((v, i) => ({
+          value: v,
+          itemStyle: i === crosshairIdx.value
+            ? { color, borderColor: '#fff', borderWidth: 3 }
+            : { color, borderColor: '#fff', borderWidth: 1.5 },
+        })),
+        type: 'line',
+        smooth: false,
+        symbol: 'circle',
+        symbolSize: (_val: any, params: any) => params.dataIndex === crosshairIdx.value ? 8 : 4,
+        showSymbol: true,
+        lineStyle: { color, width: 3 },
+        areaStyle: {
+          color: {
+            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: color + '33' },
+              { offset: 1, color: color + '00' },
+            ],
+          },
         },
+        z: 10,
       },
-    }],
+      // 分类折线（细线，颜色与持仓卡片圆点一致）
+      ...catLines.map(cl => ({
+        name: catLabels[cl.key] || cl.key,
+        data: cl.data,
+        type: 'line' as const,
+        smooth: false,
+        symbol: 'circle',
+        symbolSize: 3,
+        showSymbol: false,
+        connectNulls: true,
+        lineStyle: { color: catColors[cl.key] || '#6F6F6E', width: 1.5 },
+        itemStyle: { color: catColors[cl.key] || '#6F6F6E' },
+        z: 5,
+      })),
+    ],
   }
 }
 
@@ -177,11 +213,28 @@ function renderTotalChart() {
 
   const labels = series.map(p => fmtDate(p.date))
   let data: number[]
-  if (totalTab.value === 'value') data = series.map(p => p.totalMarketValue)
-  else if (totalTab.value === 'shares') data = series.map(p => p.totalShares)
-  else data = series.map(p => p.totalProfitLoss)
+  let catLines: CatLine[] = []
+  if (totalTab.value === 'value') {
+    data = series.map(p => p.totalMarketValue)
+    // 收集区间内出现过的所有类别（按最新一天市值降序）
+    const catSet = new Set<string>()
+    series.forEach(p => Object.keys(p.categoryValues || {}).forEach(k => catSet.add(k)))
+    const latest = series[series.length - 1]?.categoryValues || {}
+    const cats = Array.from(catSet).sort((a, b) => (latest[b] || 0) - (latest[a] || 0))
+    catLines = cats.map(key => ({
+      key,
+      data: series.map(p => p.categoryValues?.[key] ?? null),
+    }))
+    activeCatLines.value = catLines
+  } else if (totalTab.value === 'shares') {
+    data = series.map(p => p.totalShares)
+    activeCatLines.value = []
+  } else {
+    data = series.map(p => p.totalProfitLoss)
+    activeCatLines.value = []
+  }
 
-  totalChart.setOption(buildOption(data, labels, brandColor), true)
+  totalChart.setOption(buildOption(data, labels, brandColor, catLines), true)
   bindCrosshairEvents()
 }
 
@@ -384,6 +437,18 @@ function handleResize() { totalChart?.resize() }
         <!-- 图表 -->
         <div ref="totalChartRef" class="w-full" style="height: 200px; touch-action: pan-y;"></div>
 
+        <!-- 图例（仅市值 tab 有多条线时显示） -->
+        <div v-if="totalTab === 'value' && activeCatLines.length > 0" class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+          <div class="flex items-center gap-1">
+            <span class="w-3 h-[3px] rounded-full" :style="{ backgroundColor: brandColor }"></span>
+            <span class="font-body text-[10px] text-text-tertiary">总计</span>
+          </div>
+          <div v-for="cl in activeCatLines" :key="cl.key" class="flex items-center gap-1">
+            <span class="w-3 h-[2px] rounded-full" :style="{ backgroundColor: catColors[cl.key] || '#6F6F6E' }"></span>
+            <span class="font-body text-[10px] text-text-tertiary">{{ catLabels[cl.key] || cl.key }}</span>
+          </div>
+        </div>
+
         <!-- 选中坐标详情 -->
         <Transition name="crosshair-info">
           <div v-if="crosshairActive && selectedPoint" class="mt-3 p-3 rounded-lg bg-card-alt/80 border border-border-light/40">
@@ -407,6 +472,16 @@ function handleResize() { totalChart?.resize() }
               <div>
                 <p class="text-[10px] text-text-tertiary">收益率</p>
                 <p class="text-sm font-bold font-display" :class="getChangeClass(selectedPoint.totalProfitLossPct)">{{ fmtPct(selectedPoint.totalProfitLossPct) }}</p>
+              </div>
+            </div>
+            <!-- 分类市值明细（市值 tab） -->
+            <div v-if="totalTab === 'value' && selectedPoint.categoryValues" class="mt-2 pt-2 border-t border-border-light/40 grid grid-cols-2 gap-x-3 gap-y-1">
+              <div v-for="(v, k) in selectedPoint.categoryValues" :key="k" class="flex items-center justify-between">
+                <span class="flex items-center gap-1 text-[10px] text-text-tertiary">
+                  <span class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: catColors[k] || '#6F6F6E' }"></span>
+                  {{ catLabels[k] || k }}
+                </span>
+                <span class="text-[11px] font-medium text-text-primary font-display">{{ fmtMoney(v) }}</span>
               </div>
             </div>
           </div>

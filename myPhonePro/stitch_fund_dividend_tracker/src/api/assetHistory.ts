@@ -10,6 +10,8 @@ export interface TotalAssetPoint {
   totalCostBasis: number
   totalProfitLoss: number
   totalProfitLossPct: number
+  /** 按资产类别的市值（us_stock/gold/dividend/cash/crypto/uncategorized） */
+  categoryValues?: Record<string, number>
 }
 
 /** 总资产走势响应 */

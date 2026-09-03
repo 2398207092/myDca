@@ -4,6 +4,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 总资产走势响应：按快照日期分组聚合，每个日期一个数据点。
@@ -32,5 +33,7 @@ public class TotalAssetSeriesDTO {
         private BigDecimal totalCostBasis;
         private BigDecimal totalProfitLoss;
         private BigDecimal totalProfitLossPct;
+        /** 按资产类别的市值（us_stock/gold/dividend/cash/crypto），用于走势图叠加分类折线 */
+        private Map<String, BigDecimal> categoryValues;
     }
 }

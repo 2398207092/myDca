@@ -48,6 +48,9 @@ public class TotalAssetSeriesService {
         Set<String> userHoldingIds = userHoldings.stream()
                 .map(Holding::getId)
                 .collect(Collectors.toSet());
+        // holdingId -> assetCategory 映射（用于按类别聚合市值折线）
+        Map<String, String> holdingCategoryMap = userHoldings.stream()
+                .collect(Collectors.toMap(Holding::getId, h -> h.getAssetCategory() == null ? "" : h.getAssetCategory()));
 
         List<HoldingSnapshot> allSnapshots = holdingSnapshotRepository
                 .findBySnapshotDateAfterOrderBySnapshotDateAsc(startDate.minusDays(1));
@@ -92,12 +95,22 @@ public class TotalAssetSeriesService {
                     ? totalProfitLoss.multiply(HUNDRED).divide(totalCostBasis, 2, RoundingMode.HALF_UP)
                     : BigDecimal.ZERO;
 
+            // 按类别聚合持仓市值（未分类归入 uncategorized）
+            Map<String, BigDecimal> categoryValues = new LinkedHashMap<>();
+            for (HoldingSnapshot s : daySnapshots) {
+                String cat = holdingCategoryMap.getOrDefault(s.getHoldingId(), "");
+                if (cat.isEmpty()) cat = "uncategorized";
+                categoryValues.merge(cat, s.getMarketValue(), BigDecimal::add);
+            }
+
             // 叠加现金/BTC（从 asset_snapshots 取，缺数据则用最近一天填充）
             AssetSnapshot asset = assetMap.getOrDefault(date, lastAsset);
             if (asset != null) {
                 BigDecimal cash = asset.getCashValue() == null ? BigDecimal.ZERO : asset.getCashValue();
                 BigDecimal crypto = asset.getCryptoValue() == null ? BigDecimal.ZERO : asset.getCryptoValue();
                 totalMarketValue = totalMarketValue.add(cash).add(crypto);
+                if (cash.compareTo(BigDecimal.ZERO) > 0) categoryValues.put("cash", cash);
+                if (crypto.compareTo(BigDecimal.ZERO) > 0) categoryValues.put("crypto", crypto);
                 lastAsset = asset;
             }
 
@@ -108,6 +121,7 @@ public class TotalAssetSeriesService {
                     .totalCostBasis(totalCostBasis)
                     .totalProfitLoss(totalProfitLoss)
                     .totalProfitLossPct(totalProfitLossPct)
+                    .categoryValues(categoryValues)
                     .build());
         }
 
