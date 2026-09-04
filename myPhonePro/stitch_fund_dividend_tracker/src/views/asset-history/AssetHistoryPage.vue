@@ -123,37 +123,45 @@ function buildOption(data: number[], xLabels: string[], color: string, catLines:
     yMax = dataMax + dataMax * 0.1
   }
 
-  return {
-    grid: { left: 48, right: 12, top: 12, bottom: 28 },
-    tooltip: { show: false },
-    xAxis: {
-      type: 'category',
-      data: xLabels,
-      axisLine: { lineStyle: { color: '#E8E7E5' } },
-      axisTick: { show: true, length: 4, lineStyle: { color: '#C8C7C5' } },
-      axisLabel: { color: '#6F6F6E', fontSize: 9, interval: computeLabelInterval(xLabels.length) },
-    },
-    yAxis: {
-      type: 'value',
-      min: yMin,
-      max: yMax,
-      axisLine: { show: false },
-      axisTick: { show: true, length: 4, lineStyle: { color: '#C8C7C5' } },
-      splitLine: { show: true, lineStyle: { color: '#F0EFED', type: 'dashed', width: 1 } },
-      axisLabel: {
-        color: '#6F6F6E',
-        fontSize: 9,
-        formatter: (v: number) => {
-          if (totalTab.value === 'profit') {
-            if (Math.abs(v) >= 10000) return (v / 10000).toFixed(1) + 'w'
-            return v.toLocaleString()
-          }
-          if (Math.abs(v) >= 10000) return (v / 10000).toFixed(1) + 'w'
-          return v.toLocaleString()
-        },
-      },
-    },
-    series: [
+  // 堆叠面积模式（市值 tab）：分类按最新市值降序自下而上堆叠，每段色带 = 分类色
+  let series: any[]
+  if (totalTab.value === 'value' && catLines.length > 0) {
+    const running = new Array(data.length).fill(0)
+    series = catLines.map(cl => {
+      const cum: number[] = []
+      for (let i = 0; i < cl.data.length; i++) {
+        running[i] += cl.data[i] ?? 0
+        cum.push(running[i])
+      }
+      const c = catColors[cl.key] || '#6F6F6E'
+      return {
+        name: catLabels[cl.key] || cl.key,
+        data: cum,
+        type: 'line',
+        stack: 'assetTotal',
+        smooth: false,
+        symbol: 'circle',
+        showSymbol: false,
+        lineStyle: { color: c, width: 1 },
+        areaStyle: { color: c + '99' },
+        z: 5,
+      }
+    })
+    // 顶部总计轮廓线：堆叠顶端即总市值，选中点放大展示
+    series.push({
+      name: '总计',
+      data,
+      type: 'line',
+      smooth: false,
+      symbol: 'circle',
+      symbolSize: (_val: any, params: any) => params.dataIndex === crosshairIdx.value ? 8 : 0,
+      showSymbol: true,
+      lineStyle: { color: '#1C1B1A', width: 2 },
+      itemStyle: { color: '#1C1B1A', borderColor: '#fff', borderWidth: 2 },
+      z: 10,
+    })
+  } else {
+    series = [
       // 总计线（seriesIndex 0，十字交互以此为准）
       {
         name: '总计',
@@ -194,7 +202,40 @@ function buildOption(data: number[], xLabels: string[], color: string, catLines:
         itemStyle: { color: catColors[cl.key] || '#6F6F6E' },
         z: 5,
       })),
-    ],
+    ]
+  }
+
+  return {
+    grid: { left: 48, right: 12, top: 12, bottom: 28 },
+    tooltip: { show: false },
+    xAxis: {
+      type: 'category',
+      data: xLabels,
+      axisLine: { lineStyle: { color: '#E8E7E5' } },
+      axisTick: { show: true, length: 4, lineStyle: { color: '#C8C7C5' } },
+      axisLabel: { color: '#6F6F6E', fontSize: 9, interval: computeLabelInterval(xLabels.length) },
+    },
+    yAxis: {
+      type: 'value',
+      min: yMin,
+      max: yMax,
+      axisLine: { show: false },
+      axisTick: { show: true, length: 4, lineStyle: { color: '#C8C7C5' } },
+      splitLine: { show: true, lineStyle: { color: '#F0EFED', type: 'dashed', width: 1 } },
+      axisLabel: {
+        color: '#6F6F6E',
+        fontSize: 9,
+        formatter: (v: number) => {
+          if (totalTab.value === 'profit') {
+            if (Math.abs(v) >= 10000) return (v / 10000).toFixed(1) + 'w'
+            return v.toLocaleString()
+          }
+          if (Math.abs(v) >= 10000) return (v / 10000).toFixed(1) + 'w'
+          return v.toLocaleString()
+        },
+      },
+    },
+    series,
   }
 }
 
