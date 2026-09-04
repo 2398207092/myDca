@@ -124,19 +124,14 @@ function buildOption(data: number[], xLabels: string[], color: string, catLines:
   }
 
   // 堆叠面积模式（市值 tab）：分类按最新市值降序自下而上堆叠，每段色带 = 分类色
+  // 注意：直接给原始市值 + stack 参数，由 ECharts 自行累加；手动预累计会导致重复堆叠溢出图表
   let series: any[]
   if (totalTab.value === 'value' && catLines.length > 0) {
-    const running = new Array(data.length).fill(0)
     series = catLines.map(cl => {
-      const cum: number[] = []
-      for (let i = 0; i < cl.data.length; i++) {
-        running[i] += cl.data[i] ?? 0
-        cum.push(running[i])
-      }
       const c = catColors[cl.key] || '#6F6F6E'
       return {
         name: catLabels[cl.key] || cl.key,
-        data: cum,
+        data: cl.data.map(v => v ?? 0),
         type: 'line',
         stack: 'assetTotal',
         smooth: false,
@@ -147,7 +142,7 @@ function buildOption(data: number[], xLabels: string[], color: string, catLines:
         z: 5,
       }
     })
-    // 顶部总计轮廓线：堆叠顶端即总市值，选中点放大展示
+    // 顶部总计轮廓线：堆叠顶端即总市值，颜色与图例「总计」圆点一致
     series.push({
       name: '总计',
       data,
@@ -156,8 +151,8 @@ function buildOption(data: number[], xLabels: string[], color: string, catLines:
       symbol: 'circle',
       symbolSize: (_val: any, params: any) => params.dataIndex === crosshairIdx.value ? 8 : 0,
       showSymbol: true,
-      lineStyle: { color: '#1C1B1A', width: 2 },
-      itemStyle: { color: '#1C1B1A', borderColor: '#fff', borderWidth: 2 },
+      lineStyle: { color, width: 2.5 },
+      itemStyle: { color, borderColor: '#fff', borderWidth: 2 },
       z: 10,
     })
   } else {
