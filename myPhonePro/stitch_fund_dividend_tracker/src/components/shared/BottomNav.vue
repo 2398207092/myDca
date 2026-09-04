@@ -30,7 +30,7 @@ function navigate(tab: NavTab, path: string) {
 
 <template>
   <nav
-    class="fixed bottom-0 w-full z-header rounded-t-xl bg-page-bg shadow-elevated border-t border-border-light safe-bottom"
+    class="fixed bottom-0 w-full z-header rounded-t-xl bg-card-bg shadow-elevated border-t border-border-light safe-bottom"
   >
     <div class="flex justify-around items-center h-16 w-full px-sm">
       <button

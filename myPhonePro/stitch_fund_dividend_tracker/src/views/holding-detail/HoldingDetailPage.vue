@@ -333,7 +333,7 @@ onActivated(() => {
 <template>
   <div class="min-h-screen bg-page-bg">
     <!-- 自定义固定顶栏 -->
-    <header class="fixed top-0 w-full z-50 bg-page-bg border-b border-border-light/40">
+    <header class="fixed top-0 w-full z-50 bg-card-bg border-b border-border-light/40">
       <div class="flex items-center justify-between px-gutter h-14 w-full max-w-[600px] mx-auto">
         <button
           class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80 transition-opacity"
