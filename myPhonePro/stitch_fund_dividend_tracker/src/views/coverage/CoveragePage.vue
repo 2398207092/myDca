@@ -53,7 +53,7 @@ onActivated(loadData)
 <template>
   <div class="min-h-screen bg-page-bg flex flex-col">
     <!-- 自定义 Header：后退回首页 -->
-    <header class="fixed top-0 w-full z-50 bg-page-bg/90 backdrop-blur-md">
+    <header class="fixed top-0 w-full z-50 bg-card-bg border-b border-border-light/40">
       <div class="flex items-center justify-between px-gutter h-14 w-full max-w-[600px] mx-auto">
         <div class="flex items-center gap-2">
           <button class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80 transition-opacity" @click="goBack">
