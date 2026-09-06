@@ -361,15 +361,15 @@ class DcaPlanServiceTest {
 
             DcaExecutionResultVO result = dcaPlanService.executePlan("p-1", "user-1");
 
-            // 份额 = 500 / 2.5 = 200
+            // 份额 = (500 - 500×0.15%手续费) / 2.5 = 499.25 / 2.5 = 199.7
             assertEquals("tx-1", result.getTransactionId());
             assertEquals(new BigDecimal("500"), result.getAmount());
-            assertEquals(0, new BigDecimal("200").compareTo(result.getQuantity()));
+            assertEquals(0, new BigDecimal("199.7").compareTo(result.getQuantity()));
             assertEquals(new BigDecimal("2.5"), result.getNavPrice());
 
             // 计划统计更新
             assertEquals(new BigDecimal("500"), plan.getTotalInvested());
-            assertEquals(0, new BigDecimal("200").compareTo(plan.getTotalShares()));
+            assertEquals(0, new BigDecimal("199.7").compareTo(plan.getTotalShares()));
             assertEquals(1, plan.getTotalExecutions());
             assertEquals(LocalDate.of(2026, 9, 1), plan.getNextExecutionDate());
         }

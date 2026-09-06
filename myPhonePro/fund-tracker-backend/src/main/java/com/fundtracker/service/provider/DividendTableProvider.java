@@ -60,14 +60,15 @@ public class DividendTableProvider {
 
     /**
      * 判断除权日是否有效（用于过滤代码复用导致的脏分红数据）：
-     * - 不能为 null，不能晚于今天（未来异常数据）
+     * - 不能为 null
      * - 不能早于基金成立日期（成立日期前的分红属于代码复用前的旧基金）
+     * - 允许晚于今天：基金公告已发、除息日尚未到期的分红属于"待发放"的正常记录，必须抓取
      *
      * @param exDate         分红除权日
      * @param establishDate  基金成立日期（可能为 null，此时用兜底常量过滤）
      */
     public static boolean isValidExDate(LocalDate exDate, LocalDate establishDate) {
-        if (exDate == null || exDate.isAfter(LocalDate.now())) {
+        if (exDate == null) {
             return false;
         }
         LocalDate effectiveMinDate = establishDate != null ? establishDate : FALLBACK_MIN_EX_DATE;

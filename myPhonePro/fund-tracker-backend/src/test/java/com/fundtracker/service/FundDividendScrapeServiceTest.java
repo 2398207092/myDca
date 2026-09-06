@@ -143,9 +143,9 @@ class FundDividendScrapeServiceTest {
         }
 
         @Test
-        @DisplayName("晚于今天的除权日 → 无效（未来异常数据）")
+        @DisplayName("晚于今天的除权日 → 有效（公告已发、待发放的分红）")
         void futureExDate() {
-            assertFalse(com.fundtracker.service.provider.DividendTableProvider.isValidExDate(LocalDate.now().plusDays(1), LocalDate.of(2020, 1, 1)));
+            assertTrue(com.fundtracker.service.provider.DividendTableProvider.isValidExDate(LocalDate.now().plusDays(1), LocalDate.of(2020, 1, 1)));
         }
 
         @Test

@@ -69,3 +69,6 @@ fund-tracker-discover-history/
 # 截图资源（二进制，不提交）
 docs/截图资源/
 .mimosa/
+
+# 本地项目规则（必须人工备份）
+.trae/
