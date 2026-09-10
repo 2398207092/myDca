@@ -85,17 +85,25 @@ public class DividendEventSyncService {
             }
 
             for (FundDividendRecord record : records) {
-                // 检查 payout 事件是否已被标记为"已复投"（防止 sync 时丢失 converted 状态）
-                boolean payoutWasConverted = false;
+                // 检查 payout 事件是否已被处理（已到账 or 已复投），同步重建时保留其状态，
+                // 避免全量刷新把 distributed 重置回 pending → 首页庆祝丢失、自动分发重复复投
+                boolean payoutConverted = false;
+                boolean payoutDistributed = false;
+                BigDecimal payoutOriginalAmount = null;
                 if (record.getPayDate() != null) {
                     List<DividendEvent> existing = existingByKey.getOrDefault(
                             EventType.payout + "|" + record.getPayDate(), List.of());
                     for (DividendEvent e : existing) {
                         if (Boolean.TRUE.equals(e.getConverted())) {
-                            payoutWasConverted = true;
+                            payoutConverted = true;
                             log.debug("保留复投状态: holding={}, payDate={}", holding.getName(), record.getPayDate());
-                            break;
                         }
+                        if (e.getStatus() == EventStatus.distributed) {
+                            payoutDistributed = true;
+                            payoutOriginalAmount = e.getAmount();
+                            log.debug("保留到账状态: holding={}, payDate={}", holding.getName(), record.getPayDate());
+                        }
+                        if (payoutConverted && payoutDistributed) break;
                     }
                 }
 
@@ -114,9 +122,10 @@ public class DividendEventSyncService {
                     participated = sharesAtDate.compareTo(BigDecimal.ZERO) > 0;
                 }
 
-                created += createEvent(holding, record, EventType.registration, record.getRegDate(), sharesAtDate, participated, effectiveUserId, false);
-                created += createEvent(holding, record, EventType.ex_dividend, record.getExDate(), sharesAtDate, participated, effectiveUserId, false);
-                created += createEvent(holding, record, EventType.payout, record.getPayDate(), sharesAtDate, participated, effectiveUserId, payoutWasConverted);
+                created += createEvent(holding, record, EventType.registration, record.getRegDate(), sharesAtDate, participated, effectiveUserId, false, EventStatus.pending, null);
+                created += createEvent(holding, record, EventType.ex_dividend, record.getExDate(), sharesAtDate, participated, effectiveUserId, false, EventStatus.pending, null);
+                created += createEvent(holding, record, EventType.payout, record.getPayDate(), sharesAtDate, participated, effectiveUserId, payoutConverted,
+                        payoutDistributed ? EventStatus.distributed : EventStatus.pending, payoutOriginalAmount);
             }
         }
 
@@ -170,13 +179,21 @@ public class DividendEventSyncService {
      * <p>
      * participated=true → 按当时的实时份额计算金额
      * participated=false → 金额为 0（未参与该次分红，但保留记录）
+     *
+     * @param status        事件初始状态（已到账的 payout 事件同步重建时保留 distributed，避免状态丢失）
+     * @param amountOverride 非空时沿用原金额（已到账事件禁止重算，防止份额变化导致金额漂移）
      */
-    private int createEvent(Holding holding, FundDividendRecord record, EventType type, LocalDate date, BigDecimal sharesAtDate, boolean participated, String userId, boolean converted) {
+    private int createEvent(Holding holding, FundDividendRecord record, EventType type, LocalDate date, BigDecimal sharesAtDate, boolean participated, String userId, boolean converted, EventStatus status, BigDecimal amountOverride) {
         if (date == null) return 0;
 
-        BigDecimal amount = participated && record.getDividendPerShare() != null
-                ? sharesAtDate.multiply(record.getDividendPerShare()).setScale(2, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
+        BigDecimal amount;
+        if (amountOverride != null) {
+            amount = amountOverride;
+        } else {
+            amount = participated && record.getDividendPerShare() != null
+                    ? sharesAtDate.multiply(record.getDividendPerShare()).setScale(2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+        }
 
         String description = switch (type) {
             case registration -> "权益登记日 · 每份 " + record.getDividendPerShare() + " 元";
@@ -193,7 +210,7 @@ public class DividendEventSyncService {
                 .type(type)
                 .date(date)
                 .amount(amount)
-                .status(EventStatus.pending)
+                .status(status)
                 .description(description)
                 .participated(participated)
                 .converted(converted)
