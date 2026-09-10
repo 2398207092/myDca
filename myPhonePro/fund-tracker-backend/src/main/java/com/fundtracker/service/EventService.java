@@ -147,6 +147,10 @@ public class EventService {
                                 transactionService.createTransaction(reinvestReq, userId);
                                 log.info("分红复投: {} 金额 {}, NAV={}, 买入 {} 份",
                                         holding.getName(), distributeAmount, price, quantity);
+
+                                // 复投成功后标记已复投，防止状态同步间隔内再次"转为复投"导致重复买入
+                                event.setConverted(true);
+                                eventRepository.save(event);
                             } catch (Exception e) {
                                 log.error("分红复投失败: {}", e.getMessage());
                                 throw new RuntimeException("分红复投失败: " + e.getMessage(), e);
