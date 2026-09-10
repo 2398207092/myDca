@@ -36,9 +36,9 @@ public class DividendAutoDistributeScheduler {
         LocalDate today = LocalDate.now();
         log.info("[分红自动分发] 开始检查, 日期={}", today);
 
-        // 查询所有 pending 状态的 payout 事件，且日期 <= 今天
+        // 查询所有 pending 状态的 payout 事件，且日期 <= 今天（派息日当天即可到账）
         List<DividendEvent> pendingPayouts = eventRepository
-                .findByDateBeforeAndStatus(today, EventStatus.pending);
+                .findByDateLessThanEqualAndStatus(today, EventStatus.pending);
 
         // 只处理 type = payout 的事件
         List<DividendEvent> dueEvents = pendingPayouts.stream()
