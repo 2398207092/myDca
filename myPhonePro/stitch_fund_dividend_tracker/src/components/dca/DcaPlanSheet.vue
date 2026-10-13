@@ -1,28 +1,35 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { createDcaPlan } from '@/api/dca'
+import { ref, computed, watch } from 'vue'
+import { createDcaPlan, updateDcaPlan, type DcaPlanVO } from '@/api/dca'
 
 interface Props {
   holdingId: string
   holdingName: string
   holdingCode: string
   tradingMarket: string
+  /** 传入计划则为「编辑」模式；不传（或传 null）为「创建」模式 */
+  plan?: DcaPlanVO | null
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
   close: []
-  created: []
+  /** 创建成功或编辑保存成功后触发 */
+  saved: []
 }>()
 
+const isEdit = computed(() => !!props.plan?.id)
+
+type Frequency = 'daily' | 'weekly' | 'biweekly' | 'monthly'
+
 const amount = ref<number>(50)
-const frequency = ref<'daily' | 'weekly' | 'biweekly' | 'monthly'>('daily')
+const frequency = ref<Frequency>('daily')
 const day = ref<number | null>(null)
 const submitting = ref(false)
 const error = ref('')
 
-const frequencyOptions: { value: string; label: string }[] = [
+const frequencyOptions: { value: Frequency; label: string }[] = [
   { value: 'daily', label: '每日' },
   { value: 'weekly', label: '每周' },
   { value: 'biweekly', label: '双周' },
@@ -50,6 +57,29 @@ const weekDays = [
   { value: 7, label: '周日' },
 ]
 
+/** 用当前计划值预填（编辑），或重置为默认值（创建） */
+function initFromPlan() {
+  const p = props.plan
+  if (p && p.id) {
+    amount.value = p.amount
+    frequency.value = (p.frequency as Frequency) || 'daily'
+    day.value = p.day ?? null
+  } else {
+    amount.value = 50
+    frequency.value = 'daily'
+    day.value = null
+  }
+  error.value = ''
+}
+
+initFromPlan()
+watch(() => props.plan?.id, initFromPlan)
+
+function pickFrequency(v: Frequency) {
+  frequency.value = v
+  if (v === 'daily') day.value = null
+}
+
 async function handleSubmit() {
   if (!amount.value || amount.value < 1) {
     error.value = '请输入有效的金额'
@@ -58,11 +88,11 @@ async function handleSubmit() {
 
   if (frequency.value !== 'daily') {
     if (day.value === null || day.value === undefined || isNaN(day.value)) {
-      error.value = '请选择或输入扣款日'
+      error.value = frequency.value === 'monthly' ? '请输入每月扣款日' : '请选择扣款日'
       return
     }
-    if (day.value < 1 || day.value > 31) {
-      error.value = '扣款日必须在 1~31 之间'
+    if (frequency.value === 'monthly' && (day.value < 1 || day.value > 31)) {
+      error.value = '每月扣款日需在 1~31 之间'
       return
     }
   }
@@ -70,17 +100,22 @@ async function handleSubmit() {
   submitting.value = true
   error.value = ''
 
+  const payload = {
+    amount: amount.value,
+    frequency: frequency.value,
+    day: frequency.value === 'daily' ? null : day.value,
+  }
+
   try {
-    await createDcaPlan({
-      holdingId: props.holdingId,
-      amount: amount.value,
-      frequency: frequency.value,
-      day: frequency.value === 'daily' ? null : day.value,
-    })
-    emit('created')
+    if (isEdit.value && props.plan) {
+      await updateDcaPlan(props.plan.id, payload)
+    } else {
+      await createDcaPlan({ holdingId: props.holdingId, ...payload })
+    }
+    emit('saved')
     emit('close')
   } catch (e: any) {
-    error.value = e.message || '创建失败，请重试'
+    error.value = e.message || (isEdit.value ? '保存失败，请重试' : '创建失败，请重试')
   } finally {
     submitting.value = false
   }
@@ -90,7 +125,9 @@ async function handleSubmit() {
 <template>
   <div class="bg-card-bg rounded-2xl px-xl py-lg shadow-overlay w-full max-w-sm mx-auto" style="max-height: 85vh; overflow-y: auto;">
 
-    <h3 class="font-body text-md font-medium text-text-primary mb-1">创建定投计划</h3>
+    <h3 class="font-body text-md font-medium text-text-primary mb-1">
+      {{ isEdit ? '编辑定投计划' : '创建定投计划' }}
+    </h3>
     <p class="font-body text-sm text-text-secondary mb-lg">{{ holdingName }} ({{ holdingCode }})</p>
 
     <!-- Amount -->
@@ -118,7 +155,7 @@ async function handleSubmit() {
         :class="frequency === opt.value
           ? 'bg-brand-light text-brand shadow-sm'
           : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'"
-        @click="frequency = opt.value as typeof frequency; if (opt.value === 'daily') day = null"
+        @click="pickFrequency(opt.value)"
       >
         {{ opt.label }}
       </button>
@@ -126,7 +163,9 @@ async function handleSubmit() {
 
     <!-- Day selector (hidden when daily) -->
     <template v-if="showDaySelector">
-      <label class="font-body text-xs text-text-tertiary mb-sm block">扣款日</label>
+      <label class="font-body text-xs text-text-tertiary mb-sm block">
+        {{ frequency === 'monthly' ? '每月扣款日' : '扣款日' }}
+      </label>
 
       <!-- Weekly / Biweekly: 7 days -->
       <div v-if="frequency === 'weekly' || frequency === 'biweekly'" class="flex gap-1.5 mb-lg">
@@ -170,9 +209,16 @@ async function handleSubmit() {
       </div>
       <div class="flex justify-between items-center">
         <span class="font-body text-xs text-text-tertiary">开始日期</span>
-        <span class="font-body text-sm text-text-primary">明天起第一个交易日</span>
+        <span class="font-body text-sm text-text-primary">
+          {{ isEdit && plan ? plan.startedAt : '明天起第一个交易日' }}
+        </span>
       </div>
     </div>
+
+    <!-- 编辑模式提示：标的不可更换 -->
+    <p v-if="isEdit" class="font-body text-[11px] text-text-tertiary text-center mb-md leading-relaxed">
+      换标的请删除本计划后重新创建，避免累计投入与份额统计串账
+    </p>
 
     <!-- Error -->
     <p v-if="error" class="text-error font-body text-xs mb-sm text-center">{{ error }}</p>
@@ -184,7 +230,7 @@ async function handleSubmit() {
       @click="handleSubmit"
     >
       <span v-if="submitting" class="material-symbols-outlined animate-spin text-lg">progress_activity</span>
-      <span>{{ submitting ? '创建中...' : '确认创建' }}</span>
+      <span>{{ submitting ? (isEdit ? '保存中...' : '创建中...') : (isEdit ? '保存修改' : '确认创建') }}</span>
     </button>
   </div>
 </template>

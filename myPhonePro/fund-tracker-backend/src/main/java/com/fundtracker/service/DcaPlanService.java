@@ -165,17 +165,87 @@ public class DcaPlanService {
         return tradingCalendar.nextTradingDay(rawDate, market);
     }
 
+    /**
+     * 计算「下一个符合指定频率与扣款日的日期」（严格晚于 today）。
+     *
+     * <p><b>与 {@link #calculateNextExecutionDate} 的区别（重要）</b>：
+     * 后者的语义是"从某日起加一个周期"，用于执行完一期后推进下一期；
+     * 本方法的语义是"以今天为基准，找下一个符合当前设置的日子"，用于编辑频率/扣款日后的重算。
+     * 编辑场景若误用前者会晚一整个周期 —— 例如今天是周二（10/13），把频率改为「每周三」，
+     * 前者返回 10/21，而正确答案是 10/14。
+     *
+     * @param today     基准日（结果严格晚于该日）
+     * @param frequency 频率
+     * @param day       daily 传 null；weekly/biweekly 传 1~7（周一~周日）；monthly 传 1~31
+     */
+    static LocalDate nextOccurrence(LocalDate today, DcaFrequency frequency, Integer day) {
+        switch (frequency) {
+            case daily:
+                return today.plusDays(1);
+            case weekly: {
+                if (day == null) return today.plusWeeks(1);
+                // 今天当天不算，顺延到下一个同星期几
+                int delta = day - today.getDayOfWeek().getValue();
+                if (delta <= 0) delta += 7;
+                return today.plusDays(delta);
+            }
+            case biweekly:
+                // 双周没有独立锚点，沿用「今天 + 2 周」
+                return today.plusWeeks(2);
+            case monthly: {
+                if (day == null) return today.plusMonths(1);
+                // 本月该日未到就用本月，否则顺延到下月；月末做钳制，避免 2/30 这类非法日期
+                LocalDate thisMonth = today.withDayOfMonth(Math.min(day, today.lengthOfMonth()));
+                if (thisMonth.isAfter(today)) return thisMonth;
+                LocalDate nextMonth = today.plusMonths(1);
+                return nextMonth.withDayOfMonth(Math.min(day, nextMonth.lengthOfMonth()));
+            }
+            default:
+                return today.plusDays(1);
+        }
+    }
+
+    /** 解析频率字符串；非法值抛业务异常，避免 IllegalArgumentException 冒泡成 500 */
+    private static DcaFrequency parseFrequency(String raw) {
+        try {
+            return DcaFrequency.valueOf(raw);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw BusinessException.invalidParam("定投频率无效: " + raw);
+        }
+    }
+
+    /** 解析状态字符串；非法值抛业务异常 */
+    private static DcaPlanStatus parseStatus(String raw) {
+        try {
+            return DcaPlanStatus.valueOf(raw);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw BusinessException.invalidParam("无效的状态: " + raw);
+        }
+    }
+
+    /** 按频率校验扣款日范围 */
+    private static void validateDay(DcaFrequency frequency, Integer day) {
+        if (day == null || frequency == DcaFrequency.daily) return;
+        if (frequency == DcaFrequency.weekly || frequency == DcaFrequency.biweekly) {
+            if (day < 1 || day > 7) {
+                throw BusinessException.invalidParam(
+                        "频率为每周/双周时，扣款日需为 1~7（周一~周日），当前为 " + day);
+            }
+        } else if (frequency == DcaFrequency.monthly) {
+            if (day < 1 || day > 31) {
+                throw BusinessException.invalidParam(
+                        "频率为每月时，扣款日需为 1~31，当前为 " + day);
+            }
+        }
+    }
+
     @Transactional
     public DcaPlanVO createPlan(CreateDcaPlanReq req, String userId) {
         Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(req.getHoldingId(), userId)
                 .orElseThrow(BusinessException::holdingNotFound);
 
-        DcaFrequency frequency;
-        try {
-            frequency = DcaFrequency.valueOf(req.getFrequency());
-        } catch (IllegalArgumentException e) {
-            throw BusinessException.invalidParam("定投频率无效: " + req.getFrequency());
-        }
+        DcaFrequency frequency = parseFrequency(req.getFrequency());
+        validateDay(frequency, req.getDay());
 
         String market = inferTradingMarket(holding);
         LocalDate today = LocalDate.now();
@@ -232,19 +302,42 @@ public class DcaPlanService {
         DcaPlan plan = dcaPlanRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(BusinessException::planNotFound);
 
+        boolean scheduleChanged = false;
+
+        // --- 频率 ---
+        if (req.getFrequency() != null) {
+            DcaFrequency newFrequency = parseFrequency(req.getFrequency());
+            if (plan.getFrequency() != newFrequency) {
+                plan.setFrequency(newFrequency);
+                scheduleChanged = true;
+            }
+            // 切到「每日」时清掉扣款日（每日无扣款日概念）
+            if (newFrequency == DcaFrequency.daily && plan.getDay() != null) {
+                plan.setDay(null);
+                scheduleChanged = true;
+            }
+        }
+
+        // --- 扣款日（每日频率下忽略）---
+        if (req.getDay() != null && plan.getFrequency() != DcaFrequency.daily) {
+            if (!req.getDay().equals(plan.getDay())) {
+                plan.setDay(req.getDay());
+                scheduleChanged = true;
+            }
+        }
+
+        // --- 每期金额 ---
         if (req.getAmount() != null) {
             plan.setAmount(req.getAmount());
         }
-        if (req.getFrequency() != null) {
-            plan.setFrequency(DcaFrequency.valueOf(req.getFrequency()));
-        }
-        if (req.getDay() != null) {
-            plan.setDay(req.getDay());
-        }
+
+        // 校验最终状态下的扣款日合法性（放在频率/扣款日都应用之后）
+        validateDay(plan.getFrequency(), plan.getDay());
+
+        // --- 状态 ---
         if (req.getStatus() != null) {
-            String newStatus = req.getStatus();
-            DcaPlanStatus s = DcaPlanStatus.valueOf(newStatus);
-            switch (s) {
+            DcaPlanStatus status = parseStatus(req.getStatus());
+            switch (status) {
                 case paused:
                     plan.setStatus(DcaPlanStatus.paused);
                     log.info("定投计划 {} 已暂停", id);
@@ -262,8 +355,17 @@ public class DcaPlanService {
                     log.info("定投计划 {} 已终止", id);
                     break;
                 default:
-                    throw BusinessException.invalidParam("无效的状态: " + newStatus);
+                    throw BusinessException.invalidParam("无效的状态: " + req.getStatus());
             }
+        }
+
+        // --- 频率/扣款日变更 → 以「今天」为基准重算下次执行日 ---
+        // 仅在 active 时重算：暂停/终止的计划该字段无意义（恢复时上面已重算）
+        if (scheduleChanged && plan.getStatus() == DcaPlanStatus.active) {
+            LocalDate base = nextOccurrence(LocalDate.now(), plan.getFrequency(), plan.getDay());
+            LocalDate nextExec = tradingCalendar.nextTradingDay(base, plan.getTradingMarket());
+            plan.setNextExecutionDate(nextExec);
+            log.info("定投计划 {} 频率/扣款日变更，下次执行日重算为 {}（基准 {}）", id, nextExec, base);
         }
 
         plan = dcaPlanRepository.save(plan);

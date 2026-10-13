@@ -5,6 +5,7 @@ import { getDcaPlan, updateDcaPlan, deleteDcaPlan, executeDcaPlan, type DcaPlanV
 import { listTransactions, type TransactionItem } from '@/api/transaction'
 import PageStateComp from '@/components/shared/PageState.vue'
 import DcaExecuteSheet from '@/components/dca/DcaExecuteSheet.vue'
+import DcaPlanSheet from '@/components/dca/DcaPlanSheet.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,6 +16,7 @@ const dcaTransactions = ref<TransactionItem[]>([])
 
 // Sheet state
 const showExecuteSheet = ref(false)
+const showEditSheet = ref(false)
 const showDeleteConfirm = ref(false)
 const updating = ref(false)
 
@@ -99,6 +101,12 @@ function handleExecute() {
 
 function handleExecuted() {
   showExecuteSheet.value = false
+  loadData()
+}
+
+/** 编辑保存成功 → 关闭弹层并刷新（下次执行日可能已重算） */
+function handleEdited() {
+  showEditSheet.value = false
   loadData()
 }
 
@@ -220,7 +228,17 @@ function formatQuantity(n: number): string {
 
       <!-- Plan Info -->
       <section class="mx-gutter bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 space-y-sm">
-        <h3 class="font-body text-sm font-medium text-text-primary mb-sm">计划信息</h3>
+        <div class="flex items-center justify-between mb-sm">
+          <h3 class="font-body text-sm font-medium text-text-primary">计划信息</h3>
+          <button
+            v-if="plan.status !== 'ended'"
+            class="flex items-center gap-1 h-8 pl-2 pr-3 rounded-lg bg-card-alt text-text-secondary active:scale-95 transition-all"
+            @click="showEditSheet = true"
+          >
+            <span class="material-symbols-outlined text-[16px]">edit</span>
+            <span class="font-body text-xs font-medium">编辑</span>
+          </button>
+        </div>
         <div class="flex justify-between items-center border-b border-border-light pb-2">
           <span class="font-body text-xs text-text-tertiary">每期金额</span>
           <span class="font-body text-sm text-text-primary">¥{{ formatAmount(plan.amount) }}</span>
@@ -321,6 +339,27 @@ function formatQuantity(n: number): string {
         </p>
       </div>
     </main>
+
+    <!-- === Edit Sheet === -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showEditSheet" class="fixed inset-0 z-modal-backdrop bg-black/40" @click="showEditSheet = false"></div>
+      </Transition>
+      <Transition name="scale-up">
+        <div v-if="showEditSheet" class="fixed inset-0 z-modal flex items-center justify-center px-gutter" @click.self="showEditSheet = false">
+          <DcaPlanSheet
+            v-if="plan"
+            :holding-id="plan.holdingId"
+            :holding-name="plan.holdingName"
+            :holding-code="plan.holdingCode"
+            :trading-market="plan.tradingMarket"
+            :plan="plan"
+            @close="showEditSheet = false"
+            @saved="handleEdited"
+          />
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- === Execute Sheet === -->
     <Teleport to="body">

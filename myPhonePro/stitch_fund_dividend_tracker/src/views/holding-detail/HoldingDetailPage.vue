@@ -8,7 +8,7 @@ import type { HoldingItem, ForecastData, UpdateHoldingReq } from '@/api/holding'
 import type { TransactionItem } from '@/api/transaction'
 import type { DcaPlanVO } from '@/api/dca'
 import PageStateComp from '@/components/shared/PageState.vue'
-import DcaCreateSheet from '@/components/dca/DcaCreateSheet.vue'
+import DcaPlanSheet from '@/components/dca/DcaPlanSheet.vue'
 import DcaExecuteSheet from '@/components/dca/DcaExecuteSheet.vue'
 
 const route = useRoute()
@@ -43,7 +43,7 @@ async function loadDcaPlans() {
   }
 }
 
-function handleDcaCreated() {
+function handleDcaSaved() {
   showCreateSheet.value = false
   loadDcaPlans()
 }
@@ -813,14 +813,14 @@ onActivated(() => {
 
       <Transition name="scale-up">
         <div v-if="showCreateSheet" class="fixed inset-0 z-modal flex items-center justify-center px-gutter" @click.self="showCreateSheet = false">
-          <DcaCreateSheet
+          <DcaPlanSheet
             v-if="holding"
             :holding-id="holding.id"
             :holding-name="holding.name"
             :holding-code="holding.code"
             :trading-market="holding.type === '美股' ? 'us' : 'china'"
             @close="showCreateSheet = false"
-            @created="handleDcaCreated"
+            @saved="handleDcaSaved"
           />
         </div>
       </Transition>

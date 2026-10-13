@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -300,6 +301,202 @@ class DcaPlanServiceTest {
             when(dcaPlanRepository.findByIdAndUserId("p-404", "user-1")).thenReturn(Optional.empty());
 
             assertThrows(BusinessException.class, () -> dcaPlanService.updatePlan("p-404", new UpdateDcaPlanReq(), "user-1"));
+        }
+
+        @Test
+        @DisplayName("修改频率 → 重算下次执行日（修复前不重算）")
+        void updateFrequencyRecalculatesNextExecutionDate() {
+            DcaPlan plan = DcaPlan.builder()
+                    .id("p-1").holdingId("h-1")
+                    .frequency(DcaFrequency.monthly).day(10)
+                    .status(DcaPlanStatus.active).tradingMarket("china")
+                    .nextExecutionDate(LocalDate.of(2026, 11, 10))
+                    .build();
+            UpdateDcaPlanReq req = new UpdateDcaPlanReq();
+            req.setFrequency("daily");
+
+            stubUpdate(plan);
+            // 交易日历透传，便于断言原始计算结果
+            when(tradingCalendar.nextTradingDay(any(LocalDate.class), anyString()))
+                    .thenAnswer(i -> i.getArgument(0));
+
+            DcaPlanVO result = dcaPlanService.updatePlan("p-1", req, "user-1");
+
+            assertEquals("daily", result.getFrequency());
+            assertNull(result.getDay(), "切到每日应清空扣款日");
+            assertEquals(LocalDate.now().plusDays(1), result.getNextExecutionDate());
+        }
+
+        @Test
+        @DisplayName("只改金额 → 下次执行日保持不变")
+        void updateAmountKeepsNextExecutionDate() {
+            LocalDate originalNext = LocalDate.of(2026, 11, 10);
+            DcaPlan plan = DcaPlan.builder()
+                    .id("p-1").holdingId("h-1").amount(new BigDecimal("500"))
+                    .frequency(DcaFrequency.monthly).day(10)
+                    .status(DcaPlanStatus.active).tradingMarket("china")
+                    .nextExecutionDate(originalNext)
+                    .build();
+            UpdateDcaPlanReq req = new UpdateDcaPlanReq();
+            req.setAmount(new BigDecimal("800"));
+
+            stubUpdate(plan);
+
+            DcaPlanVO result = dcaPlanService.updatePlan("p-1", req, "user-1");
+
+            assertEquals(new BigDecimal("800"), result.getAmount());
+            assertEquals(originalNext, result.getNextExecutionDate());
+        }
+
+        @Test
+        @DisplayName("暂停中的计划改频率 → 不动下次执行日")
+        void pausedPlanDoesNotRecalculate() {
+            LocalDate originalNext = LocalDate.of(2026, 11, 10);
+            DcaPlan plan = DcaPlan.builder()
+                    .id("p-1").holdingId("h-1")
+                    .frequency(DcaFrequency.monthly).day(10)
+                    .status(DcaPlanStatus.paused).tradingMarket("china")
+                    .nextExecutionDate(originalNext)
+                    .build();
+            UpdateDcaPlanReq req = new UpdateDcaPlanReq();
+            req.setFrequency("daily");
+
+            stubUpdate(plan);
+
+            DcaPlanVO result = dcaPlanService.updatePlan("p-1", req, "user-1");
+
+            assertEquals(originalNext, result.getNextExecutionDate());
+        }
+
+        @Test
+        @DisplayName("非法频率 → 抛业务异常（而非 500）")
+        void invalidFrequency() {
+            DcaPlan plan = DcaPlan.builder().id("p-1").frequency(DcaFrequency.monthly)
+                    .status(DcaPlanStatus.active).build();
+            UpdateDcaPlanReq req = new UpdateDcaPlanReq();
+            req.setFrequency("bogus");
+
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
+
+            assertThrows(BusinessException.class, () -> dcaPlanService.updatePlan("p-1", req, "user-1"));
+        }
+
+        @Test
+        @DisplayName("扣款日超出当前频率范围 → 抛业务异常")
+        void invalidDay() {
+            DcaPlan plan = DcaPlan.builder().id("p-1").frequency(DcaFrequency.weekly)
+                    .status(DcaPlanStatus.active).build();
+            UpdateDcaPlanReq req = new UpdateDcaPlanReq();
+            req.setDay(15); // 每周只接受 1~7
+
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
+
+            assertThrows(BusinessException.class, () -> dcaPlanService.updatePlan("p-1", req, "user-1"));
+        }
+
+        private void stubUpdate(DcaPlan plan) {
+            when(dcaPlanRepository.findByIdAndUserId(plan.getId(), "user-1")).thenReturn(Optional.of(plan));
+            when(dcaPlanRepository.save(any(DcaPlan.class))).thenAnswer(i -> i.getArgument(0));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse(any(), eq("user-1"))).thenReturn(Optional.empty());
+        }
+    }
+
+    @Nested
+    @DisplayName("nextOccurrence 计算下一个符合设置的日期")
+    class NextOccurrence {
+
+        /** 2026-10-13 是周二 */
+        private final LocalDate tue = LocalDate.of(2026, 10, 13);
+
+        @Test
+        @DisplayName("前置自检：基准日确实是周二")
+        void anchorIsTuesday() {
+            assertEquals(DayOfWeek.TUESDAY, tue.getDayOfWeek());
+        }
+
+        @Test
+        @DisplayName("daily → 明天")
+        void daily() {
+            assertEquals(LocalDate.of(2026, 10, 14),
+                    DcaPlanService.nextOccurrence(tue, DcaFrequency.daily, null));
+        }
+
+        @Test
+        @DisplayName("weekly 指定明天(周三) → 明天；这条正是修复前会错 7 天的用例")
+        void weeklyTomorrow() {
+            assertEquals(LocalDate.of(2026, 10, 14),
+                    DcaPlanService.nextOccurrence(tue, DcaFrequency.weekly, 3));
+        }
+
+        @Test
+        @DisplayName("weekly 指定今天(周二) → 下周二（今天不算）")
+        void weeklyToday() {
+            assertEquals(LocalDate.of(2026, 10, 20),
+                    DcaPlanService.nextOccurrence(tue, DcaFrequency.weekly, 2));
+        }
+
+        @Test
+        @DisplayName("weekly 指定已过的周一 → 下周一")
+        void weeklyPassedDay() {
+            assertEquals(LocalDate.of(2026, 10, 19),
+                    DcaPlanService.nextOccurrence(tue, DcaFrequency.weekly, 1));
+        }
+
+        @Test
+        @DisplayName("weekly 指定本周日 → 本周日")
+        void weeklySunday() {
+            assertEquals(LocalDate.of(2026, 10, 18),
+                    DcaPlanService.nextOccurrence(tue, DcaFrequency.weekly, 7));
+        }
+
+        @Test
+        @DisplayName("weekly 未给扣款日 → 加一周")
+        void weeklyNullDay() {
+            assertEquals(LocalDate.of(2026, 10, 20),
+                    DcaPlanService.nextOccurrence(tue, DcaFrequency.weekly, null));
+        }
+
+        @Test
+        @DisplayName("biweekly → 加两周")
+        void biweekly() {
+            assertEquals(LocalDate.of(2026, 10, 27),
+                    DcaPlanService.nextOccurrence(tue, DcaFrequency.biweekly, null));
+        }
+
+        @Test
+        @DisplayName("monthly 指定本月未到的 15 日 → 本月 15 日")
+        void monthlyThisMonth() {
+            assertEquals(LocalDate.of(2026, 10, 15),
+                    DcaPlanService.nextOccurrence(tue, DcaFrequency.monthly, 15));
+        }
+
+        @Test
+        @DisplayName("monthly 指定本月已过的 10 日 → 下月 10 日")
+        void monthlyPassedDay() {
+            assertEquals(LocalDate.of(2026, 11, 10),
+                    DcaPlanService.nextOccurrence(tue, DcaFrequency.monthly, 10));
+        }
+
+        @Test
+        @DisplayName("monthly 指定今天(13 日) → 下月 13 日（今天不算）")
+        void monthlyToday() {
+            assertEquals(LocalDate.of(2026, 11, 13),
+                    DcaPlanService.nextOccurrence(tue, DcaFrequency.monthly, 13));
+        }
+
+        @Test
+        @DisplayName("monthly 指定 31 日 → 本月 31 日")
+        void monthly31st() {
+            assertEquals(LocalDate.of(2026, 10, 31),
+                    DcaPlanService.nextOccurrence(tue, DcaFrequency.monthly, 31));
+        }
+
+        @Test
+        @DisplayName("monthly 指定 31 日但下月只有 28 天 → 钳制到下月末日")
+        void monthlyClamped() {
+            LocalDate jan31 = LocalDate.of(2026, 1, 31);
+            assertEquals(LocalDate.of(2026, 2, 28),
+                    DcaPlanService.nextOccurrence(jan31, DcaFrequency.monthly, 31));
         }
     }
 
