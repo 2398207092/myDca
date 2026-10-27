@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -23,6 +24,15 @@ public class HoldingDTO {
     private BigDecimal marketValue;
     private BigDecimal latestPrice;
     private LocalDate priceDate;
+
+    /** 原始报价币种：CNY / USDT */
+    private String quoteCurrency;
+    /** 原始报价（如 79827.4 USDT），CNY 标的为 null */
+    private BigDecimal quotePrice;
+    /** 成本是否为估算值 */
+    private boolean costEstimated;
+    private String priceSource;
+    private LocalDateTime priceUpdatedAt;
     private BigDecimal predictedDividend;
     private BigDecimal dividendRate;
     private BigDecimal priceDividendRate;

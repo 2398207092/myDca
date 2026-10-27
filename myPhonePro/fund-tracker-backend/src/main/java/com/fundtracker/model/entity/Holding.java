@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -57,6 +58,27 @@ public class Holding {
     private BigDecimal latestPrice;
 
     private LocalDate priceDate;
+
+    /** 原始报价币种：CNY（基金/ETF）或 USDT（加密币）。latestPrice 始终是折算后的人民币价 */
+    @Column(name = "quote_currency", nullable = false, length = 10)
+    @Builder.Default
+    private String quoteCurrency = "CNY";
+
+    /** 原始报价（如 79827.4 USDT）；CNY 标的为空 */
+    @Column(name = "quote_price", precision = 24, scale = 8)
+    private BigDecimal quotePrice;
+
+    /** 成本是否为估算值（如从冷钱包转入，真实成本不可考，按建仓价估算） */
+    @Column(name = "cost_estimated", nullable = false)
+    @Builder.Default
+    private boolean costEstimated = false;
+
+    /** 价格来源：okx / gate / manual */
+    @Column(name = "price_source", length = 20)
+    private String priceSource;
+
+    @Column(name = "price_updated_at")
+    private LocalDateTime priceUpdatedAt;
 
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal predictedDividend;

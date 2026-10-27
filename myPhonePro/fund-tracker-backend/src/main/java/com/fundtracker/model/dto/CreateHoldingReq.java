@@ -28,4 +28,10 @@ public class CreateHoldingReq {
 
     private BigDecimal buyFeeRate;  // 可选，默认 0.15（百分数值）
     private BigDecimal sellFeeRate; // 可选，默认 0（百分数值）
+
+    /** 原始报价币种：CNY（默认）或 USDT。加密币填 USDT 才能被价格任务刷新 */
+    private String quoteCurrency;
+
+    /** 成本是否为估算（如从冷钱包转入、真实成本不可考） */
+    private Boolean costEstimated;
 }

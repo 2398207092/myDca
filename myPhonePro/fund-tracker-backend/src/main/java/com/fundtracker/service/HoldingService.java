@@ -169,6 +169,9 @@ public class HoldingService {
                 .costPerShare(costPerShare)
                 .cost(totalCost)
                 .marketValue(marketValue)
+                .quoteCurrency(req.getQuoteCurrency() != null && !req.getQuoteCurrency().isBlank()
+                        ? req.getQuoteCurrency().toUpperCase() : "CNY")
+                .costEstimated(Boolean.TRUE.equals(req.getCostEstimated()))
                 .predictedDividend(BigDecimal.ZERO)
                 .dividendRate(BigDecimal.ZERO)
                 .priceDividendRate(BigDecimal.ZERO)
@@ -186,6 +189,14 @@ public class HoldingService {
                 .build();
 
         holding = holdingRepository.save(holding);
+
+        // 加密币：价格由 CryptoPriceService 维护，不走基金的分红/净值/初始买入交易链路。
+        // 否则会给 BTC 抓天天基金、并凭空生成一笔带手续费的买入交易（成本会被抬高 0.15%）。
+        if (holding.getType() == HoldingType.crypto) {
+            log.info("创建加密币持仓 {}：{} {}，成本估算={}，跳过基金抓取与初始交易",
+                    holding.getName(), holding.getShares(), holding.getCode(), holding.isCostEstimated());
+            return toDTO(holding);
+        }
 
         // 创建持仓后触发分红数据抓取
         try {
@@ -656,6 +667,11 @@ public class HoldingService {
                 .marketValue(marketValue)
                 .latestPrice(holding.getLatestPrice())
                 .priceDate(holding.getPriceDate())
+                .quoteCurrency(holding.getQuoteCurrency())
+                .quotePrice(holding.getQuotePrice())
+                .costEstimated(holding.isCostEstimated())
+                .priceSource(holding.getPriceSource())
+                .priceUpdatedAt(holding.getPriceUpdatedAt())
                 .predictedDividend(holding.getPredictedDividend())
                 .dividendRate(holding.getDividendRate())
                 .priceDividendRate(holding.getPriceDividendRate())

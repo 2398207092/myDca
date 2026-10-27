@@ -9,6 +9,9 @@ import java.util.Optional;
 
 public interface HoldingRepository extends JpaRepository<Holding, String> {
     List<Holding> findByTypeAndDeletedFalse(String type);
+
+    /** 按原始报价币种查：USDT 用于加密币价格刷新 */
+    List<Holding> findByQuoteCurrencyAndDeletedFalse(String quoteCurrency);
     List<Holding> findByDeletedFalseOrderByMarketValueDesc();
     List<Holding> findByAssetCategoryAndDeletedFalse(String assetCategory);
     Optional<Holding> findByIdAndDeletedFalse(String id);

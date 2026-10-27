@@ -48,7 +48,10 @@ public class AssetOverviewService {
     public AssetOverviewDTO getOverview(String userId) {
         // 计算各类资产金额
         BigDecimal cashValue = manualAssetService.getTotalByType("cash", userId);
-        BigDecimal cryptoValue = manualAssetService.getTotalByType("crypto", userId);
+        // 加密资产有两个来源：手填的 manual_assets（type=crypto）与迁入 holdings 的持仓（assetCategory=crypto）
+        // 迁移期间两者可能并存，必须相加，否则总资产会漏算
+        BigDecimal cryptoValue = manualAssetService.getTotalByType("crypto", userId)
+                .add(getHoldingTotalByCategory("crypto", userId));
         BigDecimal usStockValue = getHoldingTotalByCategory("us_stock", userId);
         BigDecimal goldValue = getHoldingTotalByCategory("gold", userId);
         BigDecimal dividendValue = getHoldingTotalByCategory("dividend", userId);

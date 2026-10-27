@@ -89,6 +89,18 @@ const CONTRACTS = [
     },
   },
   {
+    name: '加密价格 GET /api/crypto/prices',
+    path: '/api/crypto/prices',
+    shape: 'array',
+    fields: {
+      symbol: 'string',
+      usdtPrice: 'number|null',
+      cnyPrice: 'number|null',
+      source: 'string|null',
+      updatedAt: 'string|null',
+    },
+  },
+  {
     name: '分红事件 GET /api/events',
     path: '/api/events',
     shape: 'array',
