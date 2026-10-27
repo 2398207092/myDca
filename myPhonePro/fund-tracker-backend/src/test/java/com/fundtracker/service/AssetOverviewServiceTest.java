@@ -3,6 +3,9 @@ package com.fundtracker.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fundtracker.model.dto.AssetOverviewDTO;
 import com.fundtracker.model.entity.AssetSnapshot;
+import com.fundtracker.model.entity.Holding;
+import com.fundtracker.model.enums.CostAlgorithm;
+import com.fundtracker.model.enums.HoldingType;
 import com.fundtracker.repository.AssetSnapshotRepository;
 import com.fundtracker.repository.HoldingRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +44,62 @@ class AssetOverviewServiceTest {
     void setUp() {
         assetOverviewService = new AssetOverviewService(
                 holdingRepository, manualAssetService, assetSnapshotRepository, new ObjectMapper());
+    }
+
+    @Nested
+    @DisplayName("加密币计入总资产")
+    class CryptoIncluded {
+
+        @Test
+        @DisplayName("assetCategory=crypto 的持仓必须计入 cryptoValue 与 totalValue")
+        void cryptoHoldingsCounted() {
+            // 手动资产 1000 + 持仓市值 6000 = 7000
+            when(manualAssetService.getTotalByType(eq("cash"), eq("u1"))).thenReturn(BigDecimal.ZERO);
+            when(manualAssetService.getTotalByType(eq("crypto"), eq("u1"))).thenReturn(new BigDecimal("1000"));
+            when(manualAssetService.listManualAssets("u1")).thenReturn(List.of());
+
+            Holding btc = Holding.builder()
+                    .id("h1").name("比特币").code("BTC")
+                    .type(HoldingType.crypto).costAlgorithm(CostAlgorithm.diluted)
+                    .shares(new BigDecimal("0.01145646"))
+                    .costPerShare(new BigDecimal("542060.10"))
+                    .cost(new BigDecimal("6210.09"))
+                    .marketValue(new BigDecimal("6000"))
+                    .predictedDividend(BigDecimal.ZERO)
+                    .dividendRate(BigDecimal.ZERO)
+                    .priceDividendRate(BigDecimal.ZERO)
+                    .totalDividendReceived(BigDecimal.ZERO)
+                    .netInvestment(new BigDecimal("6210.09"))
+                    .dividendRecoveryRate(BigDecimal.ZERO)
+                    .estimatedRecoveryYears(BigDecimal.ZERO)
+                    .reinvestRecoveryYears(BigDecimal.ZERO)
+                    .color("#f7931a")
+                    .assetCategory("crypto")
+                    .deleted(false)
+                    .build();
+
+            when(holdingRepository.findByUserIdAndAssetCategoryAndDeletedFalse("u1", "crypto"))
+                    .thenReturn(List.of(btc));
+            when(holdingRepository.findByUserIdAndAssetCategoryAndDeletedFalse("u1", "us_stock")).thenReturn(List.of());
+            when(holdingRepository.findByUserIdAndAssetCategoryAndDeletedFalse("u1", "gold")).thenReturn(List.of());
+            when(holdingRepository.findByUserIdAndAssetCategoryAndDeletedFalse("u1", "dividend")).thenReturn(List.of());
+            when(assetSnapshotRepository.findTopByUserIdAndDateLessThanEqualOrderByDateDesc(eq("u1"), any()))
+                    .thenReturn(Optional.empty());
+
+            AssetOverviewDTO dto = assetOverviewService.getOverview("u1");
+
+            assertEquals(0, new BigDecimal("7000").compareTo(dto.getCryptoValue()),
+                    "cryptoValue 应包含 holdings，实际：" + dto.getCryptoValue());
+            assertEquals(0, new BigDecimal("7000").compareTo(dto.getTotalValue()),
+                    "totalValue 应包含加密持仓，实际：" + dto.getTotalValue());
+
+            AssetOverviewDTO.CategoryDetail crypto = dto.getCategories().stream()
+                    .filter(c -> "crypto".equals(c.getType()))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("缺少 crypto 分类"));
+            assertTrue(crypto.getItems().stream().anyMatch(i -> "比特币".equals(i.getName())),
+                    "分类明细应列出加密持仓，否则 value 与明细对不上");
+        }
     }
 
     @Nested
