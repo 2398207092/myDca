@@ -39,7 +39,7 @@ public class AssetOverviewService {
 
     private static final Map<String, String> CATEGORY_NAMES = Map.of(
             "cash", "现金",
-            "crypto", "比特币",
+            "crypto", "加密资产",
             "us_stock", "美股",
             "gold", "黄金",
             "dividend", "红利"
@@ -195,7 +195,7 @@ public class AssetOverviewService {
         List<AssetOverviewDTO.CategoryDetail> details = new ArrayList<>();
 
         details.add(buildCategory("cash", "现金", cashValue, totalValue, userId));
-        details.add(buildCategory("crypto", "比特币", cryptoValue, totalValue, userId));
+        details.add(buildCategory("crypto", "加密资产", cryptoValue, totalValue, userId));
         details.add(buildCategory("us_stock", "美股", usStockValue, totalValue, userId));
         details.add(buildCategory("gold", "黄金", goldValue, totalValue, userId));
         details.add(buildCategory("dividend", "红利", dividendValue, totalValue, userId));

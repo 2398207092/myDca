@@ -1013,7 +1013,7 @@ async function doDelete() {
           <div class="p-lg pb-md shrink-0">
             <div class="w-10 h-1 bg-border-light rounded-full mx-auto mb-lg"></div>
             <h3 class="font-body text-md font-medium text-text-primary">
-              {{ editingAssetId ? '编辑' : '添加' }}{{ assetForm.type === 'cash' ? '现金' : '比特币' }}
+              {{ editingAssetId ? '编辑' : '添加' }}{{ assetForm.type === 'cash' ? '现金' : '加密资产' }}
             </h3>
           </div>
           <!-- 表单区（可滚动） -->
@@ -1041,6 +1041,9 @@ async function doDelete() {
               <label class="font-body text-xs text-text-tertiary block mb-1">金额 (元)</label>
               <input v-model="assetForm.amount" type="text" placeholder="0.00 或 +5000 或 -3000"
                      class="w-full px-md py-3 bg-card-alt rounded-lg text-text-primary outline-none font-body text-sm transition-colors focus:ring-2 focus:ring-brand" />
+              <p v-if="assetForm.type === 'crypto'" class="font-body text-[11px] text-text-tertiary mt-1">
+                统一按人民币记账：填 USDT 余额 × 当前汇率后的人民币金额（1 USDT ≈ 6.69 元）
+              </p>
             </div>
             <div>
               <label class="font-body text-xs text-text-tertiary block mb-1">备注 (可选)</label>
@@ -1284,7 +1287,7 @@ async function doDelete() {
           <button class="w-full flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-card-alt transition-colors mt-1"
                   @click="showAddTypePicker = false; openAddSheet('crypto')">
             <span class="w-3 h-3 rounded-full shrink-0" style="background-color:#8A6B08"></span>
-            <span class="font-body text-xs text-text-primary">比特币</span>
+            <span class="font-body text-xs text-text-primary">加密资产（USDT 等）</span>
           </button>
           <div class="text-center mt-2 pt-2 border-t border-border-light/40">
             <button class="font-body text-xs text-text-tertiary hover:text-text-primary transition-colors"
