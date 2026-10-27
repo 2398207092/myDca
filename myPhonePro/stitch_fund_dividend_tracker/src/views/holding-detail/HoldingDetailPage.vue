@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onActivated, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getHolding, getForecast, deleteHolding, updateHolding, updateDividendReinvest } from '@/api/holding'
+import { refreshCryptoPrices } from '@/api/crypto'
 import { listTransactions } from '@/api/transaction'
 import { listDcaPlans } from '@/api/dca'
 import type { HoldingItem, ForecastData, UpdateHoldingReq } from '@/api/holding'
@@ -25,6 +26,25 @@ const progressWidth = ref(0)
 
 // API 数据
 const holding = ref<HoldingItem | null>(null)
+
+// 加密币价格刷新
+const refreshing = ref(false)
+async function refreshPrice() {
+  if (refreshing.value) return
+  refreshing.value = true
+  try {
+    const resp = await refreshCryptoPrices()
+    if (resp.stale) {
+      window.alert(resp.message)
+    } else {
+      await loadData()
+    }
+  } catch (e: any) {
+    window.alert(e?.message || '刷新失败')
+  } finally {
+    refreshing.value = false
+  }
+}
 const forecast = ref<ForecastData | null>(null)
 const transactions = ref<TransactionItem[]>([])
 
@@ -145,9 +165,30 @@ const costPerShareDisplay = computed(() => {
 })
 
 // === 最新价格格式化 ===
+// 加密币用 USDT 原价展示（quotePrice），基金/ETF 用人民币净值
+const isCrypto = computed(() => holding.value?.quoteCurrency === 'USDT')
+
 const latestPriceFormatted = computed(() => {
-  if (!holding.value || !holding.value.latestPrice) return '--'
+  if (!holding.value) return '--'
+  if (isCrypto.value && holding.value.quotePrice != null) {
+    return holding.value.quotePrice.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
+  }
+  if (!holding.value.latestPrice) return '--'
   return holding.value.latestPrice.toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+})
+
+// 价格新鲜度：加密币实时刷新，基金按日
+const priceAge = computed(() => {
+  const s = holding.value?.priceUpdatedAt
+  if (!s) return ''
+  const diff = Date.now() - new Date(s).getTime()
+  if (diff < 0) return ''
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return '刚刚'
+  if (min < 60) return `${min} 分钟前`
+  const hours = Math.floor(min / 60)
+  if (hours < 24) return `${hours} 小时前`
+  return `${Math.floor(hours / 24)} 天前`
 })
 
 // === 净值日期格式化（MM-DD）===
@@ -159,6 +200,10 @@ const priceDateFormatted = computed(() => {
 
 const sharesFormatted = computed(() => {
   if (!holding.value) return '0'
+  // 加密币数量可能只有 0.00x，必须保留 8 位小数
+  if (isCrypto.value) {
+    return holding.value.shares.toLocaleString('zh-CN', { maximumFractionDigits: 8 })
+  }
   return holding.value.shares.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 })
 
@@ -171,6 +216,7 @@ const typeMap: Record<string, { currency: string; currencyColor: string; typeLab
   港股:       { currency: '港币',   currencyColor: 'bg-[#eb2f96]', typeLabel: '股票', typeColor: 'bg-[#722ed1]' },
   美股:       { currency: '美元',   currencyColor: 'bg-[#13c2c2]', typeLabel: '股票', typeColor: 'bg-[#722ed1]' },
   自定义:     { currency: '人民币', currencyColor: 'bg-[#ff7a45]', typeLabel: '自定义', typeColor: 'bg-[#86909c]' },
+  crypto:     { currency: 'USDT',   currencyColor: 'bg-[#f7931a]', typeLabel: '加密币', typeColor: 'bg-[#f7931a]' },
 }
 
 const typeInfo = computed(() => typeMap[String(holding.value?.type)] ?? typeMap['自定义'])
@@ -377,7 +423,7 @@ onActivated(() => {
       </div>
 
       <!-- Hero 主卡：年分红 + 累计分红 + 息率 -->
-      <section class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 relative overflow-hidden">
+      <section v-if="!isCrypto" class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40 relative overflow-hidden">
         <div class="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-brand-light/40 pointer-events-none"></div>
         <div class="relative z-10">
           <!-- 预测年分红 和 累计已获分红 并排 -->
@@ -429,10 +475,22 @@ onActivated(() => {
           </div>
           <div class="w-px bg-border-light/60"></div>
           <div class="pl-md min-w-0">
-            <p class="font-body text-xs text-text-tertiary">{{ priceDateFormatted }} 收盘价</p>
-            <p class="font-display text-sm font-semibold text-text-primary truncate mt-[6px]">
-              ¥{{ latestPriceFormatted }} × {{ sharesFormatted }}份
+            <p class="font-body text-xs text-text-tertiary">
+              {{ isCrypto ? (priceAge ? `价格 ${priceAge}` : '实时价格') : priceDateFormatted + ' 收盘价' }}
             </p>
+            <p class="font-display text-sm font-semibold text-text-primary truncate mt-[6px]">
+              {{ isCrypto ? `${latestPriceFormatted} USDT` : `¥${latestPriceFormatted} × ${sharesFormatted}份` }}
+            </p>
+            <p v-if="isCrypto" class="font-body text-[11px] text-text-tertiary mt-0.5 truncate">
+              × {{ sharesFormatted }} 枚 ≈ ¥{{ marketValueFormatted }}
+            </p>
+            <button v-if="isCrypto"
+                    class="mt-1 inline-flex items-center gap-0.5 font-body text-[11px] text-brand active:opacity-70 disabled:opacity-50"
+                    :disabled="refreshing"
+                    @click="refreshPrice">
+              <span class="material-symbols-outlined text-[13px]" :class="{ 'animate-spin': refreshing }">refresh</span>
+              {{ refreshing ? '刷新中' : '刷新价格' }}
+            </button>
           </div>
         </div>
         <div class="my-md h-px bg-border-light/60"></div>
@@ -440,15 +498,20 @@ onActivated(() => {
           <div class="pr-md">
             <p class="font-body text-xs text-text-tertiary">持仓数量</p>
             <p class="font-display text-md font-semibold text-text-primary mt-0.5">
-              {{ sharesFormatted }}<span class="font-body text-xs text-text-tertiary ml-0.5">份</span>
+              {{ sharesFormatted }}<span class="font-body text-xs text-text-tertiary ml-0.5">{{ isCrypto ? '枚' : '份' }}</span>
             </p>
           </div>
           <div class="w-px bg-border-light/60"></div>
           <div class="pl-md">
-            <p class="font-body text-xs text-text-tertiary">当前成本</p>
-            <p class="font-display text-md font-semibold text-text-primary mt-0.5">
-              {{ costPerShareDisplay }}<span v-if="holding.costPerShare > 0" class="font-body text-xs text-text-tertiary ml-0.5">/份</span>
+            <p class="font-body text-xs text-text-tertiary">
+              当前成本
+              <span v-if="holding.costEstimated"
+                    class="ml-1 text-[10px] text-[#f7931a] bg-[#f7931a]/10 px-1 py-0.5 rounded">估算</span>
             </p>
+            <p class="font-display text-md font-semibold text-text-primary mt-0.5">
+              {{ costPerShareDisplay }}<span v-if="holding.costPerShare > 0" class="font-body text-xs text-text-tertiary ml-0.5">{{ isCrypto ? '/枚' : '/份' }}</span>
+            </p>
+            <p v-if="holding.costEstimated" class="font-body text-[10px] text-text-tertiary mt-0.5">成本按录入价估算</p>
           </div>
         </div>
       </section>

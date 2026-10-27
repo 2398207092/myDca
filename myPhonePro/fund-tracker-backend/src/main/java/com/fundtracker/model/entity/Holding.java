@@ -42,7 +42,8 @@ public class Holding {
     @Column(nullable = false)
     private CostAlgorithm costAlgorithm;
 
-    @Column(nullable = false, precision = 18, scale = 4)
+    /** 持仓数量。基金按份（4 位够），加密币需要 8 位（0.01145646 BTC），故统一放宽到 8 位 */
+    @Column(nullable = false, precision = 24, scale = 8)
     private BigDecimal shares;
 
     @Column(nullable = false, precision = 18, scale = 4)

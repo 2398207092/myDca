@@ -407,24 +407,38 @@ public class HoldingService {
             // 同步写入 netInvestment，避免后续查询时被覆盖
             holding.setNetInvestment(netInvestment);
         } else {
-            // 交易模式：从交易记录重新计算一切
-            costPerShare = costCalculator.calculateCostPerShare(
-                    holding.getCostAlgorithm(),
-                    totalBuy, totalSell, totalDividend,
-                    totalBuyShares, currentShares
-            );
+            // 交易模式：从交易记录重新计算一切。
+            // 例外：从外部迁入的持仓（如冷钱包转入的 BTC）没有任何买入交易，
+            // 若仍按交易推算，costPerShare 会被算成 0，详情页就会错误显示「成本已收回」。
+            boolean noBuyHistory = totalBuyShares.compareTo(BigDecimal.ZERO) == 0
+                    && holding.getCostPerShare() != null
+                    && holding.getCostPerShare().compareTo(BigDecimal.ZERO) > 0;
 
-            netInvestment = costCalculator.calculateNetInvestment(
-                    holding.getCostAlgorithm(),
-                    totalBuy, totalSell, totalDividend
-            );
+            if (noBuyHistory) {
+                costPerShare = holding.getCostPerShare();
+                totalCost = holding.getCost() != null && holding.getCost().compareTo(BigDecimal.ZERO) > 0
+                        ? holding.getCost()
+                        : costPerShare.multiply(currentShares).setScale(2, RoundingMode.HALF_UP);
+                netInvestment = totalCost;
+            } else {
+                costPerShare = costCalculator.calculateCostPerShare(
+                        holding.getCostAlgorithm(),
+                        totalBuy, totalSell, totalDividend,
+                        totalBuyShares, currentShares
+                );
 
-            totalCost = costCalculator.calculateTotalCost(costPerShare, currentShares);
+                netInvestment = costCalculator.calculateNetInvestment(
+                        holding.getCostAlgorithm(),
+                        totalBuy, totalSell, totalDividend
+                );
 
-            // 如果没有交易，初始净投入 = 创建时的成本
-            if (netInvestment.compareTo(BigDecimal.ZERO) == 0 && totalBuy.compareTo(BigDecimal.ZERO) == 0) {
-                netInvestment = holding.getCost();
-                totalCost = holding.getCost();
+                totalCost = costCalculator.calculateTotalCost(costPerShare, currentShares);
+
+                // 如果没有交易，初始净投入 = 创建时的成本
+                if (netInvestment.compareTo(BigDecimal.ZERO) == 0 && totalBuy.compareTo(BigDecimal.ZERO) == 0) {
+                    netInvestment = holding.getCost();
+                    totalCost = holding.getCost();
+                }
             }
 
             holding.setCostPerShare(costPerShare);

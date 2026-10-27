@@ -25,6 +25,14 @@ export interface HoldingItem {
   dividendReinvest?: boolean
   buyFeeRate?: number
   sellFeeRate?: number
+  /** CNY / USDT */
+  quoteCurrency?: string
+  /** 原始报价（如 USDT 价），CNY 标的为 null */
+  quotePrice?: number | null
+  /** 成本是否为估算 */
+  costEstimated?: boolean
+  priceSource?: string | null
+  priceUpdatedAt?: string | null
 }
 
 export interface CreateHoldingReq {
@@ -37,6 +45,10 @@ export interface CreateHoldingReq {
   assetCategory?: string
   buyFeeRate?: number
   sellFeeRate?: number
+  /** CNY / USDT；加密币填 USDT 才会被价格任务刷新 */
+  quoteCurrency?: string
+  /** 成本为估算值（如从冷钱包转入） */
+  costEstimated?: boolean
 }
 
 export interface HoldingSearchResult {
