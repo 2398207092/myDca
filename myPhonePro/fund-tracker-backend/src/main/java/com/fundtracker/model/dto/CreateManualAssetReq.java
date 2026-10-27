@@ -14,8 +14,7 @@ public class CreateManualAssetReq {
     @NotBlank(message = "类型不能为空")
     private String type; // crypto / cash
 
-    @NotNull(message = "金额不能为空")
-    @Positive(message = "金额必须大于 0")
+    // 加密资产传数量（quantity）时金额由后端折算，因此不做注解校验，规则见 ManualAssetService
     private BigDecimal amount;
 
     private String currency; // CNY / 默认 CNY

@@ -5,6 +5,7 @@ import { getAssetOverview, takeSnapshot } from '@/api/assetOverview'
 import { listHoldings, updateHoldingCategory, getValueChange } from '@/api/holding'
 import type { ValueChangeResult } from '@/api/holding'
 import { listManualAssets, createManualAsset, updateManualAsset, deleteManualAsset } from '@/api/manualAsset'
+import { listExchangeRates } from '@/api/exchangeRate'
 import { getAccounts, type AccountItem } from '@/api/account'
 import { listDcaPlans, getDcaBudget } from '@/api/dca'
 import type { AssetOverview, CategoryItem } from '@/api/assetOverview'
@@ -60,6 +61,18 @@ const showAllDcaPlans = ref(false)
 const showAssetSheet = ref(false)
 const editingAssetId = ref<string | null>(null)
 const assetForm = ref({ name: '', type: 'cash' as 'cash' | 'crypto', amount: 0, note: '', accountId: '' })
+
+/** USD/CNY 汇率：加密资产按 USDT 数量录入，前端实时预览折算，后端保存时统一折算 */
+const usdCny = ref<number | null>(null)
+onMounted(async () => {
+  try {
+    const rates = await listExchangeRates()
+    const usd = rates.find((r) => r.pair === 'USD/CNY')
+    usdCny.value = usd?.rate ?? null
+  } catch {
+    usdCny.value = null
+  }
+})
 const savingAsset = ref(false)
 
 // Category mapping
@@ -324,7 +337,8 @@ function openEditSheet(asset: AssetLike) {
   assetForm.value = {
     name: asset.name,
     type: asset.type as 'cash' | 'crypto',
-    amount: asset.amount,
+    // 加密资产编辑的是 USDT 数量（与录入口径一致），不是人民币金额
+    amount: (asset.type === 'crypto' && (asset as any).quantity != null) ? (asset as any).quantity : asset.amount,
     note: asset.note || '',
     accountId: asset.accountId || '',
   }
@@ -339,13 +353,20 @@ async function saveAsset() {
     }
   }
   if (!assetForm.value.name) return
+  // 加密资产的输入是 USDT 数量：传 quantity，金额由后端按当前汇率折算成人民币
+  const isCrypto = assetForm.value.type === 'crypto'
+  if (isCrypto && !usdCny.value) {
+    window.alert('汇率获取失败，暂时无法保存加密资产，请稍后重试')
+    return
+  }
   savingAsset.value = true
   try {
     if (editingAssetId.value) {
       const req: UpdateManualAssetReq = {
         name: assetForm.value.name,
         type: assetForm.value.type,
-        amount: finalAmount,
+        amount: isCrypto ? undefined : finalAmount,
+        quantity: isCrypto ? finalAmount : undefined,
         note: assetForm.value.note || undefined,
         accountId: assetForm.value.accountId || undefined,
       }
@@ -356,7 +377,8 @@ async function saveAsset() {
       const req: CreateManualAssetReq = {
         name: assetForm.value.name,
         type: assetForm.value.type,
-        amount: finalAmount,
+        amount: isCrypto ? 0 : finalAmount,
+        quantity: isCrypto ? finalAmount : undefined,
         note: assetForm.value.note || undefined,
         accountId: assetForm.value.accountId || undefined,
       }
@@ -708,7 +730,11 @@ async function doDelete() {
                     <span v-if="assetLabel(a)" class="font-body text-[10px] text-text-tertiary/50 shrink-0">{{ assetLabel(a) }}</span>
                   </div>
                   <div class="flex items-center gap-2 shrink-0">
-                    <span class="font-body text-xs text-text-tertiary">{{ fmtExact(a.amount) }}</span>
+                    <span class="font-body text-xs text-text-tertiary">
+                      {{ a.type === 'crypto' && (a as any).quantity != null
+                        ? `${(a as any).quantity} USDT ≈ ¥${fmtExact(a.amount)}`
+                        : fmtExact(a.amount) }}
+                    </span>
                     <button class="text-text-tertiary hover:text-error transition-colors"
                             @click.stop="confirmDelete(a)">
                       <span class="material-symbols-outlined text-[16px]">close</span>
@@ -1038,11 +1064,16 @@ async function doDelete() {
               </div>
             </div>
             <div>
-              <label class="font-body text-xs text-text-tertiary block mb-1">金额 (元)</label>
+              <label class="font-body text-xs text-text-tertiary block mb-1">
+                {{ assetForm.type === 'crypto' ? '数量 (USDT)' : '金额 (元)' }}
+              </label>
               <input v-model="assetForm.amount" type="text" placeholder="0.00 或 +5000 或 -3000"
                      class="w-full px-md py-3 bg-card-alt rounded-lg text-text-primary outline-none font-body text-sm transition-colors focus:ring-2 focus:ring-brand" />
-              <p v-if="assetForm.type === 'crypto'" class="font-body text-[11px] text-text-tertiary mt-1">
-                统一按人民币记账：填 USDT 余额 × 当前汇率后的人民币金额（1 USDT ≈ 6.69 元）
+              <p v-if="assetForm.type === 'crypto' && usdCny" class="font-body text-[11px] text-text-tertiary mt-1">
+                ≈ ¥{{ (Number(assetForm.amount) * usdCny).toLocaleString('zh-CN', { maximumFractionDigits: 2 }) }}（1 USDT ≈ {{ usdCny }} CNY，保存后按此折算）
+              </p>
+              <p v-else-if="assetForm.type === 'crypto' && !usdCny" class="font-body text-[11px] text-error mt-1">
+                汇率获取失败，暂时无法保存加密资产
               </p>
             </div>
             <div>

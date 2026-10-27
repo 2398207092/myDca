@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,6 +24,7 @@ public class ManualAssetService {
     private final ManualAssetRepository manualAssetRepository;
     private final AccountRepository accountRepository;
     private final AccountService accountService;
+    private final ExchangeRateService exchangeRateService;
 
     public List<ManualAssetDTO> listManualAssets(String userId) {
         return manualAssetRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
@@ -60,15 +62,35 @@ public class ManualAssetService {
             assetCode = "cash".equals(req.getType()) ? "CNY" : "BTC";
         }
 
+        // 金额校验：现金必须传金额；加密资产传数量即可，金额由后端折算
+        boolean isCrypto = "crypto".equals(req.getType());
+        if (!isCrypto && req.getAmount() == null) {
+            throw BusinessException.invalidParam("金额不能为空");
+        }
+
+        // 加密资产的记账规则：数量按 USDT 计，金额 = 数量 × 当前汇率折算成人民币。
+        // 前端只传 quantity，amount 由后端统一折算，避免两边汇率口径不一致。
+        BigDecimal amount = req.getAmount();
+        BigDecimal quantity = req.getQuantity();
+        BigDecimal unitPrice = req.getUnitPrice();
+        if (isCrypto && quantity != null) {
+            BigDecimal usdCny = usdCnyRate();
+            if (usdCny == null) {
+                throw BusinessException.bizError("汇率获取失败，无法折算加密资产金额，请稍后重试");
+            }
+            unitPrice = unitPrice != null ? unitPrice : usdCny;
+            amount = quantity.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
+        }
+
         ManualAsset asset = ManualAsset.builder()
                 .userId(userId)
                 .name(req.getName())
                 .type(req.getType())
-                .amount(req.getAmount())
+                .amount(amount)
                 .accountId(accountId)
                 .assetCode(assetCode.toUpperCase())
-                .quantity(req.getQuantity())
-                .unitPrice(req.getUnitPrice())
+                .quantity(quantity)
+                .unitPrice(unitPrice)
                 .priceSource(req.getPriceSource() != null ? req.getPriceSource() : "manual")
                 .priceUpdatedAt(req.getUnitPrice() != null ? java.time.LocalDateTime.now() : null)
                 .currency(req.getCurrency() != null ? req.getCurrency() : "CNY")
@@ -78,6 +100,15 @@ public class ManualAssetService {
         asset = manualAssetRepository.save(asset);
         log.info("创建手动资产: {} [{}] ¥{}", asset.getName(), asset.getType(), asset.getAmount());
         return toDTO(asset);
+    }
+
+    /** USD/CNY 汇率；取不到时返回 null，由调用方决定兜底 */
+    private BigDecimal usdCnyRate() {
+        return exchangeRateService.listAll().stream()
+                .filter(r -> "USD/CNY".equals(r.getPair()))
+                .map(ExchangeRateDTO::getRate)
+                .findFirst()
+                .orElse(null);
     }
 
     @Transactional
@@ -100,7 +131,19 @@ public class ManualAssetService {
             asset.setAccountId(req.getAccountId());
         }
         if (req.getAssetCode() != null) asset.setAssetCode(req.getAssetCode().toUpperCase());
-        if (req.getQuantity() != null) asset.setQuantity(req.getQuantity());
+        if (req.getQuantity() != null) {
+            asset.setQuantity(req.getQuantity());
+            // 加密资产编辑数量时，金额按当前汇率重算（记录层 USDT，汇总层人民币）
+            if ("crypto".equals(asset.getType())) {
+                BigDecimal usdCny = usdCnyRate();
+                if (usdCny == null) {
+                    throw BusinessException.bizError("汇率获取失败，无法折算加密资产金额，请稍后重试");
+                }
+                asset.setUnitPrice(usdCny);
+                asset.setAmount(req.getQuantity().multiply(usdCny).setScale(2, RoundingMode.HALF_UP));
+                asset.setPriceUpdatedAt(java.time.LocalDateTime.now());
+            }
+        }
         if (req.getUnitPrice() != null) {
             asset.setUnitPrice(req.getUnitPrice());
             asset.setPriceUpdatedAt(java.time.LocalDateTime.now());
