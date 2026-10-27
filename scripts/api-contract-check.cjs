@@ -72,6 +72,11 @@ const CONTRACTS = [
       marketValue: 'number',
       netInvestment: 'number',
       assetCategory: 'string|null',
+      quoteCurrency: 'string',
+      quotePrice: 'number|null',
+      costEstimated: 'boolean',
+      priceSource: 'string|null',
+      priceUpdatedAt: 'string|null',
     },
   },
   {

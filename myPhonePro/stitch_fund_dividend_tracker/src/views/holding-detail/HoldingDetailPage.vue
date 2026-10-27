@@ -9,6 +9,7 @@ import type { HoldingItem, ForecastData, UpdateHoldingReq } from '@/api/holding'
 import type { TransactionItem } from '@/api/transaction'
 import type { DcaPlanVO } from '@/api/dca'
 import PageStateComp from '@/components/shared/PageState.vue'
+import ToastNotification from '@/components/shared/ToastNotification.vue'
 import DcaPlanSheet from '@/components/dca/DcaPlanSheet.vue'
 import DcaExecuteSheet from '@/components/dca/DcaExecuteSheet.vue'
 
@@ -29,18 +30,29 @@ const holding = ref<HoldingItem | null>(null)
 
 // 加密币价格刷新
 const refreshing = ref(false)
+const toastMsg = ref<string | null>(null)
+const toastType = ref<'success' | 'error' | 'info'>('success')
+function showToast(msg: string, type: 'success' | 'error' | 'info' = 'success') {
+  toastMsg.value = msg
+  toastType.value = type
+}
+
 async function refreshPrice() {
   if (refreshing.value) return
   refreshing.value = true
   try {
     const resp = await refreshCryptoPrices()
     if (resp.stale) {
-      window.alert(resp.message)
+      showToast(resp.message, 'error')
+    } else if (resp.updatedHoldings === 0) {
+      // 接口成功但没有可刷新的持仓（例如该币种暂无价格源），必须明确告知
+      showToast('该币种暂不支持自动定价', 'info')
     } else {
-      await loadData()
+      showToast(`已更新 ${resp.updatedHoldings} 个持仓`, 'success')
     }
+    await loadData()
   } catch (e: any) {
-    window.alert(e?.message || '刷新失败')
+    showToast(e?.message || '刷新失败', 'error')
   } finally {
     refreshing.value = false
   }
@@ -125,7 +137,43 @@ async function switchForecastTab(tab: '12m' | '5y') {
 
 // === 格式化展示值 ===
 const annualDividend = computed(() => holding.value?.predictedDividend?.toLocaleString() ?? '0')
-const marketValueFormatted = computed(() => holding.value?.marketValue?.toLocaleString() ?? '0')
+const marketValueFormatted = computed(() => {
+  if (!holding.value) return '--'
+  // 加密币没拿到价格时不显示市值，避免把「按成本」的数字当成实时市值
+  if (isCrypto.value && holding.value.quotePrice == null) return '--'
+  return holding.value.marketValue?.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) ?? '--'
+})
+
+/** 是否有可用价格（加密币看 USDT 原价，基金看净值） */
+const hasPrice = computed(() => {
+  if (!holding.value) return false
+  return isCrypto.value ? holding.value.quotePrice != null : holding.value.latestPrice != null
+})
+
+/** 隐含汇率 = 人民币价 ÷ USDT 价，用于让「数量 × 汇率 ≈ 市值」这行算术成立 */
+const impliedRate = computed(() => {
+  const lp = holding.value?.latestPrice
+  const qp = holding.value?.quotePrice
+  if (!lp || !qp) return null
+  return Number((lp / qp).toFixed(4))
+})
+
+/** 浮动盈亏 */
+const profit = computed(() => {
+  const h = holding.value
+  if (!h || h.marketValue == null || h.cost == null || h.cost <= 0) return null
+  if (isCrypto.value && !hasPrice.value) return null
+  const amount = h.marketValue - h.cost
+  return { amount, rate: (amount / h.cost) * 100 }
+})
+
+/** 成本折算成 USDT，让用户能对上录入时的 81000 */
+const costInUsdt = computed(() => {
+  const cps = holding.value?.costPerShare
+  const rate = impliedRate.value
+  if (!cps || cps <= 0 || !rate) return null
+  return (cps / rate).toLocaleString('zh-CN', { maximumFractionDigits: 2 })
+})
 const totalDividendFormatted = computed(() => holding.value?.totalDividendReceived?.toLocaleString() ?? '0')
 const netInvestmentFormatted = computed(() => holding.value?.netInvestment?.toLocaleString() ?? '0')
 const remainingRecovery = computed(() => {
@@ -159,9 +207,12 @@ const priceDividendRateDisplay = computed(() => {
 
 // 成本展示：负值时显示"成本已收回"
 const costPerShareDisplay = computed(() => {
-  if (!holding.value) return '0.0000'
-  if (holding.value.costPerShare <= 0) return '成本已收回'
-  return '¥' + holding.value.costPerShare.toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+  if (!holding.value) return '0.00'
+  const v = holding.value.costPerShare
+  if (v == null || v <= 0) return '成本已收回'
+  // 大额成本用 2 位小数即可，精确到万分之一元没有意义
+  const digits = v >= 1000 ? 2 : 4
+  return '¥' + v.toLocaleString('zh-CN', { minimumFractionDigits: digits, maximumFractionDigits: digits })
 })
 
 // === 最新价格格式化 ===
@@ -470,19 +521,26 @@ onActivated(() => {
           <div class="pr-md">
             <p class="font-body text-xs text-text-tertiary">总市值</p>
             <p class="font-display text-md font-semibold text-text-primary mt-0.5 whitespace-nowrap">
-              ¥{{ marketValueFormatted }}<span class="font-body text-xs text-text-tertiary ml-0.5">元</span>
+              <template v-if="marketValueFormatted === '--'">--</template>
+              <template v-else>¥{{ marketValueFormatted }}<span class="font-body text-xs text-text-tertiary ml-0.5">元</span></template>
             </p>
+            <p v-if="profit" class="font-body text-[11px] mt-0.5 whitespace-nowrap"
+               :class="profit.amount >= 0 ? 'text-pos' : 'text-neg'">
+              {{ profit.amount >= 0 ? '+' : '-' }}¥{{ Math.abs(profit.amount).toFixed(2) }}
+              <span class="text-text-tertiary">（{{ profit.rate >= 0 ? '+' : '' }}{{ profit.rate.toFixed(2) }}%）</span>
+            </p>
+            <p v-else-if="isCrypto && !hasPrice" class="font-body text-[10px] text-text-tertiary mt-0.5">暂无价格，暂按成本记</p>
           </div>
           <div class="w-px bg-border-light/60"></div>
           <div class="pl-md min-w-0">
             <p class="font-body text-xs text-text-tertiary">
-              {{ isCrypto ? (priceAge ? `价格 ${priceAge}` : '实时价格') : priceDateFormatted + ' 收盘价' }}
+              {{ !hasPrice ? '暂无价格' : (isCrypto ? (priceAge ? `价格 ${priceAge}` : '实时价格') : priceDateFormatted + ' 收盘价') }}
             </p>
             <p class="font-display text-sm font-semibold text-text-primary truncate mt-[6px]">
-              {{ isCrypto ? `${latestPriceFormatted} USDT` : `¥${latestPriceFormatted} × ${sharesFormatted}份` }}
+              {{ !hasPrice ? '--' : (isCrypto ? `${latestPriceFormatted} USDT` : `¥${latestPriceFormatted} × ${sharesFormatted}份`) }}
             </p>
-            <p v-if="isCrypto" class="font-body text-[11px] text-text-tertiary mt-0.5 truncate">
-              × {{ sharesFormatted }} 枚 ≈ ¥{{ marketValueFormatted }}
+            <p v-if="isCrypto && hasPrice" class="font-body text-[11px] text-text-tertiary mt-0.5">
+              汇率 1 USDT ≈ {{ impliedRate }} CNY
             </p>
             <button v-if="isCrypto"
                     class="mt-1 inline-flex items-center gap-0.5 font-body text-[11px] text-brand active:opacity-70 disabled:opacity-50"
@@ -511,6 +569,7 @@ onActivated(() => {
             <p class="font-display text-md font-semibold text-text-primary mt-0.5">
               {{ costPerShareDisplay }}<span v-if="holding.costPerShare > 0" class="font-body text-xs text-text-tertiary ml-0.5">{{ isCrypto ? '/枚' : '/份' }}</span>
             </p>
+            <p v-if="isCrypto && costInUsdt" class="font-body text-[10px] text-text-tertiary mt-0.5">≈ {{ costInUsdt }} USDT/枚</p>
             <p v-if="holding.costEstimated" class="font-body text-[10px] text-text-tertiary mt-0.5">成本按录入价估算</p>
           </div>
         </div>
@@ -711,6 +770,7 @@ onActivated(() => {
           <span class="font-body text-[10px] font-medium text-text-primary">交易明细</span>
         </button>
         <button
+          v-if="!isCrypto"
           class="flex flex-col items-center justify-center gap-1 bg-card-bg rounded-xl py-md card-shadow border border-border-light/40 active:scale-[0.95] transition-all duration-150"
           @click="showDividendHistory"
         >
@@ -802,18 +862,21 @@ onActivated(() => {
 
           <!-- Asset Category -->
           <label class="font-body text-xs text-text-tertiary mb-sm block">资产分类</label>
-          <div class="flex gap-sm mb-lg">
-            <button @click="editCategory=''" :class="editCategory==='' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="flex-1 h-10 rounded-lg font-body text-sm transition-all">
+          <div class="grid grid-cols-3 gap-sm mb-lg">
+            <button @click="editCategory=''" :class="editCategory==='' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="h-10 rounded-lg font-body text-sm transition-all">
               不分类
             </button>
-            <button @click="editCategory='us_stock'" :class="editCategory==='us_stock' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="flex-1 h-10 rounded-lg font-body text-sm transition-all">
+            <button @click="editCategory='us_stock'" :class="editCategory==='us_stock' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="h-10 rounded-lg font-body text-sm transition-all">
               📈 美股
             </button>
-            <button @click="editCategory='gold'" :class="editCategory==='gold' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="flex-1 h-10 rounded-lg font-body text-sm transition-all">
+            <button @click="editCategory='gold'" :class="editCategory==='gold' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="h-10 rounded-lg font-body text-sm transition-all">
               🥇 黄金
             </button>
-            <button @click="editCategory='dividend'" :class="editCategory==='dividend' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="flex-1 h-10 rounded-lg font-body text-sm transition-all">
+            <button @click="editCategory='dividend'" :class="editCategory==='dividend' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="h-10 rounded-lg font-body text-sm transition-all">
               📋 红利
+            </button>
+            <button @click="editCategory='crypto'" :class="editCategory==='crypto' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="h-10 rounded-lg font-body text-sm transition-all">
+              🪙 加密
             </button>
           </div>
 
@@ -907,6 +970,8 @@ onActivated(() => {
         </div>
       </Transition>
     </Teleport>
+
+    <ToastNotification :message="toastMsg" :type="toastType" @close="toastMsg = null" />
   </div>
 </template>
 

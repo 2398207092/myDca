@@ -33,8 +33,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class CryptoPriceService {
 
-    /** 当前启用的币种。接口已通用，先只开 BTC（用户 2026-10-27 决定） */
-    private static final List<String> SYMBOLS = List.of("BTC");
+    /** 当前支持的币种。与前端「添加标的」的快捷入口保持一致 */
+    private static final List<String> SYMBOLS = List.of("BTC", "ETH");
     private static final Duration SKIP_FAILED_FOR = Duration.ofMinutes(10);
     private static final BigDecimal DEFAULT_USD_CNY = new BigDecimal("7.2");
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -47,9 +47,10 @@ public class CryptoPriceService {
     private final Map<String, LocalDateTime> failedAt = new ConcurrentHashMap<>();
 
     /**
-     * 刷新价格并写回持仓。不加 @Transactional：HTTP 调用不应占用数据库事务。
+     * 刷新价格并写回持仓。
+     * @param userId 只刷新该用户的持仓；传 null 表示刷新全部用户（仅供定时任务）
      */
-    public RefreshCryptoPricesResp refresh() {
+    public RefreshCryptoPricesResp refresh(String userId) {
         Map<String, BigDecimal> fetched = new LinkedHashMap<>();
         Set<String> failedSources = new LinkedHashSet<>();
         String source = null;
@@ -74,9 +75,9 @@ public class CryptoPriceService {
         }
 
         BigDecimal usdCny = usdCnyRate();
-        int updated = fetched.isEmpty() ? 0 : applyToHoldings(fetched, usdCny, source);
+        int updated = fetched.isEmpty() ? 0 : applyToHoldings(fetched, usdCny, source, userId);
 
-        List<CryptoPriceDTO> prices = currentPrices();
+        List<CryptoPriceDTO> prices = currentPrices(userId);
 
         boolean stale = fetched.isEmpty();
         String message;
@@ -98,9 +99,9 @@ public class CryptoPriceService {
     }
 
     /** 只读取当前持仓上的价格，不发请求 */
-    public List<CryptoPriceDTO> currentPrices() {
+    public List<CryptoPriceDTO> currentPrices(String userId) {
         List<CryptoPriceDTO> list = new ArrayList<>();
-        for (Holding h : holdingRepository.findByQuoteCurrencyAndDeletedFalse("USDT")) {
+        for (Holding h : listTargets(userId)) {
             list.add(CryptoPriceDTO.builder()
                     .symbol(h.getCode())
                     .usdtPrice(h.getQuotePrice())
@@ -112,14 +113,21 @@ public class CryptoPriceService {
         return list;
     }
 
+    /** 按用户圈定要处理的持仓；userId 为 null 时返回全部（仅供定时任务） */
+    private List<Holding> listTargets(String userId) {
+        return userId == null
+                ? holdingRepository.findByQuoteCurrencyAndDeletedFalse("USDT")
+                : holdingRepository.findByUserIdAndQuoteCurrencyAndDeletedFalse(userId, "USDT");
+    }
+
     private boolean isRecentlyFailed(String providerName) {
         LocalDateTime at = failedAt.get(providerName);
         return at != null && at.plus(SKIP_FAILED_FOR).isAfter(LocalDateTime.now());
     }
 
-    private int applyToHoldings(Map<String, BigDecimal> usdtPrices, BigDecimal usdCny, String source) {
+    private int applyToHoldings(Map<String, BigDecimal> usdtPrices, BigDecimal usdCny, String source, String userId) {
         int updated = 0;
-        for (Holding h : holdingRepository.findByQuoteCurrencyAndDeletedFalse("USDT")) {
+        for (Holding h : listTargets(userId)) {
             if (h.getCode() == null) continue;
             BigDecimal usdt = usdtPrices.get(h.getCode().toUpperCase());
             if (usdt == null) continue;

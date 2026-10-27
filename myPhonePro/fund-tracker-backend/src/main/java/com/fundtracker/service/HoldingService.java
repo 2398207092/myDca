@@ -59,6 +59,19 @@ public class HoldingService {
         return holdings.stream().map(this::toDTO).collect(Collectors.toList());
     }
 
+    /**
+     * 资产分类兜底：加密币必须归到 crypto。
+     * 否则 asset-overview 的 5 个分类都不认它，该持仓在总资产里一分钱都不算。
+     * 其他类型保持用户传入值（null = 未分类）。
+     */
+    private String resolveAssetCategory(CreateHoldingReq req) {
+        String category = req.getAssetCategory();
+        if (category != null && !category.isBlank()) {
+            return category;
+        }
+        return "crypto".equalsIgnoreCase(req.getType()) ? "crypto" : null;
+    }
+
     public HoldingDTO getHolding(String id, String userId) {
         Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(id, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
@@ -181,7 +194,7 @@ public class HoldingService {
                 .estimatedRecoveryYears(BigDecimal.ZERO)
                 .reinvestRecoveryYears(BigDecimal.ZERO)
                 .color(color)
-                .assetCategory(req.getAssetCategory())
+                .assetCategory(resolveAssetCategory(req))
                 .buyFeeRate(buyFeeRate)
                 .sellFeeRate(sellFeeRate)
                 .userId(userId)
@@ -657,8 +670,7 @@ public class HoldingService {
                 holding.getTotalDividendReceived());
     }
 
-    private HoldingDTO toDTO(Holding holding) {
-        // 市值 = 份额 × 最新净值（计算值，不读缓存）
+    private HoldingDTO toDTO(Holding holding) {        // 市值 = 份额 × 最新净值（计算值，不读缓存）
         BigDecimal marketValue;
         if (holding.getLatestPrice() != null && holding.getLatestPrice().compareTo(BigDecimal.ZERO) > 0) {
             marketValue = holding.getShares()

@@ -10,8 +10,11 @@ import java.util.Optional;
 public interface HoldingRepository extends JpaRepository<Holding, String> {
     List<Holding> findByTypeAndDeletedFalse(String type);
 
-    /** 按原始报价币种查：USDT 用于加密币价格刷新 */
+    /** 按原始报价币种查：USDT 用于加密币价格刷新（全局，定时任务用） */
     List<Holding> findByQuoteCurrencyAndDeletedFalse(String quoteCurrency);
+
+    /** 同上，但限定用户（接口调用必须用这个，避免跨用户写库） */
+    List<Holding> findByUserIdAndQuoteCurrencyAndDeletedFalse(String userId, String quoteCurrency);
     List<Holding> findByDeletedFalseOrderByMarketValueDesc();
     List<Holding> findByAssetCategoryAndDeletedFalse(String assetCategory);
     Optional<Holding> findByIdAndDeletedFalse(String id);

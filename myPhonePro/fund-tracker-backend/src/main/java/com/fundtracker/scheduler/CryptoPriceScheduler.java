@@ -21,7 +21,7 @@ public class CryptoPriceScheduler {
     @Scheduled(cron = "0 0 8 * * ?")
     public void refreshDaily() {
         try {
-            RefreshCryptoPricesResp resp = cryptoPriceService.refresh();
+            RefreshCryptoPricesResp resp = cryptoPriceService.refresh(null);
             log.info("加密币价格刷新完成：{}，更新 {} 个持仓", resp.getMessage(), resp.getUpdatedHoldings());
         } catch (Exception e) {
             log.error("加密币价格刷新失败", e);

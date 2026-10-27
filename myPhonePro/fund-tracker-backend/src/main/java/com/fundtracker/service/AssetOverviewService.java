@@ -217,8 +217,8 @@ public class AssetOverviewService {
 
         List<AssetOverviewDTO.HoldingItem> items = new ArrayList<>();
 
-        // 对于基金类资产，列出具体持仓
-        if ("us_stock".equals(type) || "gold".equals(type) || "dividend".equals(type)) {
+        // 列出具体持仓（crypto 也走 holdings：迁入后会从 manual_assets 转到 holdings）
+        if ("us_stock".equals(type) || "gold".equals(type) || "dividend".equals(type) || "crypto".equals(type)) {
             List<Holding> holdings = holdingRepository.findByUserIdAndAssetCategoryAndDeletedFalse(userId, type);
             for (Holding h : holdings) {
                 items.add(AssetOverviewDTO.HoldingItem.builder()

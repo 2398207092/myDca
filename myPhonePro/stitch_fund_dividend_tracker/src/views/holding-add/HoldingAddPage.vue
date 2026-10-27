@@ -32,15 +32,16 @@ const CRYPTO_PRESETS = [
   { code: 'ETH', name: '以太坊' },
 ]
 const isCryptoSelected = computed(() => selectedHolding.value?.type === 'crypto')
-const usdCny = ref(7.0)
+const usdCny = ref<number | null>(null)
 
 onMounted(async () => {
   try {
     const rates = await listExchangeRates()
     const usd = rates.find((r) => r.pair === 'USD/CNY')
-    if (usd?.rate) usdCny.value = usd.rate
+    usdCny.value = usd?.rate ?? null
   } catch {
-    /* 拿不到就用默认值，折算仅供参考 */
+    // 拿不到汇率就不折算（不编一个默认值，避免成本算错）
+    usdCny.value = null
   }
 })
 
@@ -51,12 +52,12 @@ function addCrypto(preset: { code: string; name: string }) {
   showResults.value = false
 }
 
-/** 加密币按 USDT 输入成本，提交前折算成人民币（后端只认 CNY） */
+/** 加密币按 USDT 输入成本，提交前折算成人民币（后端只认 CNY；没有汇率则不折算并在提交处拦截） */
 const costInCny = computed(() => {
   if (costInput.value == null) return null
-  return isCryptoSelected.value
-    ? Math.round(costInput.value * usdCny.value * 100) / 100
-    : costInput.value
+  if (!isCryptoSelected.value) return costInput.value
+  if (!usdCny.value) return null
+  return Math.round(costInput.value * usdCny.value * 100) / 100
 })
 
 // Step 3: Forecast Horizon
@@ -82,7 +83,12 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 // Step availability
 const step2Active = computed(() => selectedHolding.value !== null)
 const step3Active = computed(() => step2Active.value && (shares.value ?? 0) > 0 && (costInput.value ?? 0) > 0)
-const canSubmit = computed(() => step3Active.value)
+const canSubmit = computed(() => {
+  if (!step3Active.value) return false
+  // 加密币拿不到汇率就无法折算成本，必须拦住（否则 cost 为空，后端会 400）
+  if (isCryptoSelected.value && costInCny.value == null) return false
+  return true
+})
 
 // 是否有分红数据（用于 Step 3 简化展示）
 const hasDividendData = computed(() => {
@@ -249,7 +255,7 @@ const estimatedAnnualDividend = computed(() => {
             <input
               v-model="keyword"
               type="text"
-              placeholder="输入基金名称或代码搜索..."
+              placeholder="搜索基金，或用下方入口添加加密币"
               class="flex-1 bg-transparent border-none outline-none font-body text-sm text-text-primary placeholder:text-text-tertiary"
               @click="handleSearchClick"
             />
@@ -345,13 +351,14 @@ const estimatedAnnualDividend = computed(() => {
           <!-- 当前成本算法选择器 -->
           <div class="flex items-center gap-2">
             <label class="font-body text-xs font-medium text-error whitespace-nowrap">*当前成本</label>
-            <div class="flex-1 flex bg-card-alt rounded-lg p-[3px] max-w-[280px]">
+            <span v-if="isCryptoSelected" class="font-body text-[11px] text-text-tertiary">加密币无分红，不需要选成本算法</span>
+            <div v-if="!isCryptoSelected" class="flex-1 flex bg-card-alt rounded-lg p-[3px] max-w-[280px]">
               <button @click="costAlgorithm='diluted'" :class="costAlgorithm==='diluted' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[5px] rounded font-body font-medium text-xs transition-all">分红摊薄</button>
               <button @click="costAlgorithm='diluted_only'" :class="costAlgorithm==='diluted_only' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[5px] rounded font-body font-medium text-xs transition-all">摊薄成本</button>
               <button @click="costAlgorithm='weighted_avg'" :class="costAlgorithm==='weighted_avg' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[5px] rounded font-body font-medium text-xs transition-all">加权平均</button>
             </div>
             <!-- 帮助图标 + 气泡 -->
-            <div class="relative" @click.stop="showAlgorithmHelp = !showAlgorithmHelp">
+            <div v-if="!isCryptoSelected" class="relative" @click.stop="showAlgorithmHelp = !showAlgorithmHelp">
               <span class="material-symbols-outlined text-text-tertiary text-[18px] cursor-pointer hover:text-brand transition-colors">help</span>
               <Transition name="fade">
                 <div v-if="showAlgorithmHelp"
@@ -381,12 +388,15 @@ const estimatedAnnualDividend = computed(() => {
           <!-- 成本输入 -->
           <div>
             <input v-model.number="costInput" type="number" :placeholder="isCryptoSelected ? '每枚成本（USDT）' : '可输入正数、零、或者负数（人民币）'" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
-            <p v-if="isCryptoSelected && costInCny" class="font-body text-[11px] text-text-tertiary mt-1">
+            <p v-if="isCryptoSelected && costInCny && usdCny" class="font-body text-[11px] text-text-tertiary mt-1">
               ≈ ¥{{ costInCny.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) }}/枚（1 USDT ≈ {{ usdCny.toFixed(4) }} CNY，保存后按此折算）
             </p>
+            <p v-else-if="isCryptoSelected && !usdCny" class="font-body text-[11px] text-error mt-1">
+              汇率获取失败，无法折算成本，请稍后重试
+            </p>
           </div>
-          <!-- 负成本勾选 -->
-          <div class="flex items-center gap-2">
+          <!-- 负成本勾选（加密币首次录入不涉及"卖出收回成本"，隐藏） -->
+          <div v-if="!isCryptoSelected" class="flex items-center gap-2">
             <div
               @click="isNegativeCost = !isNegativeCost"
               :class="['w-4 h-4 rounded border transition-all flex items-center justify-center', isNegativeCost ? 'bg-brand border-brand' : 'border-border-light bg-card-bg']"
