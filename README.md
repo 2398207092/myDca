@@ -1,114 +1,47 @@
 # 种树 · 基金追踪器
 
-> 个人基金/ETF 投资追踪工具，自动抓取净值与分红数据，支持定投计划与现金记账。
+> 个人自用的基金/ETF 记账 App：持仓、交易、分红、定投、现金、资产快照。
+> **记账工具——算错钱比崩溃更严重。**
 
 ---
 
-## 功能特性
+## 功能
 
-- **持仓管理** — 记录基金买入/卖出，自动计算市值、成本、盈亏、股息率
-- **分红日历** — 自动抓取持仓基金的分红记录，日历视图展示登记日/除息日/派息日
-- **定投自动化** — 创建定投计划，按日/周/月/季自动生成买入记录
-- **分红预测** — 基于历史分红数据预测未来分红金额及时间
-- **现金记账** — 自动关联交易与现金账户，支持手动调整
-- **数据审计** — 每日自动对账，检测数据异常
-
----
+- **持仓管理**：买入/卖出/送股/复投，三种成本算法，市值与盈亏自动重算
+- **分红追踪**：自动抓取分红记录，日历展示登记日/除息日/派息日，支持自动到账与复投
+- **定投计划**：日/周/双周/月，按交易日历自动执行
+- **资产总览**：现金/BTC/美股/黄金/红利分类，快照与走势图
+- **数据自检**：每日对账 6 类规则，监控日志可在「我的」页查看
 
 ## 技术栈
 
-| 层级 | 技术 |
-|------|------|
-| 后端 | Spring Boot 3.2 + MySQL 8 |
-| 前端 | Vue 3 + Vite + Tailwind CSS + Material Symbols |
-| 部署 | 阿里云服务器 + GitHub Actions CI/CD |
-
----
-
-## 核心算法
-
-详见 [docs/财务算法分析报告.md](docs/财务算法分析报告.md)
-
-- 三种成本算法：分红摊薄 / 摊薄成本 / 加权平均
-- 预测分红：基于近3年历史数据
-- 复投回本年限：迭代模拟分红再投资
-- 数据审计：6条规则每日定时检查
-
----
-
-## 项目结构
-
-```
-myDca/
-├── myPhonePro/                          # 后端 + 前端
-│   ├── src/main/java/...                # Spring Boot 后端
-│   └── stitch_fund_dividend_tracker/    # Vue 前端
-├── docs/                                # 文档
-│   ├── project-quick-reference.md        # 项目速查表
-│   └── 财务算法分析报告.md
-├── .github/workflows/                   # CI/CD
-│   ├── deploy.yml                        # 前端自动部署
-│   └── db-backup.yml                     # 数据库备份
-└── README.md
-```
-
----
-
-## 部署
-
-前端通过 GitHub Actions 自动部署到阿里云服务器：
-
-```bash
-# 推送到 main 分支即触发自动部署
-git push origin main
-```
-
-后端手动部署：
-
-```bash
-# 服务器上执行
-./deploy.sh
-```
-
----
-
-## 开发
-
-```bash
-# 前端开发
-cd myPhonePro/stitch_fund_dividend_tracker
-npm install
-npm run dev
-
-# 后端开发
-# 使用 IDEA 打开 myPhonePro 项目，运行 MyPhoneProApplication
-```
-
----
-
-## 最近更新
-
-- ✅ 现金编辑计算器（支持 +/- 相对运算）
-- ✅ 自动现金记账（交易自动关联现金账户）
-- ✅ 复投回本年限计算
-- ✅ 数据审计器（每日自动对账）
-- ✅ 修复 6 个核心 Bug（股息率异常、市值计算、数据抓取等）
+| 层 | 技术 |
+|----|------|
+| 后端 | Spring Boot 3.2 + Java 17 + JPA + MySQL 8（:8080） |
+| 前端 | Vue 3.4 + Vite 5 + TypeScript + Tailwind 3（:5173） |
+| 部署 | 前端 GitHub Actions 自动；后端手动 `scp` + `deploy.sh` |
 
 ## 快速启动
 
 ```bash
-# 后端
+# 后端（需本机 MySQL 8，并设置 DB_URL / DB_USERNAME / DB_PASSWORD）
 cd myPhonePro/fund-tracker-backend && mvn spring-boot:run
 
 # 前端
-cd myPhonePro/stitch_fund_dividend_tracker && npm run dev
+cd myPhonePro/stitch_fund_dividend_tracker && npm install && npm run dev
 # → http://localhost:5173
 ```
 
-文档：main docs in `docs/` (优化进度 → docs/优化/计划.md, 参考 → docs/参考/, 算法说明 → docs/参考/年化收益率IRR算法.md)
+## 文档
 
-*种树最好的时间是十年前，其次是现在。*
+| 文档 | 内容 |
+|------|------|
+| [docs/00-INDEX.md](docs/00-INDEX.md) | **文档总入口**：导航、维护规则、当前状态 |
+| [docs/01-系统.md](docs/01-系统.md) | 架构、模块、数据表、核心链路、算法口径 |
+| [docs/02-运维.md](docs/02-运维.md) | 部署、服务器、回滚、已知运维风险 |
+| [docs/03-问题.md](docs/03-问题.md) | 当前未修复问题（含 6 条 P0） |
+| [AGENTS.md](AGENTS.md) | 维护红线与工作约定（AI 与人类通用） |
 
----
+## 状态
 
-*种树最好的时间是十年前，其次是现在。*
+代码基线 `6e6ca7d`，可编译可运行。**存在 6 条 P0（认证绕过、分红/定投重复入账），修复前不要叠加新功能**，详见 [docs/03-问题.md](docs/03-问题.md)。
