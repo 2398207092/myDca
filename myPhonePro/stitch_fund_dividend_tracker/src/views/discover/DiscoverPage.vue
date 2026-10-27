@@ -5,6 +5,7 @@ import { getAssetOverview, takeSnapshot } from '@/api/assetOverview'
 import { listHoldings, updateHoldingCategory, getValueChange } from '@/api/holding'
 import type { ValueChangeResult } from '@/api/holding'
 import { listManualAssets, createManualAsset, updateManualAsset, deleteManualAsset } from '@/api/manualAsset'
+import { getAccounts, type AccountItem } from '@/api/account'
 import { listDcaPlans, getDcaBudget } from '@/api/dca'
 import type { AssetOverview, CategoryItem } from '@/api/assetOverview'
 import type { ManualAssetItem, CreateManualAssetReq, UpdateManualAssetReq } from '@/api/manualAsset'
@@ -20,6 +21,35 @@ const errorMsg = ref('')
 const overview = ref<AssetOverview | null>(null)
 const allHoldings = ref<HoldingItem[]>([])
 const allManualAssets = ref<ManualAssetItem[]>([])
+const accounts = ref<AccountItem[]>([])
+
+/** 账户用途 → 图标 / 中文 */
+const purposeMeta: Record<string, { icon: string; label: string }> = {
+  daily: { icon: 'payments', label: '日常' },
+  invest: { icon: 'savings', label: '理财' },
+  exchange: { icon: 'currency_bitcoin', label: '交易所' },
+  other: { icon: 'account_balance_wallet', label: '其他' },
+}
+function purposeIcon(p: string): string { return (purposeMeta[p] || purposeMeta.other).icon }
+function purposeLabel(p: string): string { return (purposeMeta[p] || purposeMeta.other).label }
+
+/** 账户区金额统一两位小数，避免「¥5.94万」和「¥5755.78」混排难以对比 */
+function fmtExact(v: number | null | undefined): string {
+  if (v == null) return '¥0.00'
+  return '¥' + v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/** 资产类型标签：与名称重复时不显示（避免「现金 现金」） */
+function assetLabel(a: { assetCode?: string; name: string }): string {
+  const code = a.assetCode || ''
+  return code && code !== a.name ? code : ''
+}
+
+/** 有资产的账户排前面，其次按金额降序；空账户自然沉底 */
+const sortedAccounts = computed(() => [...accounts.value].sort((a, b) => {
+  if ((a.assetCount > 0) !== (b.assetCount > 0)) return b.assetCount > 0 ? 1 : -1
+  return b.totalValueCny - a.totalValueCny
+}))
 const valueChange = ref<ValueChangeResult | null>(null)
 const showValueDetail = ref(false)
 const detailTab = ref<'week' | 'month' | 'year'>('week')
@@ -29,7 +59,7 @@ const showAllDcaPlans = ref(false)
 // Manual asset management
 const showAssetSheet = ref(false)
 const editingAssetId = ref<string | null>(null)
-const assetForm = ref({ name: '', type: 'cash' as 'cash' | 'crypto', amount: 0, note: '' })
+const assetForm = ref({ name: '', type: 'cash' as 'cash' | 'crypto', amount: 0, note: '', accountId: '' })
 const savingAsset = ref(false)
 
 // Category mapping
@@ -55,16 +85,18 @@ async function loadData() {
   pageState.value = 'loading'
   errorMsg.value = ''
   try {
-    const [ov, holdings, manualAssets, vc] = await Promise.all([
+    const [ov, holdings, manualAssets, vc, accs] = await Promise.all([
       getAssetOverview(),
       listHoldings(),
       listManualAssets(),
       getValueChange(),
+      getAccounts(),
     ])
     overview.value = ov
     allHoldings.value = holdings
     allManualAssets.value = manualAssets
     valueChange.value = vc
+    accounts.value = accs
 
     // Auto snapshot on first load of the day
     takeSnapshot().catch(() => {})
@@ -83,16 +115,18 @@ async function loadData() {
 /** 静默刷新全部数据（不显示 loading 状态），用于编辑后的增量刷新 */
 async function silentRefresh() {
   try {
-    const [ov, holdings, manualAssets, vc] = await Promise.all([
+    const [ov, holdings, manualAssets, vc, accs] = await Promise.all([
       getAssetOverview(),
       listHoldings(),
       listManualAssets(),
       getValueChange(),
+      getAccounts(),
     ])
     overview.value = ov
     allHoldings.value = holdings
     allManualAssets.value = manualAssets
     valueChange.value = vc
+    accounts.value = accs
     loadDcaPlans()
   } catch (e: any) {
     console.error('静默刷新失败:', e)
@@ -257,7 +291,8 @@ const currentBalance = ref(0)
 function openAddSheet(type: 'cash' | 'crypto') {
   editingAssetId.value = null
   currentBalance.value = 0
-  assetForm.value = { name: '', type, amount: 0, note: '' }
+  const def = accounts.value.find(a => a.isDefault) || accounts.value[0]
+  assetForm.value = { name: '', type, amount: 0, note: '', accountId: def?.id || '' }
   showAssetSheet.value = true
 }
 
@@ -272,7 +307,18 @@ function parseAmountInput(input: string | number): number {
   return isNaN(abs) ? -1 : abs
 }
 
-function openEditSheet(asset: ManualAssetItem) {
+/** 账户分组里的资产与手动资产共用同一套编辑/删除入口 */
+type AssetLike = {
+  id: string
+  name: string
+  type: string
+  amount: number
+  note?: string | null
+  currency?: string | null
+  accountId?: string | null
+}
+
+function openEditSheet(asset: AssetLike) {
   editingAssetId.value = asset.id
   currentBalance.value = asset.amount
   assetForm.value = {
@@ -280,6 +326,7 @@ function openEditSheet(asset: ManualAssetItem) {
     type: asset.type as 'cash' | 'crypto',
     amount: asset.amount,
     note: asset.note || '',
+    accountId: asset.accountId || '',
   }
   showAssetSheet.value = true
 }
@@ -300,6 +347,7 @@ async function saveAsset() {
         type: assetForm.value.type,
         amount: finalAmount,
         note: assetForm.value.note || undefined,
+        accountId: assetForm.value.accountId || undefined,
       }
       const updated = await updateManualAsset(editingAssetId.value, req)
       const idx = allManualAssets.value.findIndex(a => a.id === updated.id)
@@ -310,6 +358,7 @@ async function saveAsset() {
         type: assetForm.value.type,
         amount: finalAmount,
         note: assetForm.value.note || undefined,
+        accountId: assetForm.value.accountId || undefined,
       }
       const created = await createManualAsset(req)
       allManualAssets.value.push(created)
@@ -324,7 +373,7 @@ async function saveAsset() {
   }
 }
 
-function confirmDelete(asset: ManualAssetItem) {
+function confirmDelete(asset: AssetLike) {
   deletingAssetId.value = asset.id
   deletingAssetName.value = asset.name
   showDeleteConfirm.value = true
@@ -368,7 +417,7 @@ async function doDelete() {
     </main>
 
     <!-- Ready State -->
-    <main v-else class="max-w-[600px] mx-auto px-gutter pt-20 pb-28 space-y-section">
+    <main v-else class="max-w-[600px] mx-auto px-gutter pt-20 pb-36 space-y-section">
       <!-- Classification Banner (above hero) -->
       <section v-if="uncategorizedHoldings().length > 0 && !bannerDismissed"
                class="stagger-item bg-brand-light/60 rounded-lg p-lg card-shadow border border-border-light/40 relative overflow-hidden"
@@ -617,37 +666,61 @@ async function doDelete() {
         <!-- Manual Assets (Cash + Crypto) -->
         <div v-if="overview"
              class="bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40">
-          <template v-if="allManualAssets.length > 0">
+          <template v-if="accounts.length > 0">
             <div class="flex items-start gap-3">
               <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#6366F1"></div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between">
-                  <h3 class="font-body text-sm font-medium text-text-primary">手动资产</h3>
-                  <span class="font-body text-sm font-medium text-text-primary shrink-0 ml-2">{{ formatMoney((overview.cashValue || 0) + (overview.cryptoValue || 0)) }}</span>
+                  <h3 class="font-body text-sm font-medium text-text-primary">账户与现金</h3>
+                  <span class="font-body text-sm font-medium text-text-primary shrink-0 ml-2">{{ fmtExact((overview.cashValue || 0) + (overview.cryptoValue || 0)) }}</span>
                 </div>
-                <span class="font-body text-xs text-text-tertiary">{{ allManualAssets.length }} 个标的</span>
-              </div>
-            </div>
-            <div class="border-t border-border-light/40 my-md"></div>
-            <div class="space-y-0.5">
-              <div v-for="a in allManualAssets" :key="a.id"
-                   class="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-card-alt cursor-pointer transition-colors"
-                   @click="openEditSheet(a)">
-                <div class="flex items-center gap-2 min-w-0 flex-1">
-                  <span class="w-2 h-2 rounded-full shrink-0"
-                        :class="a.type === 'cash' ? 'bg-pos' : 'bg-gold'"></span>
-                  <span class="font-body text-xs text-text-primary truncate">{{ a.name }}</span>
-                  <span class="font-body text-[10px] text-text-tertiary/50 shrink-0">{{ a.type === 'cash' ? '现金' : '比特币' }}</span>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                  <span class="font-body text-xs text-text-tertiary">{{ formatMoney(a.amount) }}</span>
-                  <button class="text-text-tertiary hover:text-error transition-colors"
-                          @click.stop="confirmDelete(a)">
-                    <span class="material-symbols-outlined text-[16px]">close</span>
+                <div class="flex items-center justify-between">
+                  <span class="font-body text-xs text-text-tertiary">{{ accounts.length }} 个账户 · {{ allManualAssets.length }} 个标的</span>
+                  <button class="font-body text-[11px] text-brand flex items-center gap-0.5 active:opacity-70"
+                          @click="router.push({ name: 'accounts' })">
+                    管理账户
+                    <span class="material-symbols-outlined text-[12px]">chevron_right</span>
                   </button>
                 </div>
               </div>
             </div>
+            <div class="border-t border-border-light/40 my-md"></div>
+
+            <!-- 按账户分组 -->
+            <div v-for="acc in sortedAccounts" :key="acc.id" class="mb-2 last:mb-0">
+              <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-card-alt/70">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-[15px] text-text-tertiary shrink-0">{{ purposeIcon(acc.purpose) }}</span>
+                  <span class="font-body text-xs font-medium text-text-primary truncate">{{ acc.name }}</span>
+                  <span class="font-body text-[10px] text-text-tertiary shrink-0">{{ purposeLabel(acc.purpose) }} · {{ acc.baseCurrency }}</span>
+                  <span v-if="acc.isDefault" class="font-body text-[9px] text-brand bg-brand-light px-1.5 py-0.5 rounded shrink-0">默认</span>
+                </div>
+                <span class="font-body text-xs font-medium text-text-primary shrink-0 ml-2">{{ fmtExact(acc.totalValueCny) }}</span>
+              </div>
+              <div v-if="acc.assets.length > 0" class="mt-0.5">
+                <div v-for="a in acc.assets" :key="a.id"
+                     class="flex items-center justify-between py-2 pl-9 pr-3 rounded-lg hover:bg-card-alt cursor-pointer transition-colors"
+                     @click="openEditSheet(a)">
+                  <div class="flex items-center gap-2 min-w-0 flex-1">
+                    <span class="w-2 h-2 rounded-full shrink-0"
+                          :class="a.type === 'cash' ? 'bg-pos' : 'bg-gold'"></span>
+                    <span class="font-body text-xs text-text-primary truncate">{{ a.name }}</span>
+                    <span v-if="assetLabel(a)" class="font-body text-[10px] text-text-tertiary/50 shrink-0">{{ assetLabel(a) }}</span>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span class="font-body text-xs text-text-tertiary">{{ fmtExact(a.amount) }}</span>
+                    <button class="text-text-tertiary hover:text-error transition-colors"
+                            @click.stop="confirmDelete(a)">
+                      <span class="material-symbols-outlined text-[16px]">close</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="pl-9 py-1">
+                <span class="font-body text-[10px] text-text-tertiary/50">暂无资产</span>
+              </div>
+            </div>
+
             <div class="border-t border-border-light/40 my-md"></div>
             <button class="w-full py-2 text-center font-body text-xs text-text-tertiary hover:bg-card-alt rounded-lg transition-colors flex items-center justify-center gap-1"
                     @click="showAddTypePicker = true">
@@ -949,6 +1022,20 @@ async function doDelete() {
               <label class="font-body text-xs text-text-tertiary block mb-1">名称</label>
               <input v-model="assetForm.name" placeholder="如：活期存款"
                      class="w-full px-md py-3 bg-card-alt rounded-lg text-text-primary outline-none font-body text-sm transition-colors focus:ring-2 focus:ring-brand" />
+            </div>
+
+            <div v-if="accounts.length > 0">
+              <label class="font-body text-xs text-text-tertiary block mb-1">归属账户</label>
+              <div class="flex gap-2 overflow-x-auto no-scrollbar">
+                <button v-for="acc in accounts" :key="acc.id"
+                        class="px-3 py-2 rounded-lg border font-body text-xs whitespace-nowrap transition-colors"
+                        :class="assetForm.accountId === acc.id
+                          ? 'border-brand bg-brand-light/40 text-brand'
+                          : 'border-border-light/40 bg-card-alt text-text-secondary'"
+                        @click="assetForm.accountId = acc.id">
+                  {{ acc.name }}{{ acc.isDefault ? ' ·默认' : '' }}
+                </button>
+              </div>
             </div>
             <div>
               <label class="font-body text-xs text-text-tertiary block mb-1">金额 (元)</label>

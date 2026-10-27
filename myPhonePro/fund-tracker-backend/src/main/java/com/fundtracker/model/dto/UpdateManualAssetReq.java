@@ -9,5 +9,10 @@ public class UpdateManualAssetReq {
     private String type; // crypto / cash
     private BigDecimal amount;
     private String currency;
+    private String accountId;
+    private String assetCode;
+    private BigDecimal quantity;
+    private BigDecimal unitPrice;
+    private String priceSource;
     private String note;
 }

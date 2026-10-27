@@ -32,6 +32,29 @@ public class ManualAsset {
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal amount;
 
+    /** 归属账户 ID；历史数据为空时按默认账户处理 */
+    @Column(length = 36)
+    private String accountId;
+
+    /** 资产代码：CNY / USDT / BTC / ETH（现金为 CNY 或账户本位币） */
+    @Column(length = 20)
+    private String assetCode;
+
+    /** 数量：加密币为持仓数量，现金为 NULL */
+    @Column(precision = 24, scale = 8)
+    private BigDecimal quantity;
+
+    /** 单价（USD）：加密币为币价，现金为 NULL */
+    @Column(precision = 24, scale = 8)
+    private BigDecimal unitPrice;
+
+    /** 价格来源：okx / gate / manual */
+    @Column(length = 20)
+    private String priceSource;
+
+    @Column
+    private LocalDateTime priceUpdatedAt;
+
     @Column(length = 10)
     private String currency; // CNY / USD / default: CNY
 

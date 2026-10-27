@@ -7,6 +7,12 @@ export interface ManualAssetItem {
   amount: number
   currency: string
   note?: string
+  accountId?: string
+  assetCode?: string
+  quantity?: number
+  unitPrice?: number
+  priceSource?: string
+  priceUpdatedAt?: string
   createdAt: string
   updatedAt: string
 }
@@ -17,6 +23,11 @@ export interface CreateManualAssetReq {
   amount: number
   currency?: string
   note?: string
+  accountId?: string
+  assetCode?: string
+  quantity?: number
+  unitPrice?: number
+  priceSource?: string
 }
 
 export interface UpdateManualAssetReq {
@@ -25,6 +36,11 @@ export interface UpdateManualAssetReq {
   amount?: number
   currency?: string
   note?: string
+  accountId?: string
+  assetCode?: string
+  quantity?: number
+  unitPrice?: number
+  priceSource?: string
 }
 
 export async function listManualAssets(): Promise<ManualAssetItem[]> {

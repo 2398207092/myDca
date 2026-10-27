@@ -3,6 +3,7 @@ package com.fundtracker.service;
 import com.fundtracker.exception.BusinessException;
 import com.fundtracker.model.dto.*;
 import com.fundtracker.model.entity.ManualAsset;
+import com.fundtracker.repository.AccountRepository;
 import com.fundtracker.repository.ManualAssetRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,8 @@ import java.util.stream.Collectors;
 public class ManualAssetService {
 
     private final ManualAssetRepository manualAssetRepository;
+    private final AccountRepository accountRepository;
+    private final AccountService accountService;
 
     public List<ManualAssetDTO> listManualAssets(String userId) {
         return manualAssetRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
@@ -42,11 +45,32 @@ public class ManualAssetService {
         boolean isPrimary = "cash".equals(req.getType())
                 && manualAssetRepository.findByUserIdAndType(userId, "cash").isEmpty();
 
+        // 归属账户：未指定则挂默认账户
+        String accountId = req.getAccountId();
+        if (accountId == null || accountId.isBlank()) {
+            accountId = accountService.ensureDefaultAccount(userId).getId();
+        } else {
+            accountRepository.findByIdAndUserIdAndDeletedFalse(accountId, userId)
+                    .orElseThrow(() -> BusinessException.invalidParam("账户不存在: " + req.getAccountId()));
+        }
+
+        // 资产代码：未指定则按类型推断（现金 CNY / 加密币 BTC）
+        String assetCode = req.getAssetCode();
+        if (assetCode == null || assetCode.isBlank()) {
+            assetCode = "cash".equals(req.getType()) ? "CNY" : "BTC";
+        }
+
         ManualAsset asset = ManualAsset.builder()
                 .userId(userId)
                 .name(req.getName())
                 .type(req.getType())
                 .amount(req.getAmount())
+                .accountId(accountId)
+                .assetCode(assetCode.toUpperCase())
+                .quantity(req.getQuantity())
+                .unitPrice(req.getUnitPrice())
+                .priceSource(req.getPriceSource() != null ? req.getPriceSource() : "manual")
+                .priceUpdatedAt(req.getUnitPrice() != null ? java.time.LocalDateTime.now() : null)
                 .currency(req.getCurrency() != null ? req.getCurrency() : "CNY")
                 .note(req.getNote())
                 .isPrimary(isPrimary)
@@ -69,6 +93,19 @@ public class ManualAssetService {
         if (req.getAmount() != null) asset.setAmount(req.getAmount());
         if (req.getCurrency() != null) asset.setCurrency(req.getCurrency());
         if (req.getNote() != null) asset.setNote(req.getNote());
+
+        if (req.getAccountId() != null) {
+            accountRepository.findByIdAndUserIdAndDeletedFalse(req.getAccountId(), userId)
+                    .orElseThrow(() -> BusinessException.invalidParam("账户不存在: " + req.getAccountId()));
+            asset.setAccountId(req.getAccountId());
+        }
+        if (req.getAssetCode() != null) asset.setAssetCode(req.getAssetCode().toUpperCase());
+        if (req.getQuantity() != null) asset.setQuantity(req.getQuantity());
+        if (req.getUnitPrice() != null) {
+            asset.setUnitPrice(req.getUnitPrice());
+            asset.setPriceUpdatedAt(java.time.LocalDateTime.now());
+        }
+        if (req.getPriceSource() != null) asset.setPriceSource(req.getPriceSource());
 
         asset = manualAssetRepository.save(asset);
         log.info("更新手动资产: {} [{}] ¥{}", asset.getName(), asset.getType(), asset.getAmount());
@@ -140,6 +177,12 @@ public class ManualAssetService {
                 .name(asset.getName())
                 .type(asset.getType())
                 .amount(asset.getAmount())
+                .accountId(asset.getAccountId())
+                .assetCode(asset.getAssetCode())
+                .quantity(asset.getQuantity())
+                .unitPrice(asset.getUnitPrice())
+                .priceSource(asset.getPriceSource())
+                .priceUpdatedAt(asset.getPriceUpdatedAt())
                 .currency(asset.getCurrency())
                 .note(asset.getNote())
                 .isPrimary(asset.isPrimary())

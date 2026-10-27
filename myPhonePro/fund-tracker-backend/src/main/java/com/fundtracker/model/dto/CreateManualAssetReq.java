@@ -20,5 +20,19 @@ public class CreateManualAssetReq {
 
     private String currency; // CNY / 默认 CNY
 
+    /** 归属账户；为空时挂到默认账户 */
+    private String accountId;
+
+    /** CNY / USDT / BTC / ETH；为空时按 type 推断（cash→CNY，crypto→BTC） */
+    private String assetCode;
+
+    /** 加密币数量；现金留空 */
+    private BigDecimal quantity;
+
+    /** 单价（USD）；现金留空 */
+    private BigDecimal unitPrice;
+
+    private String priceSource;
+
     private String note;
 }

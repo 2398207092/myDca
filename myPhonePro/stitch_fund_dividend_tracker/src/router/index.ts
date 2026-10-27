@@ -60,6 +60,12 @@ const router = createRouter({
       meta: { level: 2 },
     },
     {
+      path: '/accounts',
+      name: 'accounts',
+      component: () => import('@/views/accounts/AccountsPage.vue'),
+      meta: { level: 2 },
+    },
+    {
       path: '/coverage/settings',
       name: 'coverage-settings',
       component: () => import('@/views/coverage/SettingsPage.vue'),

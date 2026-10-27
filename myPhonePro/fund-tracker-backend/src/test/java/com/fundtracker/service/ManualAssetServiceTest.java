@@ -1,6 +1,7 @@
 package com.fundtracker.service;
 
 import com.fundtracker.model.entity.ManualAsset;
+import com.fundtracker.repository.AccountRepository;
 import com.fundtracker.repository.ManualAssetRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +28,12 @@ class ManualAssetServiceTest {
     @Mock
     private ManualAssetRepository manualAssetRepository;
 
+    @Mock
+    private AccountRepository accountRepository;
+
+    @Mock
+    private AccountService accountService;
+
     private ManualAssetService service;
 
     @Captor
@@ -34,7 +41,7 @@ class ManualAssetServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ManualAssetService(manualAssetRepository);
+        service = new ManualAssetService(manualAssetRepository, accountRepository, accountService);
     }
 
     @Test
