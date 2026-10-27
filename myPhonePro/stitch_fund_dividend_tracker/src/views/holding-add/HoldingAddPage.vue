@@ -3,6 +3,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { searchHoldings, createHolding, getDividendInfo } from '@/api/holding'
 import type { HoldingSearchResult, DividendInfo } from '@/api/holding'
+import { listExchangeRates } from '@/api/exchangeRate'
 
 const router = useRouter()
 
@@ -24,6 +25,39 @@ const sellFeeRate = ref(0)
 const costAlgorithm = ref<'diluted' | 'diluted_only' | 'weighted_avg'>('diluted')
 const costInput = ref<number | null>(null)
 const isNegativeCost = ref(false)
+
+// === 加密币：基金搜索接口不覆盖，提供手动入口 ===
+const CRYPTO_PRESETS = [
+  { code: 'BTC', name: '比特币' },
+  { code: 'ETH', name: '以太坊' },
+]
+const isCryptoSelected = computed(() => selectedHolding.value?.type === 'crypto')
+const usdCny = ref(7.0)
+
+onMounted(async () => {
+  try {
+    const rates = await listExchangeRates()
+    const usd = rates.find((r) => r.pair === 'USD/CNY')
+    if (usd?.rate) usdCny.value = usd.rate
+  } catch {
+    /* 拿不到就用默认值，折算仅供参考 */
+  }
+})
+
+function addCrypto(preset: { code: string; name: string }) {
+  selectedHolding.value = { code: preset.code, name: preset.name, type: 'crypto' } as unknown as HoldingSearchResult
+  shares.value = null
+  costInput.value = null
+  showResults.value = false
+}
+
+/** 加密币按 USDT 输入成本，提交前折算成人民币（后端只认 CNY） */
+const costInCny = computed(() => {
+  if (costInput.value == null) return null
+  return isCryptoSelected.value
+    ? Math.round(costInput.value * usdCny.value * 100) / 100
+    : costInput.value
+})
 
 // Step 3: Forecast Horizon
 const forecastMethod = ref<'ex_date' | 'report_period' | 'custom'>('ex_date')
@@ -158,9 +192,11 @@ async function handleSubmit() {
       type: selectedHolding.value!.type,
       costAlgorithm: costAlgorithm.value,
       shares: shares.value!,
-      cost: costInput.value!,
+      cost: costInCny.value!,
       buyFeeRate: buyFeeRate.value,
       sellFeeRate: sellFeeRate.value,
+      quoteCurrency: isCryptoSelected.value ? 'USDT' : undefined,
+      costEstimated: isCryptoSelected.value ? true : undefined,
     })
     router.push('/')
   } catch (e: any) {
@@ -221,7 +257,23 @@ const estimatedAnnualDividend = computed(() => {
           </div>
         </div>
 
-        <!-- Search results dropdown -->
+        <!-- 加密币快捷入口：基金搜索覆盖不到，单独给入口 -->
+        <div v-if="!selectedHolding" class="mt-3 flex items-center gap-2 flex-wrap">
+          <span class="font-body text-[11px] text-text-tertiary">或手动添加：</span>
+          <button v-for="p in CRYPTO_PRESETS" :key="p.code"
+                  class="px-2.5 py-1 rounded-lg border border-border-light/60 bg-card-alt font-body text-[11px] text-text-secondary active:scale-[0.98] transition-transform"
+                  @click="addCrypto(p)">
+            {{ p.name }} {{ p.code }}
+          </button>
+        </div>
+
+        <!-- 已选中的加密币 -->
+        <div v-if="selectedHolding && isCryptoSelected" class="mt-3 flex items-center gap-2">
+          <span class="material-symbols-outlined text-[15px] text-[#f7931a]">currency_bitcoin</span>
+          <span class="font-body text-xs text-text-primary">{{ selectedHolding.name }}（{{ selectedHolding.code }}）</span>
+          <span class="font-body text-[10px] text-[#f7931a] bg-[#f7931a]/10 px-1.5 py-0.5 rounded">USDT 计价</span>
+          <button class="ml-auto font-body text-[11px] text-text-tertiary active:opacity-70" @click="clearSelection()">更换</button>
+        </div>
         <div v-if="showResults && searchResults.length > 0" class="mt-md border border-border-light rounded-lg max-h-48 overflow-y-auto">
           <div
             v-for="item in searchResults"
@@ -268,7 +320,7 @@ const estimatedAnnualDividend = computed(() => {
         <div class="grid grid-cols-2 gap-lg mb-lg">
           <div class="space-y-1">
             <label class="font-body text-xs font-medium text-error">*持仓数量</label>
-            <input v-model.number="shares" type="number" placeholder="股数/份数" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
+            <input v-model.number="shares" type="number" :placeholder="isCryptoSelected ? '数量（枚，最多 8 位小数）' : '股数/份数'" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
           </div>
           <div class="space-y-1">
             <label class="font-body text-xs font-medium text-error">*买入日期</label>
@@ -328,7 +380,10 @@ const estimatedAnnualDividend = computed(() => {
           </div>
           <!-- 成本输入 -->
           <div>
-            <input v-model.number="costInput" type="number" placeholder="可输入正数、零、或者负数（人民币）" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
+            <input v-model.number="costInput" type="number" :placeholder="isCryptoSelected ? '每枚成本（USDT）' : '可输入正数、零、或者负数（人民币）'" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
+            <p v-if="isCryptoSelected && costInCny" class="font-body text-[11px] text-text-tertiary mt-1">
+              ≈ ¥{{ costInCny.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) }}/枚（1 USDT ≈ {{ usdCny.toFixed(4) }} CNY，保存后按此折算）
+            </p>
           </div>
           <!-- 负成本勾选 -->
           <div class="flex items-center gap-2">
@@ -343,8 +398,9 @@ const estimatedAnnualDividend = computed(() => {
         </div>
       </section>
 
-      <!-- ==================== Step 3: 分红预测口径 ==================== -->
+      <!-- ==================== Step 3: 分红预测口径（加密币无分红，直接跳过） ==================== -->
       <section
+        v-if="!isCryptoSelected"
         :class="['bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40', !step3Active ? 'opacity-40 pointer-events-none' : '']"
       >
         <div class="flex items-center justify-between mb-lg">
