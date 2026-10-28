@@ -42,6 +42,7 @@ class HoldingServiceTest {
     @Mock private FundDividendScrapeService fundDividendScrapeService;
     @Mock private FundNavScrapeService fundNavScrapeService;
     @Mock private ManualAssetService manualAssetService;
+    @Mock private com.fundtracker.service.AccountService accountService;
     @Mock private ApplicationEventPublisher eventPublisher;
 
     private HoldingService holdingService;
@@ -56,7 +57,7 @@ class HoldingServiceTest {
                 fundNavScrapeService, fundDividendRecordRepository,
                 dividendEventRepository, dcaPlanRepository,
                 holdingSnapshotRepository, manualAssetService,
-                eventPublisher
+                accountService, eventPublisher
         );
     }
 

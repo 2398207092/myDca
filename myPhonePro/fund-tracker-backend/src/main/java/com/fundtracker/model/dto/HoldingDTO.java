@@ -27,6 +27,8 @@ public class HoldingDTO {
 
     /** 原始报价币种：CNY / USDT */
     private String quoteCurrency;
+    /** 归属账户（USDT 账户只能挂加密资产） */
+    private String accountId;
     /** 原始报价（如 79827.4 USDT），CNY 标的为 null */
     private BigDecimal quotePrice;
     /** 成本是否为估算值 */

@@ -45,6 +45,7 @@ public class HoldingService {
     private final DcaPlanRepository dcaPlanRepository;
     private final HoldingSnapshotRepository holdingSnapshotRepository;
     private final ManualAssetService manualAssetService;
+    private final com.fundtracker.service.AccountService accountService;
     private final ApplicationEventPublisher eventPublisher;
 
     public List<HoldingDTO> listHoldings(String userId, String type, String keyword) {
@@ -70,6 +71,24 @@ public class HoldingService {
             return category;
         }
         return "crypto".equalsIgnoreCase(req.getType()) ? "crypto" : null;
+    }
+
+    /**
+     * 账户归属：校验资产类型与账户本位币匹配（USDT 账户只能挂加密资产，CNY 账户不能）。
+     * 不传 accountId 视为未归属，允许（历史持仓都没有账户）。
+     */
+    private String resolveAccountId(CreateHoldingReq req) {
+        String accountId = req.getAccountId();
+        if (accountId == null || accountId.isBlank()) {
+            return null;
+        }
+        boolean isCrypto = "crypto".equalsIgnoreCase(req.getType());
+        if (!accountService.matchesAssetType(accountId, isCrypto)) {
+            throw BusinessException.invalidParam(isCrypto
+                    ? "加密资产只能挂在 USDT 本位币的账户（如交易所账户）下"
+                    : "人民币资产不能挂在 USDT 本位币的账户（交易所）下");
+        }
+        return accountId;
     }
 
     public HoldingDTO getHolding(String id, String userId) {
@@ -195,6 +214,7 @@ public class HoldingService {
                 .reinvestRecoveryYears(BigDecimal.ZERO)
                 .color(color)
                 .assetCategory(resolveAssetCategory(req))
+                .accountId(resolveAccountId(req))
                 .buyFeeRate(buyFeeRate)
                 .sellFeeRate(sellFeeRate)
                 .userId(userId)
@@ -694,6 +714,7 @@ public class HoldingService {
                 .latestPrice(holding.getLatestPrice())
                 .priceDate(holding.getPriceDate())
                 .quoteCurrency(holding.getQuoteCurrency())
+                .accountId(holding.getAccountId())
                 .quotePrice(holding.getQuotePrice())
                 .costEstimated(holding.isCostEstimated())
                 .priceSource(holding.getPriceSource())

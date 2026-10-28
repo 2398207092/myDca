@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { searchHoldings, createHolding, getDividendInfo } from '@/api/holding'
 import type { HoldingSearchResult, DividendInfo } from '@/api/holding'
 import { listExchangeRates } from '@/api/exchangeRate'
+import { getAccounts, type AccountItem } from '@/api/account'
 
 const router = useRouter()
 
@@ -33,6 +34,15 @@ const CRYPTO_PRESETS = [
 ]
 const isCryptoSelected = computed(() => selectedHolding.value?.type === 'crypto')
 const usdCny = ref<number | null>(null)
+const accountsList = ref<AccountItem[]>([])
+const selectedAccountId = ref('')
+
+/** 账户按本位币过滤：加密资产只能挂 USDT 账户，与后端校验同一条规则 */
+const availableAccounts = computed(() =>
+  accountsList.value.filter((a) =>
+    isCryptoSelected.value ? a.baseCurrency === 'USDT' : a.baseCurrency !== 'USDT'
+  )
+)
 
 onMounted(async () => {
   try {
@@ -42,6 +52,11 @@ onMounted(async () => {
   } catch {
     // 拿不到汇率就不折算（不编一个默认值，避免成本算错）
     usdCny.value = null
+  }
+  try {
+    accountsList.value = await getAccounts()
+  } catch {
+    /* 账户拉取失败不阻断创建 */
   }
 })
 
@@ -203,6 +218,7 @@ async function handleSubmit() {
       sellFeeRate: sellFeeRate.value,
       quoteCurrency: isCryptoSelected.value ? 'USDT' : undefined,
       costEstimated: isCryptoSelected.value ? true : undefined,
+      accountId: selectedAccountId.value || undefined,
     })
     router.push('/')
   } catch (e: any) {
@@ -334,6 +350,25 @@ const estimatedAnnualDividend = computed(() => {
               <input v-model="buyDate" type="date" :disabled="!step2Active" class="flex-1 bg-transparent border-none outline-none font-body text-sm text-text-primary" />
             </div>
           </div>
+        </div>
+
+        <!-- 归属账户（可选）：加密资产只能挂 USDT 本位币账户 -->
+        <div v-if="accountsList.length > 0" class="mb-lg">
+          <label class="font-body text-xs font-medium text-text-secondary block mb-1">归属账户</label>
+          <div class="flex gap-2 overflow-x-auto no-scrollbar">
+            <button v-for="acc in availableAccounts" :key="acc.id" type="button"
+                    :disabled="!step2Active"
+                    class="px-3 py-2 rounded-lg border font-body text-xs whitespace-nowrap transition-colors disabled:opacity-40"
+                    :class="selectedAccountId === acc.id
+                      ? 'border-brand bg-brand-light/40 text-brand'
+                      : 'border-border-light/40 bg-card-alt text-text-secondary'"
+                    @click="selectedAccountId = selectedAccountId === acc.id ? '' : acc.id">
+              {{ acc.name }}{{ acc.isDefault ? ' ·默认' : '' }}
+            </button>
+          </div>
+          <p class="font-body text-[11px] text-text-tertiary mt-1">
+            {{ isCryptoSelected ? '只显示 USDT 本位币账户（如交易所）' : '人民币资产挂在 CNY 本位币账户下' }}；不选 = 不归属
+          </p>
         </div>
 
         <div class="grid grid-cols-2 gap-lg mb-lg">

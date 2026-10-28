@@ -40,6 +40,7 @@ class DcaPlanServiceTest {
     @Mock private TradingCalendar tradingCalendar;
     @Mock private com.fundtracker.repository.ManualAssetRepository manualAssetRepository;
     @Mock private com.fundtracker.service.ExchangeRateService exchangeRateService;
+    @Mock private com.fundtracker.service.AccountService accountService;
 
     private DcaPlanService dcaPlanService;
 
@@ -48,7 +49,7 @@ class DcaPlanServiceTest {
         dcaPlanService = new DcaPlanService(
                 dcaPlanRepository, holdingRepository,
                 transactionService, fundNavScrapeService,
-                tradingCalendar, manualAssetRepository, exchangeRateService
+                tradingCalendar, manualAssetRepository, exchangeRateService, accountService
         );
     }
 

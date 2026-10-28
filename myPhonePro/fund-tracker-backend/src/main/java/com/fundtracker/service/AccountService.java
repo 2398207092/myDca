@@ -265,4 +265,21 @@ public class AccountService {
                 .updatedAt(asset.getUpdatedAt())
                 .build();
     }
+
+    /**
+     * 资产类型与账户本位币是否匹配：
+     * USDT 账户（交易所）只能挂加密资产；CNY 账户只能挂人民币资产（现金/基金等）。
+     * accountId 为空视为不约束。
+     */
+    public boolean matchesAssetType(String accountId, boolean isCryptoAsset) {
+        if (accountId == null || accountId.isBlank()) {
+            return true;
+        }
+        Account acc = accountRepository.findById(accountId).orElse(null);
+        if (acc == null) {
+            return false; // 账户不存在视作不匹配，由调用方决定报错文案
+        }
+        boolean usdtAccount = "USDT".equalsIgnoreCase(acc.getBaseCurrency());
+        return isCryptoAsset == usdtAccount;
+    }
 }

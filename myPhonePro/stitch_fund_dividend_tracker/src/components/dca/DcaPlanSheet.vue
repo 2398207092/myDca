@@ -230,12 +230,12 @@ async function handleSubmit() {
       class="w-full h-12 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand mb-lg"
     >
       <option value="">不关联（仅记账，不扣余额）</option>
-      <option v-for="a in accounts" :key="a.id" :value="a.id">
+      <option v-for="a in accounts.filter((x) => isCrypto ? x.baseCurrency === 'USDT' : x.baseCurrency !== 'USDT')" :key="a.id" :value="a.id">
         {{ a.name }}{{ a.isDefault ? ' ·默认' : '' }}
       </option>
     </select>
     <p class="font-body text-[11px] text-text-tertiary mb-lg -mt-2">
-      {{ isCrypto ? '执行时从该账户的 USDT 余额里扣' : '执行时从该账户的现金余额里扣' }}；余额不足时仍会记账（余额可能为负）
+      {{ isCrypto ? '执行时从该账户的 USDT 余额里扣（只显示 USDT 本位币账户）' : '执行时从该账户的现金余额里扣' }}；余额不足时仍会记账（余额可能为负）
     </p>
 
     <!-- Read-only info -->

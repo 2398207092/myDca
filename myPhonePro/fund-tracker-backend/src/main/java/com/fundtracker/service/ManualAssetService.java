@@ -55,6 +55,12 @@ public class ManualAssetService {
             accountRepository.findByIdAndUserIdAndDeletedFalse(accountId, userId)
                     .orElseThrow(() -> BusinessException.invalidParam("账户不存在: " + req.getAccountId()));
         }
+        boolean assetIsCrypto = "crypto".equals(req.getType());
+        if (!accountService.matchesAssetType(accountId, assetIsCrypto)) {
+            throw BusinessException.invalidParam(assetIsCrypto
+                    ? "加密资产只能挂在 USDT 本位币的账户（如交易所账户）下"
+                    : "人民币资产不能挂在 USDT 本位币的账户（交易所）下");
+        }
 
         // 资产代码：未指定则按类型推断（现金 CNY / 加密币 BTC）
         String assetCode = req.getAssetCode();
@@ -128,6 +134,9 @@ public class ManualAssetService {
         if (req.getAccountId() != null) {
             accountRepository.findByIdAndUserIdAndDeletedFalse(req.getAccountId(), userId)
                     .orElseThrow(() -> BusinessException.invalidParam("账户不存在: " + req.getAccountId()));
+            if (!accountService.matchesAssetType(req.getAccountId(), "crypto".equals(asset.getType()))) {
+                throw BusinessException.invalidParam("资产类型与账户本位币不匹配（USDT 账户只能挂加密资产）");
+            }
             asset.setAccountId(req.getAccountId());
         }
         if (req.getAssetCode() != null) asset.setAssetCode(req.getAssetCode().toUpperCase());

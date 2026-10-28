@@ -64,6 +64,8 @@ public class Holding {
     @Column(name = "quote_currency", nullable = false, length = 10)
     @Builder.Default
     private String quoteCurrency = "CNY";
+    /** 归属账户：USDT 账户只能挂加密资产，CNY 账户挂人民币资产（校验见 AccountService.matchesAssetType） */
+    private String accountId;
 
     /** 原始报价（如 79827.4 USDT）；CNY 标的为空 */
     @Column(name = "quote_price", precision = 24, scale = 8)

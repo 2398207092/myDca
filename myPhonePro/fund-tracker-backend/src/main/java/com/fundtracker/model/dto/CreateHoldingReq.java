@@ -31,6 +31,8 @@ public class CreateHoldingReq {
 
     /** 原始报价币种：CNY（默认）或 USDT。加密币填 USDT 才能被价格任务刷新 */
     private String quoteCurrency;
+    /** 归属账户（USDT 账户只能挂加密资产） */
+    private String accountId;
 
     /** 成本是否为估算（如从冷钱包转入、真实成本不可考） */
     private Boolean costEstimated;

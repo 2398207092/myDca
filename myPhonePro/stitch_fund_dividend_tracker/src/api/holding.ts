@@ -49,6 +49,8 @@ export interface CreateHoldingReq {
   quoteCurrency?: string
   /** 成本为估算值（如从冷钱包转入） */
   costEstimated?: boolean
+  /** 归属账户：USDT 账户只能挂加密资产，CNY 账户挂人民币资产 */
+  accountId?: string
 }
 
 export interface HoldingSearchResult {

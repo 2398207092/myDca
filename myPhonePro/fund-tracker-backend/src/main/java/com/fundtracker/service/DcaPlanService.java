@@ -36,6 +36,7 @@ public class DcaPlanService {
     private final TradingCalendar tradingCalendar;
     private final ManualAssetRepository manualAssetRepository;
     private final ExchangeRateService exchangeRateService;
+    private final com.fundtracker.service.AccountService accountService;
 
     /**
      * 根据持仓类型推断交易市场
@@ -511,11 +512,22 @@ public class DcaPlanService {
      */
     private void deductForExecution(DcaPlan plan, Holding holding, String userId,
                                     BigDecimal amountCny, BigDecimal amountUsdt) {
-        if (plan.getAccountId() == null || plan.getAccountId().isBlank()) {
-            return; // 未关联账户 = 纯记账
+        // 扣款账户：计划显式指定优先；否则回落到持仓归属的账户
+        String accountId = plan.getAccountId();
+        if (accountId == null || accountId.isBlank()) {
+            accountId = holding.getAccountId();
         }
-        List<ManualAsset> assets = manualAssetRepository.findByUserIdAndAccountId(userId, plan.getAccountId());
+        if (accountId == null || accountId.isBlank()) {
+            return; // 计划与持仓都没关联账户 = 纯记账
+        }
         boolean isCrypto = holding.getType() == HoldingType.crypto;
+        // 类型匹配校验：USDT 账户只能扣加密资产，CNY 账户只能扣人民币现金
+        if (!accountService.matchesAssetType(accountId, isCrypto)) {
+            log.warn("定投扣款跳过: 计划={}, 账户 {} 的本位币与资产类型不匹配（isCrypto={}），仅记账未扣款",
+                    plan.getId(), accountId, isCrypto);
+            return;
+        }
+        List<ManualAsset> assets = manualAssetRepository.findByUserIdAndAccountId(userId, accountId);
         for (ManualAsset a : assets) {
             if (isCrypto && "crypto".equals(a.getType())) {
                 BigDecimal q = a.getQuantity() != null ? a.getQuantity() : BigDecimal.ZERO;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated } from 'vue'
+import { ref, computed, watch, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAssetOverview, takeSnapshot } from '@/api/assetOverview'
 import { listHoldings, updateHoldingCategory, getValueChange } from '@/api/holding'
@@ -64,6 +64,23 @@ const assetForm = ref({ name: '', type: 'cash' as 'cash' | 'crypto', amount: 0, 
 
 /** USD/CNY 汇率：加密资产按 USDT 数量录入，前端实时预览折算，后端保存时统一折算 */
 const usdCny = ref<number | null>(null)
+
+/**
+ * 账户按本位币过滤：加密资产只能挂 USDT 账户（交易所），人民币资产挂 CNY 账户。
+ * 与后端 AccountService.matchesAssetType 同一条规则。
+ */
+const availableAccounts = computed(() =>
+  accounts.value.filter((a) =>
+    assetForm.value.type === 'crypto' ? a.baseCurrency === 'USDT' : a.baseCurrency !== 'USDT'
+  )
+)
+
+// 切换资产类型时，如果当前账户不再匹配就清掉，避免把 USDT 资产挂进 CNY 账户
+watch(() => assetForm.value.type, () => {
+  if (assetForm.value.accountId && !availableAccounts.value.some((a) => a.id === assetForm.value.accountId)) {
+    assetForm.value.accountId = ''
+  }
+})
 onMounted(async () => {
   try {
     const rates = await listExchangeRates()
@@ -1053,7 +1070,7 @@ async function doDelete() {
             <div v-if="accounts.length > 0">
               <label class="font-body text-xs text-text-tertiary block mb-1">归属账户</label>
               <div class="flex gap-2 overflow-x-auto no-scrollbar">
-                <button v-for="acc in accounts" :key="acc.id"
+                <button v-for="acc in availableAccounts" :key="acc.id"
                         class="px-3 py-2 rounded-lg border font-body text-xs whitespace-nowrap transition-colors"
                         :class="assetForm.accountId === acc.id
                           ? 'border-brand bg-brand-light/40 text-brand'
@@ -1062,6 +1079,9 @@ async function doDelete() {
                   {{ acc.name }}{{ acc.isDefault ? ' ·默认' : '' }}
                 </button>
               </div>
+              <p v-if="availableAccounts.length === 0" class="font-body text-[11px] text-error mt-1">
+                {{ assetForm.type === 'crypto' ? '没有 USDT 本位币账户，请先在「账户」里创建交易所账户' : '没有人民币本位币账户' }}
+              </p>
             </div>
             <div>
               <label class="font-body text-xs text-text-tertiary block mb-1">
