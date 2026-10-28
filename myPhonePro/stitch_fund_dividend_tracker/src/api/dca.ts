@@ -65,6 +65,7 @@ export interface DcaBudgetItem {
   amount: number
   executions: number
   budgetAmount: number
+  tradingMarket: string
 }
 
 export async function getDcaBudget(year: number, month: number): Promise<DcaBudgetVO> {

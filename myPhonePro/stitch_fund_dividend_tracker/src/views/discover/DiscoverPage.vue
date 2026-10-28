@@ -887,13 +887,13 @@ async function doDelete() {
               <div class="flex items-center gap-2 mt-0.5 ml-4">
                 <span class="font-body text-[11px] text-text-tertiary/60">
                   {{ plan.frequency === 'daily' ? '每日' : plan.frequency === 'weekly' ? '每周' : plan.frequency === 'biweekly' ? '双周' : '每月' }}
-                  ¥{{ plan.amount }}
+                  {{ plan.tradingMarket === 'crypto' ? plan.amount + ' USDT' : '¥' + plan.amount }}
                 </span>
                 <span class="font-body text-[11px] text-text-tertiary/40">·</span>
                 <span class="font-body text-[11px] text-text-tertiary/60">{{ plan.totalExecutions }} 期</span>
               </div>
             </div>
-            <span class="font-body text-xs text-text-primary shrink-0 ml-2">¥{{ plan.totalInvested.toLocaleString() }}</span>
+            <span class="font-body text-xs text-text-primary shrink-0 ml-2">{{ plan.tradingMarket === 'crypto' ? plan.totalInvested.toLocaleString() + ' USDT' : '¥' + plan.totalInvested.toLocaleString() }}</span>
           </div>
         </div>
 
@@ -973,7 +973,7 @@ async function doDelete() {
                     <p class="font-body text-xs text-text-primary truncate">{{ plan.holdingName }}</p>
                     <p class="font-body text-[11px] text-text-tertiary/60 mt-0.5">
                       {{ plan.frequency === 'daily' ? '每日' : plan.frequency === 'weekly' ? '每周' : plan.frequency === 'biweekly' ? '双周' : '每月' }}
-                      ¥{{ plan.amount.toLocaleString() }}
+                      {{ plan.tradingMarket === 'crypto' ? plan.amount.toLocaleString() + ' USDT' : '¥' + plan.amount.toLocaleString() }}
                       · {{ plan.executions }} 次
                     </p>
                   </div>
@@ -1034,13 +1034,13 @@ async function doDelete() {
                 <div class="flex items-center gap-2 mt-0.5 ml-4">
                   <span class="font-body text-[11px] text-text-tertiary/60">
                     {{ plan.frequency === 'daily' ? '每日' : plan.frequency === 'weekly' ? '每周' : plan.frequency === 'biweekly' ? '双周' : '每月' }}
-                    ¥{{ plan.amount }}
+                    {{ plan.tradingMarket === 'crypto' ? plan.amount + ' USDT' : '¥' + plan.amount }}
                   </span>
                   <span class="font-body text-[11px] text-text-tertiary/40">·</span>
                   <span class="font-body text-[11px] text-text-tertiary/60">{{ plan.totalExecutions }} 期</span>
                 </div>
               </div>
-              <span class="font-body text-xs text-text-primary shrink-0 ml-2">¥{{ plan.totalInvested.toLocaleString() }}</span>
+              <span class="font-body text-xs text-text-primary shrink-0 ml-2">{{ plan.tradingMarket === 'crypto' ? plan.totalInvested.toLocaleString() + ' USDT' : '¥' + plan.totalInvested.toLocaleString() }}</span>
             </div>
           </div>
         </div>

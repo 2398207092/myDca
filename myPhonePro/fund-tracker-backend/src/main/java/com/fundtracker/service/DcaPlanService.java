@@ -76,13 +76,21 @@ public class DcaPlanService {
         int cryptoDays = tradingCalendar.countTradingDaysInMonth(year, month, "crypto");
         BigDecimal total = BigDecimal.ZERO;
         List<DcaBudgetVO.PlanBudgetItem> items = new java.util.ArrayList<>();
+        BigDecimal usdCny = exchangeRateService.listAll().stream()
+                .filter(r -> "USD/CNY".equals(r.getPair()))
+                .map(ExchangeRateDTO::getRate)
+                .findFirst()
+                .orElse(null);
 
         for (DcaPlan plan : activePlans) {
             Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(plan.getHoldingId(), userId).orElse(null);
             boolean planIsCrypto = holding != null && holding.getType() == HoldingType.crypto;
             int tradingDays = planIsCrypto ? cryptoDays : chinaDays;
             int executions = estimateExecutionsInMonth(plan, year, month, tradingDays);
-            BigDecimal budget = plan.getAmount().multiply(BigDecimal.valueOf(executions));
+            // 预算统一人民币口径：加密币计划 amount 是 USDT，需乘汇率折算（汇总层规则）
+            BigDecimal budget = planIsCrypto && usdCny != null
+                    ? plan.getAmount().multiply(usdCny).multiply(BigDecimal.valueOf(executions)).setScale(2, RoundingMode.HALF_UP)
+                    : plan.getAmount().multiply(BigDecimal.valueOf(executions));
             total = total.add(budget);
             items.add(DcaBudgetVO.PlanBudgetItem.builder()
                     .holdingName(holding != null ? holding.getName() : "未知")
@@ -90,6 +98,7 @@ public class DcaPlanService {
                     .amount(plan.getAmount())
                     .executions(executions)
                     .budgetAmount(budget)
+                    .tradingMarket(planIsCrypto ? "crypto" : "china")
                     .build());
         }
 
