@@ -6,6 +6,7 @@ import com.fundtracker.model.entity.Holding;
 import com.fundtracker.model.enums.CostAlgorithm;
 import com.fundtracker.model.enums.HoldingType;
 import com.fundtracker.repository.HoldingRepository;
+import com.fundtracker.repository.ManualAssetRepository;
 import com.fundtracker.service.provider.CryptoPriceProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +37,8 @@ class CryptoPriceServiceTest {
     @Mock
     private ExchangeRateService exchangeRateService;
     @Mock
+    private ManualAssetRepository manualAssetRepository;
+    @Mock
     private CryptoPriceProvider okx;
     @Mock
     private CryptoPriceProvider gate;
@@ -45,7 +48,7 @@ class CryptoPriceServiceTest {
     @BeforeEach
     void setUp() {
         // OKX 优先，Gate 兜底（与 @Order 一致）
-        service = new CryptoPriceService(List.of(okx, gate), holdingRepository, exchangeRateService);
+        service = new CryptoPriceService(List.of(okx, gate), holdingRepository, exchangeRateService, manualAssetRepository);
         // name() 只在遍历 provider 时调用，某些场景（首个源就成功）不会用到 gate.name()
         lenient().when(okx.name()).thenReturn("okx");
         lenient().when(gate.name()).thenReturn("gate");

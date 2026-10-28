@@ -167,6 +167,12 @@ public class TransactionService {
         Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(tx.getHoldingId(), userId)
                 .orElseThrow(BusinessException::holdingNotFound);
 
+        // 记录编辑前的现金影响（编辑后差额一次性调整，保持与 create/delete 同一套公式）
+        BigDecimal oldQuantity = tx.getQuantity();
+        BigDecimal oldPrice = tx.getPrice();
+        BigDecimal oldFee = tx.getFee();
+        TransactionType oldType = tx.getType();
+
         // 更新字段（仅非 null 字段）
         if (req.getType() != null) {
             tx.setType(TransactionType.valueOf(req.getType()));
@@ -192,6 +198,16 @@ public class TransactionService {
 
         transactionRepository.save(tx);
 
+        // 现金联动：编辑交易也要同步现金，否则账永远对不平（差额 = 新影响 − 旧影响）
+        if (holding.getType() != HoldingType.crypto) {
+            BigDecimal oldImpact = cashImpact(oldType, oldQuantity, oldPrice, oldFee);
+            BigDecimal newImpact = cashImpact(tx.getType(), tx.getQuantity(), tx.getPrice(), tx.getFee());
+            BigDecimal delta = newImpact.subtract(oldImpact);
+            if (delta.compareTo(BigDecimal.ZERO) != 0) {
+                manualAssetService.adjustCash(holding.getId(), holding.getAccountId(), delta, userId);
+            }
+        }
+
         // 从所有交易重新计算份额
         recalculateSharesFromScratch(holding);
         // 重新计算预测分红和指标
@@ -209,6 +225,19 @@ public class TransactionService {
         eventPublisher.publishEvent(new TransactionChangedEvent(holding.getId(), userId));
 
         return toDTO(tx);
+    }
+
+    /** 一笔交易对现金的影响：买入扣（额+费），卖出进（额−费），reinvest 等不动现金 */
+    private BigDecimal cashImpact(TransactionType type, BigDecimal quantity, BigDecimal price, BigDecimal fee) {
+        BigDecimal f = fee != null ? fee : BigDecimal.ZERO;
+        BigDecimal gross = quantity.multiply(price).setScale(2, RoundingMode.HALF_UP);
+        if (type == TransactionType.buy) {
+            return gross.add(f).negate();
+        }
+        if (type == TransactionType.sell) {
+            return gross.subtract(f);
+        }
+        return BigDecimal.ZERO;
     }
 
     private void recalculateSharesFromScratch(Holding holding) {

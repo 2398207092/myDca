@@ -478,7 +478,7 @@ public class DcaPlanService {
         TransactionDTO txDto = transactionService.createTransaction(txReq, userId);
 
         // 扣款：从计划关联的账户扣现金（基金）或 USDT（加密币）
-        deductForExecution(plan, holding, userId, amountCny, amountUsdt);
+        String deductionInfo = deductForExecution(plan, holding, userId, amountCny, amountUsdt);
 
         // 更新计划统计
         plan.setTotalInvested(plan.getTotalInvested().add(plan.getAmount()));
@@ -503,6 +503,7 @@ public class DcaPlanService {
                 .executionDate(today)
                 .holdingName(holding.getName())
                 .holdingCode(holding.getCode())
+                .deductionInfo(deductionInfo)
                 .build();
     }
 
@@ -510,27 +511,27 @@ public class DcaPlanService {
      * 定投扣款：从计划关联的账户扣现金（基金）或 USDT 数量（加密币）。
      * 找不到可扣资产时只记警告，不阻断执行——记账软件不应因账户余额不足而中断自动计划。
      */
-    private void deductForExecution(DcaPlan plan, Holding holding, String userId,
-                                    BigDecimal amountCny, BigDecimal amountUsdt) {
+    private String deductForExecution(DcaPlan plan, Holding holding, String userId,
+                                      BigDecimal amountCny, BigDecimal amountUsdt) {
         // 扣款账户：计划显式指定优先；否则回落到持仓归属的账户
         String accountId = plan.getAccountId();
         if (accountId == null || accountId.isBlank()) {
             accountId = holding.getAccountId();
         }
         if (accountId == null || accountId.isBlank()) {
-            return; // 计划与持仓都没关联账户 = 纯记账
+            return "纯记账（计划未关联扣款账户）";
         }
         boolean isCrypto = holding.getType() == HoldingType.crypto;
         // 基金定投的现金扣款已由 createTransaction 统一处理（按持仓归属账户扣），
         // 这里再扣一次会双扣——本方法只负责 createTransaction 做不了的事：扣 USDT 数量。
         if (!isCrypto) {
-            return;
+            return "基金扣款已由交易层自动处理（按持仓归属账户扣人民币现金）";
         }
         // 类型匹配校验：只从 USDT 本位币账户扣 USDT
         if (!accountService.matchesAssetType(accountId, true)) {
             log.warn("定投扣款跳过: 计划={}, 账户 {} 的本位币与资产类型不匹配（isCrypto={}），仅记账未扣款",
                     plan.getId(), accountId, isCrypto);
-            return;
+            return "⚠ 扣款账户的本位币与加密资产不匹配，仅记账未扣款";
         }
         List<ManualAsset> assets = manualAssetRepository.findByUserIdAndAccountId(userId, accountId);
         for (ManualAsset a : assets) {
@@ -543,11 +544,12 @@ public class DcaPlanService {
                 }
                 manualAssetRepository.save(a);
                 log.info("定投扣款: 计划={}, 账户资产={}, 扣减 {} USDT", plan.getId(), a.getName(), amountUsdt);
-                return;
+                return "已从「" + a.getName() + "」扣 " + amountUsdt + " USDT";
             }
         }
         log.warn("定投扣款未找到可扣资产: 计划={}, 账户={}（该账户下没有 USDT 余额），仅记账未扣款",
                 plan.getId(), accountId);
+        return "⚠ 扣款账户下没有 USDT 余额资产，仅记账未扣款";
     }
 
     private DcaPlanVO toVO(DcaPlan plan, Holding holding) {

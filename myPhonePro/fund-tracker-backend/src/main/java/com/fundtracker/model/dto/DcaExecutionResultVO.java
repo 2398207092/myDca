@@ -21,4 +21,6 @@ public class DcaExecutionResultVO {
     private LocalDate executionDate;
     private String holdingName;
     private String holdingCode;
+    /** 扣款说明（纯记账 / 已扣款 / 未扣款原因） */
+    private String deductionInfo;
 }

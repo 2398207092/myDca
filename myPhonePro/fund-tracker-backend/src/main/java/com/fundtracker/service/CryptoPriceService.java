@@ -4,7 +4,9 @@ import com.fundtracker.model.dto.CryptoPriceDTO;
 import com.fundtracker.model.dto.ExchangeRateDTO;
 import com.fundtracker.model.dto.RefreshCryptoPricesResp;
 import com.fundtracker.model.entity.Holding;
+import com.fundtracker.model.entity.ManualAsset;
 import com.fundtracker.repository.HoldingRepository;
+import com.fundtracker.repository.ManualAssetRepository;
 import com.fundtracker.service.provider.CryptoPriceProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +44,7 @@ public class CryptoPriceService {
     private final List<CryptoPriceProvider> providers;
     private final HoldingRepository holdingRepository;
     private final ExchangeRateService exchangeRateService;
+    private final ManualAssetRepository manualAssetRepository;
 
     /** 数据源名 → 最近失败时间 */
     private final Map<String, LocalDateTime> failedAt = new ConcurrentHashMap<>();
@@ -76,6 +79,10 @@ public class CryptoPriceService {
 
         BigDecimal usdCny = usdCnyRate();
         int updated = fetched.isEmpty() ? 0 : applyToHoldings(fetched, usdCny, source, userId);
+        if (!fetched.isEmpty()) {
+            // 手动加密资产（USDT 余额、BTC 余额等）的人民币估值随行情/汇率一起刷新
+            refreshCryptoManualAssets(fetched, usdCny, source, userId);
+        }
 
         List<CryptoPriceDTO> prices = currentPrices(userId);
 
@@ -114,6 +121,35 @@ public class CryptoPriceService {
     }
 
     /** 按用户圈定要处理的持仓；userId 为 null 时返回全部（仅供定时任务） */
+    /**
+     * 刷新手动加密资产（type=crypto 的 manual_assets）的人民币估值。
+     * 之前 unitPrice 冻结在录入时汇率，行情变了总资产纹丝不动——现在随行情/汇率一起刷。
+     * USDT 余额按汇率计价；BTC 等按 USDT 价 × 汇率。
+     */
+    private void refreshCryptoManualAssets(Map<String, BigDecimal> usdtPrices, BigDecimal usdCny, String source, String userId) {
+        List<ManualAsset> assets = userId == null
+                ? manualAssetRepository.findByType("crypto")
+                : manualAssetRepository.findByUserIdAndType(userId, "crypto");
+        for (ManualAsset a : assets) {
+            if (a.getQuantity() == null || a.getQuantity().signum() <= 0) continue;
+            String code = a.getAssetCode() != null ? a.getAssetCode().toUpperCase() : "";
+            BigDecimal unitPrice;
+            if ("USDT".equals(code)) {
+                if (usdCny == null) continue;
+                unitPrice = usdCny; // 1 USDT 的人民币价 = 汇率
+            } else {
+                BigDecimal usdt = usdtPrices.get(code);
+                if (usdt == null || usdCny == null) continue;
+                unitPrice = usdt.multiply(usdCny).setScale(4, RoundingMode.HALF_UP);
+            }
+            a.setUnitPrice(unitPrice);
+            a.setAmount(a.getQuantity().multiply(unitPrice).setScale(2, RoundingMode.HALF_UP));
+            a.setPriceSource(source);
+            a.setPriceUpdatedAt(LocalDateTime.now());
+            manualAssetRepository.save(a);
+        }
+    }
+
     private List<Holding> listTargets(String userId) {
         return userId == null
                 ? holdingRepository.findByQuoteCurrencyAndDeletedFalse("USDT")

@@ -48,6 +48,8 @@ export interface DcaExecutionResultVO {
   executionDate: string
   holdingName: string
   holdingCode: string
+  /** 扣款说明（纯记账 / 已扣款 / 未扣款原因） */
+  deductionInfo?: string
 }
 
 export interface DcaBudgetVO {
