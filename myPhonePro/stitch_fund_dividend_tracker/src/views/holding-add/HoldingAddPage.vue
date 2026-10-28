@@ -44,6 +44,11 @@ const availableAccounts = computed(() =>
   )
 )
 
+// 资产必须归属账户：账户列表到达后默认选中第一个匹配项
+watch(availableAccounts, (list) => {
+  if (!selectedAccountId.value && list.length) selectedAccountId.value = list[0].id
+}, { immediate: true })
+
 onMounted(async () => {
   try {
     const rates = await listExchangeRates()
@@ -367,7 +372,7 @@ const estimatedAnnualDividend = computed(() => {
             </button>
           </div>
           <p class="font-body text-[11px] text-text-tertiary mt-1">
-            {{ isCryptoSelected ? '只显示 USDT 本位币账户（如交易所）' : '人民币资产挂在 CNY 本位币账户下' }}；不选 = 不归属
+            {{ isCryptoSelected ? '只显示 USDT 本位币账户（如交易所）' : '人民币资产挂在 CNY 本位币账户下' }}；资产必须归属账户，否则现金账会失真
           </p>
         </div>
 

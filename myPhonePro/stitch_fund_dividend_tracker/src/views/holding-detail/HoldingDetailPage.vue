@@ -396,6 +396,11 @@ const editAvailableAccounts = computed(() =>
   )
 )
 
+// 打开编辑时若未归属，默认选中第一个匹配账户（资产必须归属账户）
+watch([editAvailableAccounts, showEditSheet], ([list, show]) => {
+  if (show && !editAccountId.value && list.length) editAccountId.value = list[0].id
+}, { immediate: true })
+
 async function saveEditHolding() {
   if (!holding.value) return
   editSaving.value = true

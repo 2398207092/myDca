@@ -35,11 +35,19 @@ const error = ref('')
 /** 扣款账户 */
 const accounts = ref<AccountItem[]>([])
 const accountId = ref<string>('')
+/** 本位币匹配：加密币只扣 USDT 账户，基金/黄金只扣 CNY 账户（与后端 matchesAssetType 同一条规则） */
+const matchingAccounts = computed(() =>
+  accounts.value.filter((a) => isCrypto.value ? a.baseCurrency === 'USDT' : a.baseCurrency !== 'USDT')
+)
+// 账户列表异步到达后，若还没选则默认选中第一个匹配账户（账户为必选）
+watch(matchingAccounts, (list) => {
+  if (!accountId.value && list.length) accountId.value = list[0].id
+}, { immediate: true })
 onMounted(async () => {
   try {
     accounts.value = await getAccounts()
   } catch {
-    /* 账户拉取失败不阻断，仍可创建纯记账计划 */
+    /* 账户拉取失败时提交会被必选校验拦住 */
   }
 })
 
@@ -83,7 +91,7 @@ function initFromPlan() {
     amount.value = 50
     frequency.value = 'daily'
     day.value = null
-    accountId.value = ''
+    accountId.value = matchingAccounts.value[0]?.id || ''
   }
   error.value = ''
 }
@@ -99,6 +107,10 @@ function pickFrequency(v: Frequency) {
 async function handleSubmit() {
   if (!amount.value || amount.value < 1) {
     error.value = '请输入有效的金额'
+    return
+  }
+  if (!accountId.value) {
+    error.value = '请选择扣款账户（资产必须归属账户，否则现金账会失真）'
     return
   }
 
@@ -147,20 +159,20 @@ async function handleSubmit() {
     </h3>
     <p class="font-body text-sm text-text-secondary mb-lg">{{ holdingName }} ({{ holdingCode }})</p>
 
-    <!-- Amount -->
+    <!-- Amount：单位放右侧后缀，避免与数字重叠 -->
     <label class="font-body text-xs text-text-tertiary mb-sm block">
-      {{ isCrypto ? '每期金额 (USDT)' : '每期金额' }}
+      {{ isCrypto ? '每期金额 (USDT)' : '每期金额 (元)' }}
     </label>
     <div class="relative mb-lg">
-      <span class="absolute left-md top-1/2 -translate-y-1/2 text-text-tertiary font-body text-md">{{ isCrypto ? 'U' : '¥' }}</span>
       <input
         v-model.number="amount"
         type="number"
         step="1"
         min="1"
         placeholder="50"
-        class="w-full h-12 rounded-xl bg-card-alt pl-10 pr-md text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand"
+        class="w-full h-12 rounded-xl bg-card-alt px-md pr-16 text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand"
       />
+      <span class="absolute right-md top-1/2 -translate-y-1/2 text-text-tertiary font-body text-xs">{{ isCrypto ? 'USDT' : '元' }}</span>
       <p v-if="isCrypto" class="font-body text-[11px] text-text-tertiary mt-1">
         按 USDT 计量，执行时按当时价格折算成币数并换算人民币计入总资产
       </p>
@@ -223,19 +235,24 @@ async function handleSubmit() {
       </div>
     </template>
 
-    <!-- 扣款账户 -->
-    <label class="font-body text-xs text-text-tertiary mb-sm block">扣款账户</label>
-    <select
-      v-model="accountId"
-      class="w-full h-12 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand mb-lg"
-    >
-      <option value="">不关联（仅记账，不扣余额）</option>
-      <option v-for="a in accounts.filter((x) => isCrypto ? x.baseCurrency === 'USDT' : x.baseCurrency !== 'USDT')" :key="a.id" :value="a.id">
+    <!-- 扣款账户：按钮组与全站风格一致；必须关联（不关联=不扣款=现金虚高，已被禁止） -->
+    <label class="font-body text-xs text-text-tertiary mb-sm block">扣款账户（必选）</label>
+    <div class="flex gap-2 overflow-x-auto no-scrollbar mb-lg">
+      <button
+        v-for="a in matchingAccounts"
+        :key="a.id"
+        type="button"
+        class="px-3 py-2 rounded-lg border font-body text-xs whitespace-nowrap transition-colors shrink-0"
+        :class="accountId === a.id
+          ? 'border-brand bg-brand-light/40 text-brand'
+          : 'border-border-light/40 bg-card-alt text-text-secondary'"
+        @click="accountId = a.id"
+      >
         {{ a.name }}{{ a.isDefault ? ' ·默认' : '' }}
-      </option>
-    </select>
+      </button>
+    </div>
     <p class="font-body text-[11px] text-text-tertiary mb-lg -mt-2">
-      {{ isCrypto ? '执行时从该账户的 USDT 余额里扣（只显示 USDT 本位币账户）' : '执行时从该账户的现金余额里扣' }}；余额不足时仍会记账（余额可能为负）
+      {{ isCrypto ? '执行时从该账户的 USDT 余额里扣' : '执行时从该账户的现金余额里扣' }}；余额不足时仍会记账（余额可能为负）
     </p>
 
     <!-- Read-only info -->

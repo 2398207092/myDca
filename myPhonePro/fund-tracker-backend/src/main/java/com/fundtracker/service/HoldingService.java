@@ -80,7 +80,8 @@ public class HoldingService {
     private String resolveAccountId(CreateHoldingReq req) {
         String accountId = req.getAccountId();
         if (accountId == null || accountId.isBlank()) {
-            return null;
+            // 资产必须归属账户：不关联会让现金账与资产账脱节（失真）
+            throw BusinessException.invalidParam("请选择归属账户");
         }
         boolean isCrypto = "crypto".equalsIgnoreCase(req.getType());
         if (!accountService.matchesAssetType(accountId, isCrypto)) {
@@ -343,7 +344,10 @@ public class HoldingService {
         // 归属账户：空串 = 清除归属；非空 = 校验本位币匹配后设置
         if (req.getAccountId() != null) {
             String newAccountId = req.getAccountId().isBlank() ? null : req.getAccountId();
-            if (newAccountId != null) {
+            if (newAccountId == null) {
+                throw BusinessException.invalidParam("资产必须归属账户，不能清除");
+            }
+            {
                 boolean isCrypto = holding.getType() == HoldingType.crypto;
                 if (!accountService.matchesAssetType(newAccountId, isCrypto)) {
                     throw BusinessException.invalidParam(isCrypto
