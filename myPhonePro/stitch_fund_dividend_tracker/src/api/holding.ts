@@ -27,6 +27,8 @@ export interface HoldingItem {
   sellFeeRate?: number
   /** CNY / USDT */
   quoteCurrency?: string
+  /** 归属账户（USDT 账户只能挂加密资产） */
+  accountId?: string | null
   /** 原始报价（如 USDT 价），CNY 标的为 null */
   quotePrice?: number | null
   /** 成本是否为估算 */
@@ -70,6 +72,8 @@ export interface UpdateHoldingReq {
   assetCategory?: string
   buyFeeRate?: number
   sellFeeRate?: number
+  /** 空串 = 清除归属；USDT 账户只能挂加密资产 */
+  accountId?: string
 }
 
 export interface ForecastPoint {

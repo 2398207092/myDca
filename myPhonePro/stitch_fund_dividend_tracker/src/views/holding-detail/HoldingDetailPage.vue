@@ -5,6 +5,7 @@ import { getHolding, getForecast, deleteHolding, updateHolding, updateDividendRe
 import { refreshCryptoPrices } from '@/api/crypto'
 import { listTransactions } from '@/api/transaction'
 import { listDcaPlans } from '@/api/dca'
+import { getAccounts, type AccountItem } from '@/api/account'
 import type { HoldingItem, ForecastData, UpdateHoldingReq } from '@/api/holding'
 import type { TransactionItem } from '@/api/transaction'
 import type { DcaPlanVO } from '@/api/dca'
@@ -106,6 +107,8 @@ async function loadData() {
     ])
     // 加载定投计划（单独，避免失败影响主数据）
     loadDcaPlans()
+    // 账户列表（编辑弹层的归属账户用；失败不阻断）
+    getAccounts().then((list: AccountItem[]) => { accounts.value = list }).catch(() => {})
     holding.value = h
     forecast.value = f
     transactions.value = t
@@ -362,6 +365,7 @@ function showEditHolding() {
   editCategory.value = holding.value.assetCategory || ''
   editBuyFeeRate.value = holding.value.buyFeeRate ?? 0.15
   editSellFeeRate.value = holding.value.sellFeeRate ?? 0
+  editAccountId.value = holding.value.accountId || ''
   showEditSheet.value = true
 }
 
@@ -373,7 +377,16 @@ const editAlgorithm = ref<'diluted' | 'diluted_only' | 'weighted_avg'>('diluted'
 const editCategory = ref('')
 const editBuyFeeRate = ref(0.15)
 const editSellFeeRate = ref(0)
+const editAccountId = ref('')
+const accounts = ref<AccountItem[]>([])
 const editSaving = ref(false)
+
+/** 编辑弹层的账户下拉按本位币过滤（与后端校验同一条规则） */
+const editAvailableAccounts = computed(() =>
+  accounts.value.filter((a: any) =>
+    isCrypto.value ? a.baseCurrency === 'USDT' : a.baseCurrency !== 'USDT'
+  )
+)
 
 async function saveEditHolding() {
   if (!holding.value) return
@@ -387,6 +400,7 @@ async function saveEditHolding() {
       assetCategory: editCategory.value || undefined,
       buyFeeRate: editBuyFeeRate.value,
       sellFeeRate: editSellFeeRate.value,
+      accountId: editAccountId.value,
     }
     await updateHolding(route.params.id as string, req)
     showEditSheet.value = false
@@ -877,6 +891,17 @@ onActivated(() => {
             </button>
             <button @click="editCategory='crypto'" :class="editCategory==='crypto' ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'" class="h-10 rounded-lg font-body text-sm transition-all">
               🪙 加密
+            </button>
+          </div>
+
+          <!-- 归属账户：按本位币过滤，USDT 账户只能挂加密资产 -->
+          <label class="font-body text-xs text-text-tertiary mb-sm block">归属账户</label>
+          <div class="grid grid-cols-3 gap-sm mb-lg">
+            <button v-for="acc in editAvailableAccounts" :key="acc.id" type="button"
+                    class="h-10 rounded-lg font-body text-sm transition-all truncate px-2"
+                    :class="editAccountId === acc.id ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-secondary hover:bg-card-alt/80'"
+                    @click="editAccountId = editAccountId === acc.id ? '' : acc.id">
+              {{ acc.name }}{{ acc.isDefault ? ' ·默认' : '' }}
             </button>
           </div>
 

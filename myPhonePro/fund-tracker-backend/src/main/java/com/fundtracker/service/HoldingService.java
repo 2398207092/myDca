@@ -340,6 +340,20 @@ public class HoldingService {
         if (req.getBuyFeeRate() != null) holding.setBuyFeeRate(req.getBuyFeeRate());
         if (req.getSellFeeRate() != null) holding.setSellFeeRate(req.getSellFeeRate());
 
+        // 归属账户：空串 = 清除归属；非空 = 校验本位币匹配后设置
+        if (req.getAccountId() != null) {
+            String newAccountId = req.getAccountId().isBlank() ? null : req.getAccountId();
+            if (newAccountId != null) {
+                boolean isCrypto = holding.getType() == HoldingType.crypto;
+                if (!accountService.matchesAssetType(newAccountId, isCrypto)) {
+                    throw BusinessException.invalidParam(isCrypto
+                            ? "加密资产只能挂在 USDT 本位币的账户（如交易所账户）下"
+                            : "人民币资产不能挂在 USDT 本位币的账户（交易所）下");
+                }
+            }
+            holding.setAccountId(newAccountId);
+        }
+
         // 如果份额或每份成本被手动改了，跳过交易记录推算的成本，直接用用户输入值
         // 只重算衍生指标（息率、回本年限等）
         recalculateHoldingMetrics(holding, sharesOrCostChanged);
