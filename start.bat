@@ -6,18 +6,18 @@ set "ENV_FILE=%USERPROFILE%\.workbuddy\ft-local.env"
 
 if not exist "%ENV_FILE%" (
   echo.
-  echo Ê×´ÎÔËÐÐ£¬ÐèÒª±¾µØ MySQL ¿ÚÁî£¨root ÓÃ»§£©¡£
-  echo ¿ÚÁîÖ»±£´æÔÚ %ENV_FILE%£¬²»»áÐ´½ø²Ö¿â¡£
+  echo ï¿½×´ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ MySQL ï¿½ï¿½ï¿½î£¨root ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½
+  echo ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ %ENV_FILE%ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½Ö¿â¡£
   echo.
-  set /p "PW=ÇëÊäÈë¿ÚÁî: "
+  set /p "PW=ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: "
   > "%ENV_FILE%" echo DB_PASSWORD=!PW!
-  echo ÒÑ±£´æ¡£
+  echo ï¿½Ñ±ï¿½ï¿½æ¡£
 )
 
 for /f "usebackq tokens=1,* delims==" %%a in ("%ENV_FILE%") do set "%%a=%%b"
 
 if "%DB_PASSWORD%"=="" (
-  echo [´íÎó] %ENV_FILE% ÖÐÈ±ÉÙ DB_PASSWORD
+  echo [ï¿½ï¿½ï¿½ï¿½] %ENV_FILE% ï¿½ï¿½È±ï¿½ï¿½ DB_PASSWORD
   if not "%~1"=="silent" pause
   exit /b 1
 )
@@ -25,27 +25,29 @@ if "%DB_PASSWORD%"=="" (
 set "SERVER__PORT=8080"
 set "DB_USERNAME=root"
 set "APP_ADMIN_EMAIL=test@local"
+REM æœ¬åœ°å¼€å‘ï¼šå¼€å¯ç™»å½•é¡µçš„ã€Œä¸€é”®ç™»å½•ã€æŒ‰é’®ï¼ˆç”Ÿäº§çŽ¯å¢ƒä¸è¦è®¾ç½®ï¼‰
+set "AUTH_QUICK_LOGIN=true"
 
-echo ÇåÀí²ÐÁô½ø³Ì...
+echo ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...
 call "%~dp0stop.bat" silent
 
-echo Æô¶¯ºó¶Ë£¨ÐÂ´°¿Ú£©...
+echo ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë£ï¿½ï¿½Â´ï¿½ï¿½Ú£ï¿½...
 pushd "%~dp0myPhonePro\fund-tracker-backend"
-start "ºó¶Ë :8080" cmd /k "mvn spring-boot:run"
+start "ï¿½ï¿½ï¿½ :8080" cmd /k "mvn spring-boot:run"
 popd
 
-echo Æô¶¯Ç°¶Ë£¨ÐÂ´°¿Ú£©...
+echo ï¿½ï¿½ï¿½ï¿½Ç°ï¿½Ë£ï¿½ï¿½Â´ï¿½ï¿½Ú£ï¿½...
 pushd "%~dp0myPhonePro\stitch_fund_dividend_tracker"
-start "Ç°¶Ë :5173" cmd /k "npm run dev"
+start "Ç°ï¿½ï¿½ :5173" cmd /k "npm run dev"
 popd
 
 echo.
-echo   Ç°¶Ë  http://localhost:5173
-echo   ºó¶Ë  http://localhost:8080
+echo   Ç°ï¿½ï¿½  http://localhost:5173
+echo   ï¿½ï¿½ï¿½  http://localhost:8080
 echo.
-echo ÅÐ¶Ï³É¹¦µÄ·½·¨£º
-echo   ºó¶Ë´°¿Ú³öÏÖ Tomcat started on port 8080 ¼´Æô¶¯³É¹¦
-echo   Ç°¶Ë´°¿Ú³öÏÖ Local: http://localhost:5173/ ¼´Æô¶¯³É¹¦
-echo   Á½¸ö´°¿ÚÊ×´ÎÆô¶¯Ô¼Ðè 20-40 Ãë£¬ÇëÎð¹Ø±Õ
+echo ï¿½Ð¶Ï³É¹ï¿½ï¿½Ä·ï¿½ï¿½ï¿½ï¿½ï¿½
+echo   ï¿½ï¿½Ë´ï¿½ï¿½Ú³ï¿½ï¿½ï¿½ Tomcat started on port 8080 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¹ï¿½
+echo   Ç°ï¿½Ë´ï¿½ï¿½Ú³ï¿½ï¿½ï¿½ Local: http://localhost:5173/ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¹ï¿½
+echo   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ 20-40 ï¿½ë£¬ï¿½ï¿½ï¿½ï¿½Ø±ï¿½
 echo.
 if not "%~1"=="silent" pause

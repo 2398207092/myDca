@@ -43,7 +43,8 @@ public class AuthService {
     /** 每邮箱每天最大发送次数 */
     private static final int DAILY_MAX_SEND = 5;
     /** Token 有效期（天） */
-    private static final int TOKEN_EXPIRE_DAYS = 30;
+    // 单人使用：token 有效期拉长到一年，避免频繁重新登录；token 本身是随机串，泄露风险与短 token 相同
+    private static final int TOKEN_EXPIRE_DAYS = 365;
     /** 密码登录失败最大次数 */
     private static final int MAX_LOGIN_ATTEMPTS = 5;
     /** 超过最大次数后的锁定时长（分钟） */
@@ -120,6 +121,25 @@ public class AuthService {
 
         // 发送邮件
         mailService.sendVerificationCode(email, code, type);
+    }
+
+    /**
+     * 本地开发一键登录：给最早创建的用户（主账号）直接发 token。
+     * 只在 app.auth.quick-login=true 时由 Controller 暴露；生产环境不开启。
+     */
+    @Transactional
+    public LoginResp quickLogin() {
+        User user = userRepository.findAll().stream()
+                .filter(u -> u.getEmail() != null && !u.getEmail().isBlank())
+                .min(java.util.Comparator.comparing(
+                        u -> u.getCreatedAt() == null ? java.time.LocalDateTime.MAX : u.getCreatedAt()))
+                .orElseThrow(() -> BusinessException.bizError("没有任何用户，请先注册"));
+        String tokenValue = generateUserToken(user);
+        return LoginResp.builder()
+                .token(tokenValue)
+                .email(user.getEmail())
+                .hasPassword(user.isHasPassword())
+                .build();
     }
 
     // ======================================================================

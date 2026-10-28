@@ -4,6 +4,7 @@ import com.fundtracker.model.dto.*;
 import com.fundtracker.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,6 +13,19 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+
+    /** 本地开发一键登录开关：只在 start.bat 显式设置 AUTH_QUICK_LOGIN=true 时可用 */
+    @Value("${app.auth.quick-login:false}")
+    private boolean quickLoginEnabled;
+
+    /** 本地开发一键登录：免去每次输账号密码。生产环境不开启，调用会报「接口不存在」 */
+    @PostMapping("/dev-quick-login")
+    public ApiResponse<LoginResp> devQuickLogin() {
+        if (!quickLoginEnabled) {
+            throw new com.fundtracker.exception.BusinessException(404, "接口不存在");
+        }
+        return ApiResponse.success(authService.quickLogin());
+    }
 
     /** 获取应用级 Token（兼容旧版，登录后不再需要） */
     @GetMapping("/token")

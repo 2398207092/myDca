@@ -41,6 +41,15 @@ export async function loginByPassword(req: LoginReq): Promise<LoginResp> {
   return data
 }
 
+/** 本地开发一键登录：仅在后端开启 app.auth.quick-login 时可用 */
+export async function devQuickLogin(): Promise<LoginResp> {
+  const data = await post<LoginResp>('/auth/dev-quick-login', {})
+  if (data.token) {
+    setToken(data.token)
+  }
+  return data
+}
+
 /** 密码注册（第一步：发送验证码到邮箱） */
 export async function registerByPassword(req: SendCodeReq): Promise<void> {
   await post<void>('/auth/register-pwd', req)

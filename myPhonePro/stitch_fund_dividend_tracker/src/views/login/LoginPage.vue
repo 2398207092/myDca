@@ -7,9 +7,26 @@ import {
   loginByPassword,
   registerByPassword,
   confirmRegisterByPassword,
+  devQuickLogin,
 } from '@/api/auth'
 
 const router = useRouter()
+
+/** 本地开发环境才显示「一键登录」，生产域名不出现 */
+const isLocalEnv = ['localhost', '127.0.0.1'].includes(location.hostname)
+const quickLoading = ref(false)
+async function handleQuickLogin() {
+  quickLoading.value = true
+  errorMsg.value = ''
+  try {
+    await devQuickLogin()
+    router.push('/')
+  } catch (e: any) {
+    errorMsg.value = e.message || '一键登录失败'
+  } finally {
+    quickLoading.value = false
+  }
+}
 
 // ── Tabs ──
 const mainTab = ref<'login' | 'register'>('login')
@@ -386,6 +403,16 @@ function switchRegisterSubTab(tab: 'code' | 'password') {
               : 'bg-page-bg text-text-tertiary cursor-not-allowed'"
           >
             {{ buttonText }}
+          </button>
+
+          <!-- 本地开发一键登录（只在 localhost 显示，后端开关未开时报接口不存在） -->
+          <button
+            v-if="isLocalEnv && mainTab === 'login'"
+            @click="handleQuickLogin"
+            :disabled="quickLoading"
+            class="w-full py-2.5 mt-2 rounded-lg bg-card-alt text-text-secondary font-body text-xs font-medium transition-all active:scale-[0.98] hover:bg-card-alt/70 disabled:opacity-50"
+          >
+            {{ quickLoading ? '登录中...' : '⚡ 一键登录（本地开发）' }}
           </button>
 
           <!-- Bottom hint -->
