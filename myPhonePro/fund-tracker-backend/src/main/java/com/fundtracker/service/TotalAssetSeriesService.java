@@ -82,6 +82,9 @@ public class TotalAssetSeriesService {
             List<HoldingSnapshot> daySnapshots = entry.getValue();
 
             BigDecimal totalMarketValue = daySnapshots.stream()
+                    // crypto 持仓不在此计入：asset_snapshots.crypto_value 已包含全部加密资产
+                    // （holdings + manual），下面叠加时整体加入，这里再算一次就是双计
+                    .filter(s -> !"crypto".equals(holdingCategoryMap.getOrDefault(s.getHoldingId(), "")))
                     .map(HoldingSnapshot::getMarketValue)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal totalShares = daySnapshots.stream()
@@ -95,11 +98,12 @@ public class TotalAssetSeriesService {
                     ? totalProfitLoss.multiply(HUNDRED).divide(totalCostBasis, 2, RoundingMode.HALF_UP)
                     : BigDecimal.ZERO;
 
-            // 按类别聚合持仓市值（未分类归入 uncategorized）
+            // 按类别聚合持仓市值（未分类归入 uncategorized）；crypto 由 asset_snapshots 叠加，跳过防双计
             Map<String, BigDecimal> categoryValues = new LinkedHashMap<>();
             for (HoldingSnapshot s : daySnapshots) {
                 String cat = holdingCategoryMap.getOrDefault(s.getHoldingId(), "");
                 if (cat.isEmpty()) cat = "uncategorized";
+                if ("crypto".equals(cat)) continue;
                 categoryValues.merge(cat, s.getMarketValue(), BigDecimal::add);
             }
 
