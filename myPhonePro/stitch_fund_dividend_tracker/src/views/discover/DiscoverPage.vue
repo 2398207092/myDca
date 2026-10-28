@@ -365,7 +365,8 @@ function openEditSheet(asset: AssetLike) {
 async function saveAsset() {
   const finalAmount = parseAmountInput(assetForm.value.amount)
   if (finalAmount < 0) {
-    if (!window.confirm('现金余额将变为负数（¥' + finalAmount.toFixed(2) + '），是否继续？')) {
+    const unit = assetForm.value.type === 'crypto' ? ' USDT' : ' 元（¥' + finalAmount.toFixed(2) + '）'
+    if (!window.confirm((assetForm.value.type === 'crypto' ? '数量将变为 ' + finalAmount + unit : '余额将变为负数' + unit) + '，是否继续？')) {
       return
     }
   }

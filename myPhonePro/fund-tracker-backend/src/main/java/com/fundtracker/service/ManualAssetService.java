@@ -126,7 +126,13 @@ public class ManualAssetService {
         }
 
         if (req.getName() != null) asset.setName(req.getName());
-        if (req.getType() != null) asset.setType(req.getType());
+        if (req.getType() != null) {
+            asset.setType(req.getType());
+            // 类型变更（cash↔crypto）后必须重新校验账户本位币匹配，否则可能把加密资产留在 CNY 账户
+            if (!accountService.matchesAssetType(asset.getAccountId(), "crypto".equals(asset.getType()))) {
+                throw BusinessException.invalidParam("资产类型与账户本位币不匹配（USDT 账户只能挂加密资产），请同时更换归属账户");
+            }
+        }
         if (req.getAmount() != null) asset.setAmount(req.getAmount());
         if (req.getCurrency() != null) asset.setCurrency(req.getCurrency());
         if (req.getNote() != null) asset.setNote(req.getNote());

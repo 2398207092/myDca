@@ -103,6 +103,11 @@ function formatNumber(n: number, digits = 2): string {
           </div>
         </div>
 
+        <!-- 扣款说明：让用户明确知道扣没扣、为什么没扣 -->
+        <p v-if="result.deductionInfo" class="font-body text-[11px] text-text-tertiary bg-card-alt rounded-lg px-md py-2 mb-lg leading-relaxed">
+          {{ result.deductionInfo }}
+        </p>
+
         <button
           class="w-full h-12 rounded-xl bg-brand text-white font-body font-medium text-md transition-all active:scale-[0.98]"
           @click="emit('close')"

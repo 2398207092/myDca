@@ -44,7 +44,7 @@ export interface DcaExecutionResultVO {
   amount: number
   quantity: number
   navPrice: number
-  navDate: string
+  navDate: string | null
   executionDate: string
   holdingName: string
   holdingCode: string

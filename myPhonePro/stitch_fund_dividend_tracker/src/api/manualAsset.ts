@@ -7,6 +7,7 @@ export interface ManualAssetItem {
   amount: number
   currency: string
   note?: string
+  isPrimary?: boolean
   accountId?: string
   assetCode?: string
   quantity?: number

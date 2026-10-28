@@ -24,7 +24,7 @@ public class ManualAssetDTO {
     private String assetCode;
     /** 数量：加密币持仓量，现金为 null */
     private BigDecimal quantity;
-    /** 单价（USD）：加密币币价，现金为 null */
+    /** 单价（人民币，USDT 余额=汇率、币种=USDT价×汇率）：加密币币价，现金为 null */
     private BigDecimal unitPrice;
     private String priceSource;
     private LocalDateTime priceUpdatedAt;

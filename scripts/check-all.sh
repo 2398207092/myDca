@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 一键自检：文档 → 接口契约 → UI 冒烟
 # 用法：bash scripts/check-all.sh
-# 前置：后端 8080（契约与 UI 都需要）、前端 5173（仅 UI 需要）、token 写入 /tmp/token.txt
+# 前置：后端 8080（契约与 UI 都需要）、前端 5173（仅 UI 需要）；token 自动通过 dev-quick-login 获取（也可用环境变量 TOKEN 传入）
 
 set -u
 cd "$(dirname "$0")/.." || exit 1
@@ -17,6 +17,12 @@ be=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 http://localhost:8080/a
 fe=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 http://localhost:5173 2>/dev/null)
 
 echo "服务状态：后端=$be 前端=$fe"
+
+# token 自动获取：本地后端开着「一键登录」（start.bat 默认开启）时无需手动维护 token 文件
+if [ -z "${TOKEN:-}" ]; then
+  TOKEN=$(curl -s -H "Content-Type: application/json" -X POST http://localhost:8080/api/auth/dev-quick-login -d '{}' 2>/dev/null | python -c "import sys,json;print(json.load(sys.stdin)['data']['token'])" 2>/dev/null)
+  [ -n "$TOKEN" ] && export TOKEN && echo "token：已自动获取（dev-quick-login）"
+fi
 echo
 
 echo "########## 1/3 文档自检 ##########"
