@@ -173,7 +173,7 @@ async function handleSubmit() {
         class="w-full h-12 rounded-xl bg-card-alt px-md pr-16 text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand"
       />
       <span class="absolute right-md top-1/2 -translate-y-1/2 text-text-tertiary font-body text-xs">{{ isCrypto ? 'USDT' : '元' }}</span>
-      <p v-if="isCrypto" class="font-body text-[11px] text-text-tertiary mt-1">
+      <p v-if="isCrypto" class="font-body text-[11px] text-text-tertiary mt-2 leading-relaxed">
         按 USDT 计量，执行时按当时价格折算成币数并换算人民币计入总资产
       </p>
     </div>

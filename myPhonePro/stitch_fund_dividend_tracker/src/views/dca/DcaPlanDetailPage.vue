@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getDcaPlan, updateDcaPlan, deleteDcaPlan, executeDcaPlan, type DcaPlanVO } from '@/api/dca'
+import { listExchangeRates } from '@/api/exchangeRate'
 import { listTransactions, type TransactionItem } from '@/api/transaction'
 import PageStateComp from '@/components/shared/PageState.vue'
 import DcaExecuteSheet from '@/components/dca/DcaExecuteSheet.vue'
@@ -12,6 +13,18 @@ const router = useRouter()
 
 const pageState = ref<'loading' | 'ready' | 'empty' | 'error'>('loading')
 const plan = ref<DcaPlanVO | null>(null)
+
+// 加密币定投：金额口径是 USDT，展示层换算人民币
+const isCrypto = computed(() => plan.value?.tradingMarket === 'crypto')
+const usdCny = ref<number | null>(null)
+onMounted(async () => {
+  try {
+    const rates = await listExchangeRates()
+    usdCny.value = rates.find((r) => r.pair === 'USD/CNY')?.rate ?? null
+  } catch {
+    usdCny.value = null
+  }
+})
 const dcaTransactions = ref<TransactionItem[]>([])
 
 // Sheet state
@@ -92,7 +105,9 @@ const dayLabel = computed(() => {
 // === Actions ===
 const avgCost = computed(() => {
   if (!plan.value || plan.value.totalShares === 0) return '0.0000'
-  return (plan.value.totalInvested / plan.value.totalShares).toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+  // 加密币：累计投入是 USDT，平均成本统一换算成人民币口径（与持仓成本一致）
+  const invested = isCrypto.value && usdCny.value ? plan.value.totalInvested * usdCny.value : plan.value.totalInvested
+  return (invested / plan.value.totalShares).toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
 })
 
 function handleExecute() {
@@ -156,7 +171,7 @@ function formatAmount(n: number): string {
 }
 
 function formatQuantity(n: number): string {
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 8 })
 }
 </script>
 
@@ -203,8 +218,10 @@ function formatQuantity(n: number): string {
         <div class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
           <p class="font-body text-xs text-text-tertiary mb-1">累计投入</p>
           <p class="font-display text-lg font-semibold text-brand">
-            ¥{{ formatAmount(plan.totalInvested) }}
+            <template v-if="isCrypto">{{ formatAmount(plan.totalInvested) }} <span class="text-xs">USDT</span></template>
+            <template v-else>¥{{ formatAmount(plan.totalInvested) }}</template>
           </p>
+          <p v-if="isCrypto && usdCny" class="font-body text-[10px] text-text-tertiary mt-0.5">≈ ¥{{ formatAmount(plan.totalInvested * usdCny) }}</p>
         </div>
         <div class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
           <p class="font-body text-xs text-text-tertiary mb-1">累计期数</p>
@@ -215,13 +232,13 @@ function formatQuantity(n: number): string {
         <div class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
           <p class="font-body text-xs text-text-tertiary mb-1">平均成本</p>
           <p class="font-display text-lg font-semibold text-text-primary">
-            ¥{{ avgCost }}<span class="text-xs ml-1">/份</span>
+            ¥{{ avgCost }}<span class="text-xs ml-1">{{ isCrypto ? '/枚' : '/份' }}</span>
           </p>
         </div>
         <div class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
           <p class="font-body text-xs text-text-tertiary mb-1">累计买入份额</p>
           <p class="font-display text-lg font-semibold text-text-primary">
-            {{ formatQuantity(plan.totalShares) }}<span class="text-xs ml-1">份</span>
+            {{ formatQuantity(plan.totalShares) }}<span class="text-xs ml-1">{{ isCrypto ? '枚' : '份' }}</span>
           </p>
         </div>
       </section>
@@ -241,7 +258,10 @@ function formatQuantity(n: number): string {
         </div>
         <div class="flex justify-between items-center border-b border-border-light pb-2">
           <span class="font-body text-xs text-text-tertiary">每期金额</span>
-          <span class="font-body text-sm text-text-primary">¥{{ formatAmount(plan.amount) }}</span>
+          <span class="font-body text-sm text-text-primary">
+            <template v-if="isCrypto">{{ formatAmount(plan.amount) }} USDT<template v-if="usdCny">（≈¥{{ formatAmount(plan.amount * usdCny) }}）</template></template>
+            <template v-else>¥{{ formatAmount(plan.amount) }}</template>
+          </span>
         </div>
         <div class="flex justify-between items-center border-b border-border-light pb-2">
           <span class="font-body text-xs text-text-tertiary">频率</span>

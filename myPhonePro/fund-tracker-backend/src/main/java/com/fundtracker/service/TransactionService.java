@@ -102,8 +102,24 @@ public class TransactionService {
         // 重新计算预测分红（份额变化后需要重新计算）
         holdingService.calculatePredictedDividend(holding);
 
-        // 重新计算持仓指标
-        holdingService.recalculateHoldingMetrics(holding);
+        // 成本更新：迁入持仓（成本手工录入）用增量累加，不从交易全量重算——
+        // 否则迁入成本会被「只有交易部分」的成本覆盖（¥6,210 → ¥93.7 事故，2026-10-28）
+        if (holding.isCostEstimated()) {
+            if (type == TransactionType.buy) {
+                holding.setCost(holding.getCost().add(total).setScale(2, RoundingMode.HALF_UP));
+                holding.setNetInvestment(holding.getNetInvestment().add(total).setScale(2, RoundingMode.HALF_UP));
+                if (holding.getShares().signum() > 0) {
+                    holding.setCostPerShare(holding.getCost().divide(holding.getShares(), 4, RoundingMode.HALF_UP));
+                }
+            } else if (type == TransactionType.sell && holding.getCostPerShare() != null) {
+                BigDecimal costReduce = holding.getCostPerShare().multiply(req.getQuantity()).setScale(2, RoundingMode.HALF_UP);
+                holding.setCost(holding.getCost().subtract(costReduce).max(BigDecimal.ZERO));
+                holding.setNetInvestment(holding.getNetInvestment().subtract(costReduce).max(BigDecimal.ZERO));
+            }
+            holdingService.recalculateHoldingMetrics(holding, true);
+        } else {
+            holdingService.recalculateHoldingMetrics(holding);
+        }
 
         // 用已有最新价更新市值（确保市值与份额一致，即使后续净值刷新失败）
         if (holding.getLatestPrice() != null && holding.getLatestPrice().compareTo(BigDecimal.ZERO) > 0) {
@@ -286,9 +302,24 @@ public class TransactionService {
 
         // 删除后重新计算份额和指标
         if (holding.isCostEstimated()) {
-            // 迁入持仓（成本/份额手工录入，无买入交易）：不按交易重算份额，
-            // 否则删一笔交易会把手工维护的数量清零（2026-10-27 BTC 事故根因）
-            log.info("删除交易: 持仓 {} 为迁入（估算成本），保留手工份额与成本，跳过份额重算", holdingId);
+            // 迁入持仓（成本/份额手工录入）：份额与成本按该笔交易增量回退（不从全部交易重算），
+            // 否则删一笔定投会把手工维护的迁入成本一起抹掉
+            if (txType == TransactionType.buy) {
+                holding.setShares(holding.getShares().subtract(transaction.getQuantity()).max(BigDecimal.ZERO));
+                holding.setCost(holding.getCost().subtract(txTotal).max(BigDecimal.ZERO));
+                holding.setNetInvestment(holding.getNetInvestment().subtract(txTotal).max(BigDecimal.ZERO));
+            } else if (txType == TransactionType.sell) {
+                holding.setShares(holding.getShares().add(transaction.getQuantity()));
+            }
+            if (holding.getShares().signum() > 0 && holding.getCost().signum() > 0) {
+                holding.setCostPerShare(holding.getCost().divide(holding.getShares(), 4, RoundingMode.HALF_UP));
+            }
+            log.info("删除交易: 迁入持仓 {} 按增量回退（份额={}，成本=¥{}）", holdingId, holding.getShares(), holding.getCost());
+            if (holding.getLatestPrice() != null && holding.getLatestPrice().compareTo(BigDecimal.ZERO) > 0) {
+                holding.setMarketValue(holding.getShares()
+                        .multiply(holding.getLatestPrice())
+                        .setScale(2, RoundingMode.HALF_UP));
+            }
         } else {
             recalculateSharesFromScratch(holding);
             holdingService.calculatePredictedDividend(holding);

@@ -754,7 +754,7 @@ onActivated(() => {
           >
             <div class="flex justify-between items-center">
               <span class="font-body text-sm font-medium text-text-primary">
-                {{ plan.frequency === 'daily' ? '每日' : plan.frequency === 'weekly' ? '每周' : plan.frequency === 'biweekly' ? '双周' : '每月' }} ¥{{ plan.amount }}
+                {{ plan.frequency === 'daily' ? '每日' : plan.frequency === 'weekly' ? '每周' : plan.frequency === 'biweekly' ? '双周' : '每月' }} {{ isCrypto ? plan.amount + ' USDT' : '¥' + plan.amount }}
               </span>
               <span
                 class="flex items-center gap-[2px] text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap font-body"
@@ -766,7 +766,7 @@ onActivated(() => {
             </div>
             <div class="flex justify-between font-body text-xs text-text-tertiary">
               <span>已执行 {{ plan.totalExecutions }} 期</span>
-              <span>累计 ¥{{ plan.totalInvested.toLocaleString() }}</span>
+              <span>累计 {{ isCrypto ? plan.totalInvested + ' USDT' : '¥' + plan.totalInvested.toLocaleString() }}</span>
             </div>
             <div class="flex gap-sm mt-sm">
               <button
