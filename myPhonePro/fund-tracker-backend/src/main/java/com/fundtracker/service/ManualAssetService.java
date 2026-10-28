@@ -138,7 +138,11 @@ public class ManualAssetService {
         if (req.getCurrency() != null) asset.setCurrency(req.getCurrency());
         if (req.getNote() != null) asset.setNote(req.getNote());
 
-        if (req.getAccountId() != null) {
+        // 资产必须归属账户（与持仓/定投同一条原则）：空值一律拒绝，不允许清除归属
+        if (req.getAccountId() == null || req.getAccountId().isBlank()) {
+            throw BusinessException.invalidParam("资产必须归属账户，请选择归属账户");
+        }
+        {
             accountRepository.findByIdAndUserIdAndDeletedFalse(req.getAccountId(), userId)
                     .orElseThrow(() -> BusinessException.invalidParam("账户不存在: " + req.getAccountId()));
             if (!accountService.matchesAssetType(req.getAccountId(), "crypto".equals(asset.getType()))) {

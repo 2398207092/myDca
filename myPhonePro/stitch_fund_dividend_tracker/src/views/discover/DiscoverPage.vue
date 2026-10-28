@@ -78,7 +78,8 @@ const availableAccounts = computed(() =>
 // 切换资产类型时，如果当前账户不再匹配就清掉，避免把 USDT 资产挂进 CNY 账户
 watch(() => assetForm.value.type, () => {
   if (assetForm.value.accountId && !availableAccounts.value.some((a) => a.id === assetForm.value.accountId)) {
-    assetForm.value.accountId = ''
+    // 资产必须归属账户：默认选中第一个与本位币匹配的账户
+    assetForm.value.accountId = availableAccounts.value[0]?.id || ''
   }
 })
 onMounted(async () => {
@@ -363,6 +364,10 @@ function openEditSheet(asset: AssetLike) {
 }
 
 async function saveAsset() {
+  if (!assetForm.value.accountId) {
+    window.alert('请选择归属账户')
+    return
+  }
   const finalAmount = parseAmountInput(assetForm.value.amount)
   if (finalAmount < 0) {
     const unit = assetForm.value.type === 'crypto' ? ' USDT' : ' 元（¥' + finalAmount.toFixed(2) + '）'
@@ -387,7 +392,7 @@ async function saveAsset() {
         quantity: isCrypto ? finalAmount : undefined,
         assetCode: isCrypto ? 'USDT' : undefined,
         note: assetForm.value.note || undefined,
-        accountId: assetForm.value.accountId || undefined,
+        accountId: assetForm.value.accountId,
       }
       const updated = await updateManualAsset(editingAssetId.value, req)
       const idx = allManualAssets.value.findIndex(a => a.id === updated.id)
@@ -399,7 +404,7 @@ async function saveAsset() {
         amount: isCrypto ? 0 : finalAmount,
         quantity: isCrypto ? finalAmount : undefined,
         note: assetForm.value.note || undefined,
-        accountId: assetForm.value.accountId || undefined,
+        accountId: assetForm.value.accountId,
       }
       const created = await createManualAsset(req)
       allManualAssets.value.push(created)
@@ -713,7 +718,7 @@ async function doDelete() {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between">
                   <h3 class="font-body text-sm font-medium text-text-primary">账户与现金</h3>
-                  <span class="font-body text-sm font-medium text-text-primary shrink-0 ml-2">{{ fmtExact((overview.cashValue || 0) + (overview.cryptoValue || 0)) }}</span>
+                  <span class="font-body text-sm font-medium text-text-primary shrink-0 ml-2">{{ fmtExact(allManualAssets.reduce((s, a) => s + (Number(a.amount) || 0), 0)) }}</span>
                 </div>
                 <div class="flex items-center justify-between">
                   <span class="font-body text-xs text-text-tertiary">{{ accounts.length }} 个账户 · {{ allManualAssets.length }} 个标的</span>
@@ -751,7 +756,7 @@ async function doDelete() {
                   <div class="flex items-center gap-2 shrink-0">
                     <span class="font-body text-xs text-text-tertiary">
                       {{ a.type === 'crypto' && (a as any).quantity != null
-                        ? `${(a as any).quantity} USDT ≈ ¥${fmtExact(a.amount)}`
+                        ? `${Number((a as any).quantity).toFixed(4)} USDT ≈ ¥${fmtExact(a.amount)}`
                         : fmtExact(a.amount) }}
                     </span>
                     <button class="text-text-tertiary hover:text-error transition-colors"

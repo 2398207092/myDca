@@ -18,6 +18,12 @@ const purposeOptions = [
   { value: 'exchange', label: '交易所', icon: 'currency_bitcoin', hint: '加密资产' },
   { value: 'other', label: '其他', icon: 'account_balance_wallet', hint: '' },
 ]
+/** 用途联动本位币：交易所账户必须 USDT 本位币（与后端校验同一条规则） */
+function setPurpose(p: string) {
+  form.value.purpose = p
+  if (p === 'exchange') form.value.baseCurrency = 'USDT'
+}
+
 function purposeLabel(p: string): string {
   return purposeOptions.find(o => o.value === p)?.label || '其他'
 }
@@ -276,7 +282,7 @@ function goBack() { router.back() }
                   @click="form.baseCurrency = 'USDT'">USDT</button>
         </div>
 
-        <div v-if="editingId" class="flex items-center justify-between mt-md py-2">
+        <div v-if="false" class="flex items-center justify-between mt-md py-2">
           <span class="font-body text-xs text-text-secondary">设为默认账户</span>
           <button class="w-11 h-6 rounded-full transition-colors relative"
                   :class="form.isDefault ? 'bg-brand' : 'bg-card-alt'"

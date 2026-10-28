@@ -159,8 +159,14 @@ public class AccountService {
             }
             account.setName(name);
         }
-        if (req.getPurpose() != null) account.setPurpose(normalizePurpose(req.getPurpose()));
-        if (req.getBaseCurrency() != null) account.setBaseCurrency(normalizeCurrency(req.getBaseCurrency()));
+        String newPurpose = req.getPurpose() != null ? normalizePurpose(req.getPurpose()) : account.getPurpose();
+        String newCurrency = req.getBaseCurrency() != null ? normalizeCurrency(req.getBaseCurrency()) : account.getBaseCurrency();
+        // 用途联动本位币：交易所账户必须 USDT 本位币（与前端联动同一条规则）
+        if ("exchange".equals(newPurpose) && !"USDT".equals(newCurrency)) {
+            throw BusinessException.invalidParam("交易所账户的本位币必须是 USDT，请先调整本位币或用途");
+        }
+        account.setPurpose(newPurpose);
+        account.setBaseCurrency(newCurrency);
         if (req.getSortOrder() != null) account.setSortOrder(req.getSortOrder());
 
         if (Boolean.TRUE.equals(req.getIsDefault()) && !account.isDefault()) {
@@ -168,6 +174,10 @@ public class AccountService {
             account.setDefault(true);
         }
 
+        // 本位币变更校验：账户下已有资产必须与新本位币匹配，否则这些资产会从所有匹配校验中漏掉
+        if (req.getBaseCurrency() != null && !normalizeCurrency(req.getBaseCurrency()).equals(account.getBaseCurrency())) {
+            throw BusinessException.invalidParam("账户本位币不可直接修改（账户下已有资产），如需调整请先移走该账户下的资产");
+        }
         account = accountRepository.save(account);
         List<ManualAsset> assets = manualAssetRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .filter(a -> id.equals(a.getAccountId()))

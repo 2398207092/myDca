@@ -163,16 +163,18 @@ async function handleSubmit() {
     <label class="font-body text-xs text-text-tertiary mb-sm block">
       {{ isCrypto ? '每期金额 (USDT)' : '每期金额 (元)' }}
     </label>
-    <div class="relative mb-lg">
-      <input
-        v-model.number="amount"
-        type="number"
-        step="1"
-        min="1"
-        placeholder="50"
-        class="w-full h-12 rounded-xl bg-card-alt px-md pr-16 text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand"
-      />
-      <span class="absolute right-md top-1/2 -translate-y-1/2 text-text-tertiary font-body text-xs">{{ isCrypto ? 'USDT' : '元' }}</span>
+    <div class="mb-lg">
+      <div class="relative">
+        <input
+          v-model.number="amount"
+          type="number"
+          step="1"
+          min="1"
+          placeholder="50"
+          class="w-full h-12 rounded-xl bg-card-alt px-md pr-16 text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand"
+        />
+        <span class="absolute right-md top-1/2 -translate-y-1/2 text-text-tertiary font-body text-xs">{{ isCrypto ? 'USDT' : '元' }}</span>
+      </div>
       <p v-if="isCrypto" class="font-body text-[11px] text-text-tertiary mt-2 leading-relaxed">
         按 USDT 计量，执行时按当时价格折算成币数并换算人民币计入总资产
       </p>
