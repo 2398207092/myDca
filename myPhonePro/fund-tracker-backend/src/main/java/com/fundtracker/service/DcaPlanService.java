@@ -521,15 +521,21 @@ public class DcaPlanService {
             return; // 计划与持仓都没关联账户 = 纯记账
         }
         boolean isCrypto = holding.getType() == HoldingType.crypto;
-        // 类型匹配校验：USDT 账户只能扣加密资产，CNY 账户只能扣人民币现金
-        if (!accountService.matchesAssetType(accountId, isCrypto)) {
+        // 基金定投的现金扣款已由 createTransaction 统一处理（按持仓归属账户扣），
+        // 这里再扣一次会双扣——本方法只负责 createTransaction 做不了的事：扣 USDT 数量。
+        if (!isCrypto) {
+            return;
+        }
+        // 类型匹配校验：只从 USDT 本位币账户扣 USDT
+        if (!accountService.matchesAssetType(accountId, true)) {
             log.warn("定投扣款跳过: 计划={}, 账户 {} 的本位币与资产类型不匹配（isCrypto={}），仅记账未扣款",
                     plan.getId(), accountId, isCrypto);
             return;
         }
         List<ManualAsset> assets = manualAssetRepository.findByUserIdAndAccountId(userId, accountId);
         for (ManualAsset a : assets) {
-            if (isCrypto && "crypto".equals(a.getType())) {
+            // 只扣 USDT 余额（assetCode=USDT），BTC 等币种持仓不能拿来当现金扣
+            if ("crypto".equals(a.getType()) && "USDT".equalsIgnoreCase(a.getAssetCode())) {
                 BigDecimal q = a.getQuantity() != null ? a.getQuantity() : BigDecimal.ZERO;
                 a.setQuantity(q.subtract(amountUsdt).setScale(8, RoundingMode.HALF_UP));
                 if (a.getUnitPrice() != null) {
@@ -539,15 +545,9 @@ public class DcaPlanService {
                 log.info("定投扣款: 计划={}, 账户资产={}, 扣减 {} USDT", plan.getId(), a.getName(), amountUsdt);
                 return;
             }
-            if (!isCrypto && "cash".equals(a.getType())) {
-                a.setAmount(a.getAmount().subtract(amountCny).setScale(2, RoundingMode.HALF_UP));
-                manualAssetRepository.save(a);
-                log.info("定投扣款: 计划={}, 账户资产={}, 扣减 ¥{}", plan.getId(), a.getName(), amountCny);
-                return;
-            }
         }
-        log.warn("定投扣款未找到可扣资产: 计划={}, 账户={}（该账户下没有对应的现金/加密资产），仅记账未扣款",
-                plan.getId(), plan.getAccountId());
+        log.warn("定投扣款未找到可扣资产: 计划={}, 账户={}（该账户下没有 USDT 余额），仅记账未扣款",
+                plan.getId(), accountId);
     }
 
     private DcaPlanVO toVO(DcaPlan plan, Holding holding) {

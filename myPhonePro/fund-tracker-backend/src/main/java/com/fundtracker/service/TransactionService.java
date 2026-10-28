@@ -5,6 +5,7 @@ import com.fundtracker.exception.BusinessException;
 import com.fundtracker.model.dto.*;
 import com.fundtracker.model.entity.Holding;
 import com.fundtracker.model.entity.Transaction;
+import com.fundtracker.model.enums.HoldingType;
 import com.fundtracker.model.enums.TransactionType;
 import com.fundtracker.repository.HoldingRepository;
 import com.fundtracker.repository.TransactionRepository;
@@ -115,11 +116,20 @@ public class TransactionService {
         holdingRepository.save(holding);
 
         // 调整现金余额（异常会触发 @Transactional 回滚，交易也不创建）
-        // 注意：reinvest 不涉及现金（分红已到账，直接转份额）
-        if (type == TransactionType.buy) {
-            manualAssetService.adjustCash(holding.getId(), total.negate(), userId);
-        } else if (type == TransactionType.sell) {
-            manualAssetService.adjustCash(holding.getId(), total, userId);
+        // 规则一：只联动人民币标的。加密币买卖动的是交易所 USDT 余额（定投由 DcaPlanService 单独扣数量），
+        //         这里若扣人民币现金会造成跨币种双记账。
+        // 规则二：优先扣持仓归属账户的现金；未归属账户时退回主现金（历史行为）。
+        // 规则三：reinvest 不涉及现金（分红已到账，直接转份额）。
+        // 规则四：卖出到账 = 成交额 − 手续费（此前误把手续费加进了到账金额）。
+        if (holding.getType() != HoldingType.crypto) {
+            if (type == TransactionType.buy) {
+                manualAssetService.adjustCash(holding.getId(), holding.getAccountId(), total.negate(), userId);
+            } else if (type == TransactionType.sell) {
+                BigDecimal netProceeds = req.getQuantity().multiply(req.getPrice())
+                        .subtract(fee)
+                        .setScale(2, RoundingMode.HALF_UP);
+                manualAssetService.adjustCash(holding.getId(), holding.getAccountId(), netProceeds, userId);
+            }
         }
 
         // 刷新最新净值，更新市值 —— 本地优先：交易时不再调用外部净值 API
@@ -226,28 +236,40 @@ public class TransactionService {
         String holdingId = transaction.getHoldingId();
         BigDecimal txTotal = transaction.getTotal();
         TransactionType txType = transaction.getType();
+        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(holdingId, userId)
+                .orElseThrow(BusinessException::holdingNotFound);
 
-        // 删除前先获取交易信息，用于反向调整现金
         transactionRepository.delete(transaction);
 
-        // 反向调整现金（异常会触发 @Transactional 回滚）
-        if (txType == TransactionType.buy || txType == TransactionType.reinvest) {
-            manualAssetService.adjustCash(holdingId, txTotal, userId); // 删除买入 → 加回现金
-        } else if (txType == TransactionType.sell) {
-            manualAssetService.adjustCash(holdingId, txTotal.negate(), userId); // 删除卖出 → 扣减现金
+        // 现金反向调整：与 createTransaction 对称（同一条规则，见 createTransaction 注释）。
+        // 加密币不动人民币现金；reinvest 删除也不该把现金加回来（当初就没扣）。
+        if (holding.getType() != HoldingType.crypto) {
+            if (txType == TransactionType.buy) {
+                manualAssetService.adjustCash(holdingId, holding.getAccountId(), txTotal, userId);
+            } else if (txType == TransactionType.sell) {
+                BigDecimal fee = transaction.getFee() != null ? transaction.getFee() : BigDecimal.ZERO;
+                BigDecimal netProceeds = transaction.getQuantity().multiply(transaction.getPrice())
+                        .subtract(fee)
+                        .setScale(2, RoundingMode.HALF_UP);
+                manualAssetService.adjustCash(holdingId, holding.getAccountId(), netProceeds.negate(), userId);
+            }
         }
 
         // 删除后重新计算份额和指标
-        Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(holdingId, userId)
-                .orElseThrow(BusinessException::holdingNotFound);
-        recalculateSharesFromScratch(holding);
-        holdingService.calculatePredictedDividend(holding);
-        holdingService.recalculateHoldingMetrics(holding);
-        // 用已有最新价更新市值
-        if (holding.getLatestPrice() != null && holding.getLatestPrice().compareTo(BigDecimal.ZERO) > 0) {
-            holding.setMarketValue(holding.getShares()
-                    .multiply(holding.getLatestPrice())
-                    .setScale(2, RoundingMode.HALF_UP));
+        if (holding.isCostEstimated()) {
+            // 迁入持仓（成本/份额手工录入，无买入交易）：不按交易重算份额，
+            // 否则删一笔交易会把手工维护的数量清零（2026-10-27 BTC 事故根因）
+            log.info("删除交易: 持仓 {} 为迁入（估算成本），保留手工份额与成本，跳过份额重算", holdingId);
+        } else {
+            recalculateSharesFromScratch(holding);
+            holdingService.calculatePredictedDividend(holding);
+            holdingService.recalculateHoldingMetrics(holding);
+            // 用已有最新价更新市值
+            if (holding.getLatestPrice() != null && holding.getLatestPrice().compareTo(BigDecimal.ZERO) > 0) {
+                holding.setMarketValue(holding.getShares()
+                        .multiply(holding.getLatestPrice())
+                        .setScale(2, RoundingMode.HALF_UP));
+            }
         }
         holdingRepository.save(holding);
 

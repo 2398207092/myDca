@@ -191,7 +191,19 @@ public class ManualAssetService {
      * @param userId    用户 ID
      */
     public void adjustCash(String holdingId, BigDecimal amount, String userId) {
-        List<ManualAsset> cashAssets = manualAssetRepository.findByUserIdAndType(userId, "cash");
+        adjustCash(holdingId, null, amount, userId);
+    }
+
+    /**
+     * 调整现金余额。
+     * @param accountId 持仓归属账户；非空时只调整该账户下的现金资产，为空时退回主现金（历史行为）
+     */
+    public void adjustCash(String holdingId, String accountId, BigDecimal amount, String userId) {
+        List<ManualAsset> cashAssets = (accountId != null && !accountId.isBlank())
+                ? manualAssetRepository.findByUserIdAndAccountId(userId, accountId).stream()
+                        .filter(a -> "cash".equals(a.getType()))
+                        .collect(java.util.stream.Collectors.toList())
+                : manualAssetRepository.findByUserIdAndType(userId, "cash");
         if (cashAssets.isEmpty()) {
             log.warn("adjustCash: 无现金资产，跳过调整 (holdingId={}, amount={})", holdingId, amount);
             return;

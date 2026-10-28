@@ -76,7 +76,7 @@ class TransactionServiceTest {
         // 份额应增加 100
         assertEquals(new BigDecimal("1100"), holding.getShares());
         // 应调用 adjustCash 扣减总金额 (= 100*10 + 5 = 1005)
-        verify(manualAssetService).adjustCash("h-1", new BigDecimal("-1005.00"), "user-1");
+        verify(manualAssetService).adjustCash("h-1", null, new BigDecimal("-1005.00"), "user-1");
         // 应调用 recalculateHoldingMetrics
         verify(holdingService).recalculateHoldingMetrics(holding);
         // 应调用 calculatePredictedDividend
@@ -111,7 +111,7 @@ class TransactionServiceTest {
         // 份额应减少 200
         assertEquals(new BigDecimal("800"), holding.getShares());
         // 应调用 adjustCash 增加总金额 (= 200*15 + 10 = 3010)
-        verify(manualAssetService).adjustCash("h-1", new BigDecimal("3010.00"), "user-1");
+        verify(manualAssetService).adjustCash("h-1", null, new BigDecimal("2990.00"), "user-1");
     }
 
     @Test
@@ -134,7 +134,7 @@ class TransactionServiceTest {
         assertThrows(BusinessException.class, () -> transactionService.createTransaction(req, "user-1"));
 
         // 不应调用 adjustCash
-        verify(manualAssetService, never()).adjustCash(any(), any(), any());
+        verify(manualAssetService, never()).adjustCash(any(), any(), any(), any());
     }
 
     @Test
@@ -163,7 +163,7 @@ class TransactionServiceTest {
         transactionService.deleteTransaction("tx-1", "user-1");
 
         // 反向加回现金 1005
-        verify(manualAssetService).adjustCash("h-1", new BigDecimal("1005.00"), "user-1");
+        verify(manualAssetService).adjustCash("h-1", null, new BigDecimal("1005.00"), "user-1");
     }
 
     @Test
@@ -192,6 +192,6 @@ class TransactionServiceTest {
         transactionService.deleteTransaction("tx-1", "user-1");
 
         // 反向扣减现金 1500
-        verify(manualAssetService).adjustCash("h-1", new BigDecimal("-1500.00"), "user-1");
+        verify(manualAssetService).adjustCash("h-1", null, new BigDecimal("-1500.00"), "user-1");
     }
 }

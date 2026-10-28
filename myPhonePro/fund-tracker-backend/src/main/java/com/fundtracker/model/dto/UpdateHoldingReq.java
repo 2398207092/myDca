@@ -7,7 +7,9 @@ import java.math.BigDecimal;
 public class UpdateHoldingReq {
     private String name;
     private String costAlgorithm;
+    @jakarta.validation.constraints.Positive(message = "份额必须大于 0")
     private BigDecimal shares;
+    @jakarta.validation.constraints.Positive(message = "每份成本必须大于 0")
     private BigDecimal costPerShare;
     private String assetCategory;
     private BigDecimal buyFeeRate;
