@@ -379,6 +379,14 @@ const editBuyFeeRate = ref(0.15)
 const editSellFeeRate = ref(0)
 const editAccountId = ref('')
 const accounts = ref<AccountItem[]>([])
+
+/** 持仓归属账户名（编辑弹层与详情展示共用 accounts 数据） */
+const holdingAccountName = computed(() => {
+  const id = holding.value?.accountId
+  if (!id) return ''
+  return accounts.value.find((a: any) => a.id === id)?.name || ''
+})
+
 const editSaving = ref(false)
 
 /** 编辑弹层的账户下拉按本位币过滤（与后端校验同一条规则） */
@@ -586,6 +594,13 @@ onActivated(() => {
             <p v-if="isCrypto && costInUsdt" class="font-body text-[10px] text-text-tertiary mt-0.5">≈ {{ costInUsdt }} USDT/枚</p>
             <p v-if="holding.costEstimated" class="font-body text-[10px] text-text-tertiary mt-0.5">成本按录入价估算</p>
           </div>
+        </div>
+        <!-- 归属账户：让"这笔资产在哪个账户"一眼可见 -->
+        <div class="flex justify-between items-center mt-md pt-md border-t border-border-light/40">
+          <span class="font-body text-xs text-text-tertiary">归属账户</span>
+          <span class="font-body text-sm font-medium" :class="holdingAccountName ? 'text-text-primary' : 'text-text-tertiary'">
+            {{ holdingAccountName || '未归属（编辑持仓可设置）' }}
+          </span>
         </div>
       </section>
 

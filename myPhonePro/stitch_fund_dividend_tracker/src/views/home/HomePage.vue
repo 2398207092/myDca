@@ -589,8 +589,8 @@ onBeforeUnmount(() => {
                   <span class="font-body text-sm font-medium text-text-primary tabular-nums truncate">{{ formatMoney(holdingValues[holding.id]?.cost ?? holding.cost) }}</span>
                   <span class="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-px bg-border-light" aria-hidden="true"></span>
                 </div>
-                <!-- 股息率（收益叙事，语义色贯穿） -->
-                <div class="relative flex flex-col items-center gap-1 px-1 min-w-0">
+                <!-- 股息率（收益叙事，语义色贯穿；加密币无分红，显示现价占比更合理，本轮先隐藏避免 0.00% 噪音） -->
+                <div v-if="holding.type !== 'crypto'" class="relative flex flex-col items-center gap-1 px-1 min-w-0">
                   <span class="font-body text-xs text-text-tertiary">股息率</span>
                   <span class="font-body text-sm font-medium tabular-nums" :class="holding.dividendRate === -1 ? 'text-success' : 'text-pos'">
                     {{ dividendRateText(holding.dividendRate) }}
