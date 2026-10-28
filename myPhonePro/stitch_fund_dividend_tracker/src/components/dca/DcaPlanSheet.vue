@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { createDcaPlan, updateDcaPlan, type DcaPlanVO } from '@/api/dca'
+import { getAccounts, type AccountItem } from '@/api/account'
 
 interface Props {
   holdingId: string
@@ -20,6 +21,8 @@ const emit = defineEmits<{
 }>()
 
 const isEdit = computed(() => !!props.plan?.id)
+/** 加密币：金额按 USDT 计，365 天均可投 */
+const isCrypto = computed(() => props.tradingMarket === 'crypto')
 
 type Frequency = 'daily' | 'weekly' | 'biweekly' | 'monthly'
 
@@ -28,6 +31,17 @@ const frequency = ref<Frequency>('daily')
 const day = ref<number | null>(null)
 const submitting = ref(false)
 const error = ref('')
+
+/** 扣款账户 */
+const accounts = ref<AccountItem[]>([])
+const accountId = ref<string>('')
+onMounted(async () => {
+  try {
+    accounts.value = await getAccounts()
+  } catch {
+    /* 账户拉取失败不阻断，仍可创建纯记账计划 */
+  }
+})
 
 const frequencyOptions: { value: Frequency; label: string }[] = [
   { value: 'daily', label: '每日' },
@@ -64,10 +78,12 @@ function initFromPlan() {
     amount.value = p.amount
     frequency.value = (p.frequency as Frequency) || 'daily'
     day.value = p.day ?? null
+    accountId.value = p.accountId || ''
   } else {
     amount.value = 50
     frequency.value = 'daily'
     day.value = null
+    accountId.value = ''
   }
   error.value = ''
 }
@@ -104,6 +120,7 @@ async function handleSubmit() {
     amount: amount.value,
     frequency: frequency.value,
     day: frequency.value === 'daily' ? null : day.value,
+    accountId: accountId.value || '',
   }
 
   try {
@@ -131,9 +148,11 @@ async function handleSubmit() {
     <p class="font-body text-sm text-text-secondary mb-lg">{{ holdingName }} ({{ holdingCode }})</p>
 
     <!-- Amount -->
-    <label class="font-body text-xs text-text-tertiary mb-sm block">每期金额</label>
+    <label class="font-body text-xs text-text-tertiary mb-sm block">
+      {{ isCrypto ? '每期金额 (USDT)' : '每期金额' }}
+    </label>
     <div class="relative mb-lg">
-      <span class="absolute left-md top-1/2 -translate-y-1/2 text-text-tertiary font-body text-md">¥</span>
+      <span class="absolute left-md top-1/2 -translate-y-1/2 text-text-tertiary font-body text-md">{{ isCrypto ? 'U' : '¥' }}</span>
       <input
         v-model.number="amount"
         type="number"
@@ -142,6 +161,9 @@ async function handleSubmit() {
         placeholder="50"
         class="w-full h-12 rounded-xl bg-card-alt pl-10 pr-md text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand"
       />
+      <p v-if="isCrypto" class="font-body text-[11px] text-text-tertiary mt-1">
+        按 USDT 计量，执行时按当时价格折算成币数并换算人民币计入总资产
+      </p>
     </div>
 
     <!-- Frequency -->
@@ -201,16 +223,33 @@ async function handleSubmit() {
       </div>
     </template>
 
+    <!-- 扣款账户 -->
+    <label class="font-body text-xs text-text-tertiary mb-sm block">扣款账户</label>
+    <select
+      v-model="accountId"
+      class="w-full h-12 rounded-xl bg-card-alt px-md text-text-primary font-body text-sm outline-none transition-colors focus:ring-2 focus:ring-brand mb-lg"
+    >
+      <option value="">不关联（仅记账，不扣余额）</option>
+      <option v-for="a in accounts" :key="a.id" :value="a.id">
+        {{ a.name }}{{ a.isDefault ? ' ·默认' : '' }}
+      </option>
+    </select>
+    <p class="font-body text-[11px] text-text-tertiary mb-lg -mt-2">
+      {{ isCrypto ? '执行时从该账户的 USDT 余额里扣' : '执行时从该账户的现金余额里扣' }}；余额不足时仍会记账（余额可能为负）
+    </p>
+
     <!-- Read-only info -->
     <div class="bg-card-alt rounded-xl px-md py-sm mb-lg space-y-sm">
       <div class="flex justify-between items-center">
         <span class="font-body text-xs text-text-tertiary">市场</span>
-        <span class="font-body text-sm text-text-primary">{{ marketLabel }}</span>
+        <span class="font-body text-sm text-text-primary">
+          {{ isCrypto ? '加密币 · 365 天均可投' : marketLabel }}
+        </span>
       </div>
       <div class="flex justify-between items-center">
         <span class="font-body text-xs text-text-tertiary">开始日期</span>
         <span class="font-body text-sm text-text-primary">
-          {{ isEdit && plan ? plan.startedAt : '明天起第一个交易日' }}
+          {{ isEdit && plan ? plan.startedAt : (isCrypto ? '明天起（含周末）' : '明天起第一个交易日') }}
         </span>
       </div>
     </div>

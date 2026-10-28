@@ -4,11 +4,13 @@ import com.fundtracker.exception.BusinessException;
 import com.fundtracker.model.dto.*;
 import com.fundtracker.model.entity.DcaPlan;
 import com.fundtracker.model.entity.Holding;
+import com.fundtracker.model.entity.ManualAsset;
 import com.fundtracker.model.enums.DcaFrequency;
 import com.fundtracker.model.enums.DcaPlanStatus;
 import com.fundtracker.model.enums.HoldingType;
 import com.fundtracker.repository.DcaPlanRepository;
 import com.fundtracker.repository.HoldingRepository;
+import com.fundtracker.repository.ManualAssetRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,8 @@ public class DcaPlanService {
     private final TransactionService transactionService;
     private final FundNavScrapeService fundNavScrapeService;
     private final TradingCalendar tradingCalendar;
+    private final ManualAssetRepository manualAssetRepository;
+    private final ExchangeRateService exchangeRateService;
 
     /**
      * 根据持仓类型推断交易市场
@@ -41,6 +45,9 @@ public class DcaPlanService {
         switch (type) {
             case 美股:
                 return "us";
+            case crypto:
+                // 加密币 365 天交易，交易日历对 crypto 直接放行（含周末）
+                return "crypto";
             default:
                 return "china";
         }
@@ -63,13 +70,16 @@ public class DcaPlanService {
                     .build();
         }
 
-        // 用第一个活跃计划的 market 来算交易日数（统一用 china）
-        int tradingDays = tradingCalendar.countTradingDaysInMonth(year, month, "china");
+        // 交易日数按市场分别取：基金走交易日（跳周末节假日），加密币 365 天全算
+        int chinaDays = tradingCalendar.countTradingDaysInMonth(year, month, "china");
+        int cryptoDays = tradingCalendar.countTradingDaysInMonth(year, month, "crypto");
         BigDecimal total = BigDecimal.ZERO;
         List<DcaBudgetVO.PlanBudgetItem> items = new java.util.ArrayList<>();
 
         for (DcaPlan plan : activePlans) {
             Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(plan.getHoldingId(), userId).orElse(null);
+            boolean planIsCrypto = holding != null && holding.getType() == HoldingType.crypto;
+            int tradingDays = planIsCrypto ? cryptoDays : chinaDays;
             int executions = estimateExecutionsInMonth(plan, year, month, tradingDays);
             BigDecimal budget = plan.getAmount().multiply(BigDecimal.valueOf(executions));
             total = total.add(budget);
@@ -84,7 +94,7 @@ public class DcaPlanService {
 
         return DcaBudgetVO.builder()
                 .month(year + "-" + String.format("%02d", month))
-                .tradingDays(tradingDays)
+                .tradingDays(chinaDays)
                 .totalAmount(total)
                 .plans(items)
                 .build();
@@ -260,6 +270,7 @@ public class DcaPlanService {
                 .frequency(frequency)
                 .day(req.getDay())
                 .tradingMarket(market)
+                .accountId(req.getAccountId())
                 .status(DcaPlanStatus.active)
                 .totalInvested(BigDecimal.ZERO)
                 .totalShares(BigDecimal.ZERO)
@@ -324,6 +335,11 @@ public class DcaPlanService {
                 plan.setDay(req.getDay());
                 scheduleChanged = true;
             }
+        }
+
+        // --- 扣款账户：空串 = 清除关联，非空 = 设置 ---
+        if (req.getAccountId() != null) {
+            plan.setAccountId(req.getAccountId().isBlank() ? null : req.getAccountId());
         }
 
         // --- 每期金额 ---
@@ -398,24 +414,54 @@ public class DcaPlanService {
                 .orElseThrow(BusinessException::holdingNotFound);
 
         LocalDate today = LocalDate.now();
-        String fundCode = holding.getCode();
+        boolean isCrypto = holding.getType() == HoldingType.crypto;
 
-        // 获取最新可用净值
-        FundNavScrapeService.LatestNavResult nav = fundNavScrapeService.getLatestNavBefore(fundCode, today);
-        if (nav == null || nav.unitNav() == null || nav.unitNav().compareTo(BigDecimal.ZERO) <= 0) {
-            throw BusinessException.invalidParam("无法获取基金 " + fundCode + " 的净值数据，请确认净值已更新");
+        BigDecimal price;      // 人民币单价（入账口径）
+        BigDecimal quantity;   // 份额 / 币数
+        BigDecimal fee;
+        BigDecimal amountCny;  // 本期人民币支出（扣款用）
+        BigDecimal amountUsdt = null;
+        FundNavScrapeService.LatestNavResult nav = null;
+
+        if (isCrypto) {
+            // 加密币定投：amount 的单位是 USDT，按当时 USDT 价折算币数，人民币成本 = USDT × 汇率
+            BigDecimal usdtPrice = holding.getQuotePrice();
+            if (usdtPrice == null || usdtPrice.signum() <= 0) {
+                throw BusinessException.invalidParam("无法获取 " + holding.getName() + " 的 USDT 价格，请先刷新价格后重试");
+            }
+            BigDecimal usdCny = exchangeRateService.listAll().stream()
+                    .filter(r -> "USD/CNY".equals(r.getPair()))
+                    .map(ExchangeRateDTO::getRate)
+                    .findFirst()
+                    .orElse(null);
+            if (usdCny == null) {
+                throw BusinessException.bizError("汇率获取失败，无法执行加密币定投，请稍后重试");
+            }
+            price = usdtPrice.multiply(usdCny).setScale(4, RoundingMode.HALF_UP);
+            quantity = plan.getAmount().divide(usdtPrice, 8, RoundingMode.HALF_UP);
+            // 买入手续费已在交易所侧体现，这里不重复计算
+            fee = BigDecimal.ZERO;
+            amountCny = plan.getAmount().multiply(usdCny).setScale(2, RoundingMode.HALF_UP);
+            amountUsdt = plan.getAmount();
+        } else {
+            // 获取最新可用净值
+            nav = fundNavScrapeService.getLatestNavBefore(holding.getCode(), today);
+            if (nav == null || nav.unitNav() == null || nav.unitNav().compareTo(BigDecimal.ZERO) <= 0) {
+                throw BusinessException.invalidParam("无法获取基金 " + holding.getCode() + " 的净值数据，请确认净值已更新");
+            }
+
+            // 手续费 = 定投金额 × 持仓买入费率%，净额用于申购份额
+            BigDecimal amount = plan.getAmount();
+            BigDecimal feeRate = holding.getBuyFeeRate() != null ? holding.getBuyFeeRate() : new BigDecimal("0.15");
+            fee = amount.multiply(feeRate)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            BigDecimal netPrincipal = amount.subtract(fee).max(BigDecimal.ZERO);
+
+            // 计算份额 = 净额 / 净值
+            quantity = netPrincipal.divide(nav.unitNav(), 4, RoundingMode.HALF_UP);
+            price = nav.unitNav();
+            amountCny = plan.getAmount();
         }
-
-        // 手续费 = 定投金额 × 持仓买入费率%，净额用于申购份额
-        BigDecimal amount = plan.getAmount();
-        BigDecimal feeRate = holding.getBuyFeeRate() != null ? holding.getBuyFeeRate() : new BigDecimal("0.15");
-        BigDecimal fee = amount.multiply(feeRate)
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        BigDecimal netPrincipal = amount.subtract(fee).max(BigDecimal.ZERO);
-
-        // 计算份额 = 净额 / 净值
-        BigDecimal quantity = netPrincipal
-                .divide(nav.unitNav(), 4, RoundingMode.HALF_UP);
 
         // 使用 TransactionService 创建买入交易
         CreateTransactionReq txReq = new CreateTransactionReq();
@@ -423,12 +469,15 @@ public class DcaPlanService {
         txReq.setType("buy");
         txReq.setDate(today.toString());
         txReq.setQuantity(quantity);
-        txReq.setPrice(nav.unitNav());
+        txReq.setPrice(price);
         txReq.setFee(fee);
         txReq.setSource("dca");
         txReq.setDcaPlanId(id);
 
         TransactionDTO txDto = transactionService.createTransaction(txReq, userId);
+
+        // 扣款：从计划关联的账户扣现金（基金）或 USDT（加密币）
+        deductForExecution(plan, holding, userId, amountCny, amountUsdt);
 
         // 更新计划统计
         plan.setTotalInvested(plan.getTotalInvested().add(plan.getAmount()));
@@ -441,19 +490,52 @@ public class DcaPlanService {
         plan.setNextExecutionDate(nextExec);
         dcaPlanRepository.save(plan);
 
-        log.info("定投执行成功: plan={}, 金额={}, 份额={}, 净值={}, 下次执行={}",
-                id, plan.getAmount(), quantity, nav.unitNav(), nextExec);
+        log.info("定投执行成功: plan={}, 金额={}, 份额={}, 单价={}, 下次执行={}",
+                id, plan.getAmount(), quantity, price, nextExec);
 
         return DcaExecutionResultVO.builder()
                 .transactionId(txDto.getId())
                 .amount(plan.getAmount())
                 .quantity(quantity)
-                .navPrice(nav.unitNav())
-                .navDate(nav.navDate())
+                .navPrice(price)
+                .navDate(isCrypto ? null : nav.navDate())
                 .executionDate(today)
                 .holdingName(holding.getName())
                 .holdingCode(holding.getCode())
                 .build();
+    }
+
+    /**
+     * 定投扣款：从计划关联的账户扣现金（基金）或 USDT 数量（加密币）。
+     * 找不到可扣资产时只记警告，不阻断执行——记账软件不应因账户余额不足而中断自动计划。
+     */
+    private void deductForExecution(DcaPlan plan, Holding holding, String userId,
+                                    BigDecimal amountCny, BigDecimal amountUsdt) {
+        if (plan.getAccountId() == null || plan.getAccountId().isBlank()) {
+            return; // 未关联账户 = 纯记账
+        }
+        List<ManualAsset> assets = manualAssetRepository.findByUserIdAndAccountId(userId, plan.getAccountId());
+        boolean isCrypto = holding.getType() == HoldingType.crypto;
+        for (ManualAsset a : assets) {
+            if (isCrypto && "crypto".equals(a.getType())) {
+                BigDecimal q = a.getQuantity() != null ? a.getQuantity() : BigDecimal.ZERO;
+                a.setQuantity(q.subtract(amountUsdt).setScale(8, RoundingMode.HALF_UP));
+                if (a.getUnitPrice() != null) {
+                    a.setAmount(a.getQuantity().multiply(a.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
+                }
+                manualAssetRepository.save(a);
+                log.info("定投扣款: 计划={}, 账户资产={}, 扣减 {} USDT", plan.getId(), a.getName(), amountUsdt);
+                return;
+            }
+            if (!isCrypto && "cash".equals(a.getType())) {
+                a.setAmount(a.getAmount().subtract(amountCny).setScale(2, RoundingMode.HALF_UP));
+                manualAssetRepository.save(a);
+                log.info("定投扣款: 计划={}, 账户资产={}, 扣减 ¥{}", plan.getId(), a.getName(), amountCny);
+                return;
+            }
+        }
+        log.warn("定投扣款未找到可扣资产: 计划={}, 账户={}（该账户下没有对应的现金/加密资产），仅记账未扣款",
+                plan.getId(), plan.getAccountId());
     }
 
     private DcaPlanVO toVO(DcaPlan plan, Holding holding) {
@@ -466,6 +548,7 @@ public class DcaPlanService {
                 .frequency(plan.getFrequency().name())
                 .day(plan.getDay())
                 .tradingMarket(plan.getTradingMarket())
+                .accountId(plan.getAccountId())
                 .status(plan.getStatus().name())
                 .totalInvested(plan.getTotalInvested())
                 .totalShares(plan.getTotalShares())

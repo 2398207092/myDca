@@ -27,4 +27,7 @@ public class UpdateDcaPlanReq {
 
     /** active / paused / ended；为空表示不修改 */
     private String status;
+
+    /** 扣款账户（可空）：执行时从该账户扣现金/USDT；传空串清除关联 */
+    private String accountId;
 }

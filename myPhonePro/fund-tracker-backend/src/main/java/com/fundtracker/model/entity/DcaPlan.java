@@ -43,6 +43,8 @@ public class DcaPlan {
 
     @Column(nullable = false, length = 20)
     private String tradingMarket; // china / us / crypto
+    /** 扣款账户（可空）：执行时从该账户的现金/USDT 余额里扣；空 = 纯记账不扣款 */
+    private String accountId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)

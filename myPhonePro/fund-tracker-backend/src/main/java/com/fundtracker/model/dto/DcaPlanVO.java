@@ -22,6 +22,8 @@ public class DcaPlanVO {
     private String frequency;
     private Integer day;
     private String tradingMarket;
+    /** 扣款账户（可空） */
+    private String accountId;
     private String status;
     private BigDecimal totalInvested;
     private BigDecimal totalShares;

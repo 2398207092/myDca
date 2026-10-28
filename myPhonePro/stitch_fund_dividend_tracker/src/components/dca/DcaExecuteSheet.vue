@@ -94,12 +94,12 @@ function formatNumber(n: number, digits = 2): string {
             <span class="font-body text-sm text-text-primary">{{ formatNumber(result.quantity, 4) }} 份</span>
           </div>
           <div class="flex justify-between items-center">
-            <span class="font-body text-xs text-text-tertiary">成交净值</span>
+            <span class="font-body text-xs text-text-tertiary">{{ result.navDate ? '成交净值' : '成交单价' }}</span>
             <span class="font-body text-sm text-text-primary">¥{{ formatNumber(result.navPrice, 4) }}</span>
           </div>
           <div class="flex justify-between items-center">
             <span class="font-body text-xs text-text-tertiary">净值日期</span>
-            <span class="font-body text-sm text-text-primary">{{ result.navDate }}</span>
+            <span class="font-body text-sm text-text-primary">{{ result.navDate || '按执行时 USDT 价格' }}</span>
           </div>
         </div>
 

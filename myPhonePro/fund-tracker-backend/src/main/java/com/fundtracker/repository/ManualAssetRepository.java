@@ -10,4 +10,7 @@ public interface ManualAssetRepository extends JpaRepository<ManualAsset, String
     List<ManualAsset> findByUserId(String userId);
     List<ManualAsset> findByUserIdOrderByCreatedAtDesc(String userId);
     List<ManualAsset> findByUserIdAndType(String userId, String type);
+
+    /** 定投扣款：找某账户下的资产（现金 / 加密币余额） */
+    List<ManualAsset> findByUserIdAndAccountId(String userId, String accountId);
 }

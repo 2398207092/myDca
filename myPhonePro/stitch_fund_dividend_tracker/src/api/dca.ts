@@ -9,6 +9,8 @@ export interface DcaPlanVO {
   frequency: string
   day: number | null
   tradingMarket: string
+  /** 扣款账户（可空）：执行时从该账户扣现金/USDT */
+  accountId?: string | null
   status: string
   totalInvested: number
   totalShares: number
@@ -25,6 +27,7 @@ export interface CreateDcaPlanReq {
   amount: number
   frequency: string
   day?: number | null
+  accountId?: string
 }
 
 export interface UpdateDcaPlanReq {
@@ -32,6 +35,8 @@ export interface UpdateDcaPlanReq {
   frequency?: string
   day?: number | null
   status?: string
+  /** 空串 = 清除关联账户 */
+  accountId?: string
 }
 
 export interface DcaExecutionResultVO {

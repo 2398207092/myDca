@@ -34,6 +34,9 @@ class ManualAssetServiceTest {
     @Mock
     private AccountService accountService;
 
+    @Mock
+    private com.fundtracker.service.ExchangeRateService exchangeRateService;
+
     private ManualAssetService service;
 
     @Captor
@@ -41,7 +44,7 @@ class ManualAssetServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ManualAssetService(manualAssetRepository, accountRepository, accountService);
+        service = new ManualAssetService(manualAssetRepository, accountRepository, accountService, exchangeRateService);
     }
 
     @Test

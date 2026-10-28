@@ -704,8 +704,8 @@ onActivated(() => {
         </div>
       </section>
 
-      <!-- 定投计划（加密币没有"交易日/每期金额"的基金语境，整体隐藏） -->
-      <section v-if="!isCrypto" class="bg-card-bg rounded-xl p-md card-shadow border border-border-light/40 space-y-md">
+      <!-- 定投计划（加密币也支持：365 天 + USDT 金额 + 交易所账户扣款） -->
+      <section class="bg-card-bg rounded-xl p-md card-shadow border border-border-light/40 space-y-md">
         <div class="flex justify-between items-center">
           <h3 class="font-body text-sm font-medium text-text-primary">
             定投计划
@@ -944,7 +944,7 @@ onActivated(() => {
             :holding-id="holding.id"
             :holding-name="holding.name"
             :holding-code="holding.code"
-            :trading-market="holding.type === '美股' ? 'us' : 'china'"
+            :trading-market="holding.type === '美股' ? 'us' : (holding.type === 'crypto' ? 'crypto' : 'china')"
             @close="showCreateSheet = false"
             @saved="handleDcaSaved"
           />

@@ -12,6 +12,9 @@ public class CreateDcaPlanReq {
     @NotBlank
     private String holdingId;
 
+    /** 扣款账户（可空）：执行时从该账户扣现金/USDT；空 = 纯记账 */
+    private String accountId;
+
     @NotNull
     @Positive
     private BigDecimal amount;

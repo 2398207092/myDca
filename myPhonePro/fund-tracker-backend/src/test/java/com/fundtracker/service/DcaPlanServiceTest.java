@@ -9,6 +9,7 @@ import com.fundtracker.model.enums.DcaPlanStatus;
 import com.fundtracker.model.enums.HoldingType;
 import com.fundtracker.repository.DcaPlanRepository;
 import com.fundtracker.repository.HoldingRepository;
+import com.fundtracker.repository.ManualAssetRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,6 +38,8 @@ class DcaPlanServiceTest {
     @Mock private TransactionService transactionService;
     @Mock private FundNavScrapeService fundNavScrapeService;
     @Mock private TradingCalendar tradingCalendar;
+    @Mock private com.fundtracker.repository.ManualAssetRepository manualAssetRepository;
+    @Mock private com.fundtracker.service.ExchangeRateService exchangeRateService;
 
     private DcaPlanService dcaPlanService;
 
@@ -45,7 +48,7 @@ class DcaPlanServiceTest {
         dcaPlanService = new DcaPlanService(
                 dcaPlanRepository, holdingRepository,
                 transactionService, fundNavScrapeService,
-                tradingCalendar
+                tradingCalendar, manualAssetRepository, exchangeRateService
         );
     }
 
