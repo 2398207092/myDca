@@ -62,10 +62,11 @@ public class ManualAssetService {
                     : "人民币资产不能挂在 USDT 本位币的账户（交易所）下");
         }
 
-        // 资产代码：未指定则按类型推断（现金 CNY / 加密币 BTC）
+        // 资产代码：未指定则按类型推断（现金 CNY / 加密资产 USDT——UI 里加密资产的数量口径就是 USDT，
+        // 默认 BTC 会导致行情刷新把它按 BTC 价格估值，2026-10-28「USDT 余额 5.4 亿」事故根因）
         String assetCode = req.getAssetCode();
         if (assetCode == null || assetCode.isBlank()) {
-            assetCode = "cash".equals(req.getType()) ? "CNY" : "BTC";
+            assetCode = "cash".equals(req.getType()) ? "CNY" : "USDT";
         }
 
         // 金额校验：现金必须传金额；加密资产传数量即可，金额由后端折算

@@ -385,6 +385,7 @@ async function saveAsset() {
         type: assetForm.value.type,
         amount: isCrypto ? undefined : finalAmount,
         quantity: isCrypto ? finalAmount : undefined,
+        assetCode: isCrypto ? 'USDT' : undefined,
         note: assetForm.value.note || undefined,
         accountId: assetForm.value.accountId || undefined,
       }
