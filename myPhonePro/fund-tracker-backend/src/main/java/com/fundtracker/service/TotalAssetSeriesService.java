@@ -81,9 +81,13 @@ public class TotalAssetSeriesService {
             LocalDate date = entry.getKey();
             List<HoldingSnapshot> daySnapshots = entry.getValue();
 
+            // 持仓全量市值（收益口径）：市值−成本必须同口径，若市值跳过 crypto 而成本不跳，
+            // BTC 会变成「有成本、无收益」，收益凭空亏掉其市值（2026-10-28 −4,992 事故）
+            BigDecimal holdingMarketValue = daySnapshots.stream()
+                    .map(HoldingSnapshot::getMarketValue)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            // 展示市值（曲线市值线）：非 crypto 持仓，加密资产由 asset_snapshots.crypto_value 叠加（防双计）
             BigDecimal totalMarketValue = daySnapshots.stream()
-                    // crypto 持仓不在此计入：asset_snapshots.crypto_value 已包含全部加密资产
-                    // （holdings + manual），下面叠加时整体加入，这里再算一次就是双计
                     .filter(s -> !"crypto".equals(holdingCategoryMap.getOrDefault(s.getHoldingId(), "")))
                     .map(HoldingSnapshot::getMarketValue)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -93,7 +97,7 @@ public class TotalAssetSeriesService {
             BigDecimal totalCostBasis = daySnapshots.stream()
                     .map(HoldingSnapshot::getCostBasis)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal totalProfitLoss = totalMarketValue.subtract(totalCostBasis);
+            BigDecimal totalProfitLoss = holdingMarketValue.subtract(totalCostBasis);
             BigDecimal totalProfitLossPct = totalCostBasis.compareTo(BigDecimal.ZERO) > 0
                     ? totalProfitLoss.multiply(HUNDRED).divide(totalCostBasis, 2, RoundingMode.HALF_UP)
                     : BigDecimal.ZERO;
