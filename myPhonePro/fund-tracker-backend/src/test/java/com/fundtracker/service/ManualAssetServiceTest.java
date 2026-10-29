@@ -48,12 +48,13 @@ class ManualAssetServiceTest {
     }
 
     @Test
-    @DisplayName("无现金资产时跳过，不抛异常")
+    @DisplayName("无现金资产时抛出明确异常（V-003：不再静默跳过导致账实脱节）")
     void adjustCash_noAsset() {
         when(manualAssetRepository.findByUserIdAndType("user-1", "cash")).thenReturn(List.of());
 
-        // 不应抛异常
-        assertDoesNotThrow(() -> service.adjustCash("holding-1", new BigDecimal("-5000"), "user-1"));
+        // 旧语义是「跳过不抛」——那会让交易入账而现金不动（账实脱节），已改为明确报错
+        assertThrows(com.fundtracker.exception.BusinessException.class,
+                () -> service.adjustCash("holding-1", new BigDecimal("-5000"), "user-1"));
     }
 
     @Test

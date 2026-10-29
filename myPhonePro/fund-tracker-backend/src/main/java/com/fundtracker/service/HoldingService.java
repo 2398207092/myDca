@@ -246,36 +246,34 @@ public class HoldingService {
             log.warn("创建持仓后抓取净值数据失败: {}", e.getMessage());
         }
 
-        // 创建初始买入交易记录（含现金扣减、净值刷新、分红事件同步）
-        try {
-            BigDecimal price = costPerShare; // 买入单价 = 每份成本
-            BigDecimal principal = shares.multiply(price).setScale(2, RoundingMode.HALF_UP);
-            // 按持仓买入费率计算手续费：fee = 本金 × 费率%
-            BigDecimal feeRate = buyFeeRate != null ? buyFeeRate : new BigDecimal("0.15");
-            BigDecimal fee = principal.multiply(feeRate)
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            BigDecimal total = principal.add(fee).setScale(2, RoundingMode.HALF_UP);
-            Transaction initTx = Transaction.builder()
-                    .id(UUID.randomUUID().toString())
-                    .holdingId(holding.getId())
-                    .userId(userId)
-                    .type(TransactionType.buy)
-                    .date(LocalDate.now())
-                    .quantity(shares)
-                    .price(price)
-                    .fee(fee)
-                    .total(total)
-                    .source("manual")
-                    .build();
-            transactionRepository.save(initTx);
-            log.info("为持仓 {} 创建初始买入交易: {}份 @ ¥{}, 手续费={}, 总额={}",
-                    holding.getName(), shares, price, fee, total);
+        // 创建初始买入交易记录（含现金扣减）
+        // V-003 修复：不再 catch 吞异常——初始交易或扣现金失败时让异常传播，
+        // @Transactional 整体回滚（持仓+交易+现金原子），杜绝「持仓入账而现金未扣」的账实脱节
+        BigDecimal price = costPerShare; // 买入单价 = 每份成本
+        BigDecimal principal = shares.multiply(price).setScale(2, RoundingMode.HALF_UP);
+        // 按持仓买入费率计算手续费：fee = 本金 × 费率%
+        BigDecimal feeRate = buyFeeRate != null ? buyFeeRate : new BigDecimal("0.15");
+        BigDecimal fee = principal.multiply(feeRate)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        BigDecimal total = principal.add(fee).setScale(2, RoundingMode.HALF_UP);
+        Transaction initTx = Transaction.builder()
+                .id(UUID.randomUUID().toString())
+                .holdingId(holding.getId())
+                .userId(userId)
+                .type(TransactionType.buy)
+                .date(LocalDate.now())
+                .quantity(shares)
+                .price(price)
+                .fee(fee)
+                .total(total)
+                .source("manual")
+                .build();
+        transactionRepository.save(initTx);
+        log.info("为持仓 {} 创建初始买入交易: {}份 @ ¥{}, 手续费={}, 总额={}",
+                holding.getName(), shares, price, fee, total);
 
-            // 扣减现金（买入交易，含手续费）
-            manualAssetService.adjustCash(holding.getId(), total.negate(), userId);
-        } catch (Exception e) {
-            log.warn("创建初始交易记录或扣减现金失败: {}", e.getMessage());
-        }
+        // 扣减现金（买入交易，含手续费）；账户无现金资产时 adjustCash 抛错 → 整体回滚
+        manualAssetService.adjustCash(holding.getId(), total.negate(), userId);
 
         // 初始交易后刷新净值（非关键路径，异常仅记日志）
         // 本地优先：仅当本地无该基金任何净值时才触发外部抓取（冷启动兜底），避免每笔交易打外部 API
@@ -383,10 +381,38 @@ public class HoldingService {
         }
     }
 
+    /** 现金联动上线日：此前的交易处于「纯记账」时代未扣过现金，删除时不回补（宁少回补不虚增现金）。局限：补录旧日期的交易不会被回补。 */
+    private static final LocalDate CASH_LINK_SINCE = LocalDate.of(2026, 10, 28);
+
     @Transactional
     public void deleteHolding(String userId, String id) {
         Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(id, userId)
                 .orElseThrow(BusinessException::holdingNotFound);
+
+        // P0-5 修复：删除持仓前，把「现金联动上线后」该持仓真实流出的现金净额加回账户。
+        // 口径与 createTransaction 的现金联动严格互逆：buy 扣 total（含手续费）、sell 到账 = qty×price − fee；
+        // reinvest / bonus_share / crypto 本就不联动现金，天然排除。
+        if (holding.getType() != HoldingType.crypto) {
+            BigDecimal netOutflow = BigDecimal.ZERO;
+            for (Transaction tx : transactionRepository.findByHoldingId(id)) {
+                if (tx.getDate() == null || tx.getDate().isBefore(CASH_LINK_SINCE)) continue;
+                if (tx.getType() == TransactionType.buy) {
+                    netOutflow = netOutflow.add(tx.getTotal());
+                } else if (tx.getType() == TransactionType.sell) {
+                    netOutflow = netOutflow.subtract(tx.getQuantity().multiply(tx.getPrice())
+                            .subtract(tx.getFee()).setScale(2, RoundingMode.HALF_UP));
+                }
+            }
+            if (netOutflow.signum() > 0) {
+                try {
+                    manualAssetService.adjustCash(holding.getId(), holding.getAccountId(), netOutflow, userId);
+                    log.info("删除持仓 {}：回补现金 ¥{}（现金联动上线后的净流出）", holding.getName(), netOutflow);
+                } catch (BusinessException e) {
+                    // 删除是清理动作，不被「无现金可回补」阻塞；明确记录留痕
+                    log.warn("删除持仓 {}：现金回补跳过——{}", holding.getName(), e.getMessage());
+                }
+            }
+        }
 
         // 物理级联删除：交易 → 分红事件 → 定投计划 → 快照 → 持仓
         int txCount = transactionRepository.deleteByHoldingId(id);

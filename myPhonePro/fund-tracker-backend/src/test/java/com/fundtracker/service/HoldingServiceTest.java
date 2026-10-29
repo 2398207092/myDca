@@ -259,4 +259,65 @@ class HoldingServiceTest {
         // totalCost = 8.3333 * 1200 = 9999.96
         assertEquals(new BigDecimal("9999.96"), holding.getCost());
     }
+
+    @Test
+    @DisplayName("createHolding: 账户无现金资产 → 报错且不创建任何交易（V-003）")
+    void createHolding_withoutCash_throwsAndSavesNothing() {
+        com.fundtracker.model.dto.CreateHoldingReq req = new com.fundtracker.model.dto.CreateHoldingReq();
+        req.setCode("000001");
+        req.setName("测试基金");
+        req.setType("fund");
+        req.setShares(new BigDecimal("100"));
+        req.setCost(new BigDecimal("2.5"));
+        req.setAccountId("acc-1");
+
+        when(holdingRepository.existsByCodeAndUserIdAndDeletedFalse("000001", "user-1")).thenReturn(false);
+        when(accountService.matchesAssetType("acc-1", false)).thenReturn(true);
+        when(holdingRepository.save(any(Holding.class))).thenAnswer(i -> i.getArgument(0));
+        doThrow(com.fundtracker.exception.BusinessException.bizError("该账户下没有现金资产"))
+                .when(manualAssetService).adjustCash(anyString(), any(BigDecimal.class), anyString());
+
+        // 断言捕获的正是「无现金资产」错误（而非本位币校验等其他前置异常）
+        com.fundtracker.exception.BusinessException ex = assertThrows(
+                com.fundtracker.exception.BusinessException.class,
+                () -> holdingService.createHolding("user-1", req));
+        assertTrue(ex.getMessage().contains("现金资产"), "应抛无现金资产错误，实际: " + ex.getMessage());
+        // 说明：单测无真实事务，save 已被调用属预期；生产环境由 createHolding 的 @Transactional
+        // （BusinessException 为 RuntimeException）整体回滚持仓+交易，现金不脱节
+        verify(transactionRepository).save(any(Transaction.class));
+    }
+
+    @Test
+    @DisplayName("deleteHolding: 回补现金联动上线后的净现金流出（P0-5）")
+    void deleteHolding_refundsCashOutflow() {
+        Holding holding = Holding.builder()
+                .id("h-1").name("测试基金").code("000001")
+                .type(HoldingType.fund).accountId("acc-1")
+                .deleted(false).build();
+
+        Transaction linkedBuy = Transaction.builder()
+                .type(TransactionType.buy).date(LocalDate.of(2026, 11, 1))
+                .quantity(new BigDecimal("50")).price(new BigDecimal("2"))
+                .total(new BigDecimal("100.00")).build();
+        Transaction linkedSell = Transaction.builder()
+                .type(TransactionType.sell).date(LocalDate.of(2026, 11, 2))
+                .quantity(new BigDecimal("10")).price(new BigDecimal("9"))
+                .fee(new BigDecimal("1")).total(new BigDecimal("91.00")).build();
+        Transaction preLinkBuy = Transaction.builder()
+                .type(TransactionType.buy).date(LocalDate.of(2026, 1, 1))
+                .quantity(new BigDecimal("500")).price(new BigDecimal("1"))
+                .total(new BigDecimal("500.00")).build();
+
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1"))
+                .thenReturn(java.util.Optional.of(holding));
+        when(transactionRepository.findByHoldingId("h-1"))
+                .thenReturn(List.of(linkedBuy, linkedSell, preLinkBuy));
+
+        holdingService.deleteHolding("user-1", "h-1");
+
+        // 净流出 = 联动后 buy 100.00 − sell 到账 (10×9−1)=89.00 = 11.00；联动前的 500 不回补
+        verify(manualAssetService).adjustCash("h-1", "acc-1", new BigDecimal("11.00"), "user-1");
+        verify(transactionRepository).deleteByHoldingId("h-1");
+        verify(holdingRepository).delete(holding);
+    }
 }

@@ -25,6 +25,7 @@ public interface HoldingRepository extends JpaRepository<Holding, String> {
     List<String> findDistinctCodesByDeletedFalse();
 
     List<Holding> findByUserIdAndDeletedFalseOrderByMarketValueDesc(String userId);
+    List<Holding> findByUserIdAndDeletedFalse(String userId);
     List<Holding> findByUserIdAndAssetCategoryAndDeletedFalse(String userId, String assetCategory);
     Optional<Holding> findByIdAndUserIdAndDeletedFalse(String id, String userId);
     boolean existsByCodeAndUserIdAndDeletedFalse(String code, String userId);

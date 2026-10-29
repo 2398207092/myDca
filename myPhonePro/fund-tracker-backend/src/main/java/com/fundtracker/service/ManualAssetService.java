@@ -216,8 +216,12 @@ public class ManualAssetService {
                         .collect(java.util.stream.Collectors.toList())
                 : manualAssetRepository.findByUserIdAndType(userId, "cash");
         if (cashAssets.isEmpty()) {
-            log.warn("adjustCash: 无现金资产，跳过调整 (holdingId={}, amount={})", holdingId, amount);
-            return;
+            // V-003 修复：无现金资产不再静默跳过（那会导致交易入账而现金不动、账实静默脱节），
+            // 改为明确报错并触发调用方事务回滚——钱要么完整记上，要么不记。
+            if (accountId != null && !accountId.isBlank()) {
+                throw BusinessException.bizError("该账户下没有现金资产，无法完成现金联动：请先在该账户下添加现金资产后再操作");
+            }
+            throw BusinessException.bizError("当前没有可用的现金资产，无法完成现金联动：请先在任一账户下添加现金资产后再操作");
         }
         // 选主账户
         ManualAsset target = cashAssets.stream()

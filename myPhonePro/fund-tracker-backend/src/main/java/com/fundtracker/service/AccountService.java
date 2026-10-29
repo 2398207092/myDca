@@ -3,8 +3,10 @@ package com.fundtracker.service;
 import com.fundtracker.exception.BusinessException;
 import com.fundtracker.model.dto.*;
 import com.fundtracker.model.entity.Account;
+import com.fundtracker.model.entity.Holding;
 import com.fundtracker.model.entity.ManualAsset;
 import com.fundtracker.repository.AccountRepository;
+import com.fundtracker.repository.HoldingRepository;
 import com.fundtracker.repository.ManualAssetRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,7 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final ManualAssetRepository manualAssetRepository;
+    private final HoldingRepository holdingRepository;
 
     /**
      * 列出账户及其资产。没有账户时自动建一个「默认账户」，
@@ -48,8 +51,17 @@ public class AccountService {
                 .filter(a -> a.getAccountId() != null)
                 .collect(Collectors.groupingBy(ManualAsset::getAccountId));
 
+        // P1-36 修复：账户视图纳入归属持仓市值（此前 totalValueCny 只算手动资产，
+        // 账户页总额比真实少 44%）；持仓 market_value 为折算后人民币口径，可直接相加
+        Map<String, List<Holding>> holdingsByAccount = holdingRepository
+                .findByUserIdAndDeletedFalse(userId).stream()
+                .filter(h -> h.getAccountId() != null)
+                .collect(Collectors.groupingBy(Holding::getAccountId));
+
         return accounts.stream()
-                .map(a -> toDTO(a, byAccount.getOrDefault(a.getId(), List.of())))
+                .map(a -> toDTO(a,
+                        byAccount.getOrDefault(a.getId(), List.of()),
+                        holdingsByAccount.getOrDefault(a.getId(), List.of())))
                 .collect(Collectors.toList());
     }
 
@@ -142,7 +154,7 @@ public class AccountService {
                 .build();
         account = accountRepository.save(account);
         log.info("创建账户: {} [{} / {}] userId={}", name, purpose, currency, userId);
-        return toDTO(account, List.of());
+        return toDTO(account, List.of(), List.of());
     }
 
     @Transactional
@@ -182,7 +194,10 @@ public class AccountService {
         List<ManualAsset> assets = manualAssetRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .filter(a -> id.equals(a.getAccountId()))
                 .toList();
-        return toDTO(account, assets);
+        List<Holding> holdings = holdingRepository.findByUserIdAndDeletedFalse(userId).stream()
+                .filter(h -> id.equals(h.getAccountId()))
+                .toList();
+        return toDTO(account, assets, holdings);
     }
 
     @Transactional
@@ -238,9 +253,12 @@ public class AccountService {
         return c;
     }
 
-    private AccountDTO toDTO(Account a, List<ManualAsset> assets) {
+    private AccountDTO toDTO(Account a, List<ManualAsset> assets, List<Holding> holdings) {
         BigDecimal total = assets.stream()
                 .map(x -> x.getAmount() != null ? x.getAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal holdingsValue = holdings.stream()
+                .map(h -> h.getMarketValue() != null ? h.getMarketValue() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return AccountDTO.builder()
@@ -250,8 +268,8 @@ public class AccountService {
                 .baseCurrency(a.getBaseCurrency())
                 .isDefault(a.isDefault())
                 .sortOrder(a.getSortOrder())
-                .totalValueCny(total)
-                .assetCount(assets.size())
+                .totalValueCny(total.add(holdingsValue))
+                .assetCount(assets.size() + holdings.size())
                 .assets(assets.stream().map(this::toAssetDTO).collect(Collectors.toList()))
                 .build();
     }
