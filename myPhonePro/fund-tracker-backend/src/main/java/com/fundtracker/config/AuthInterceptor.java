@@ -36,8 +36,9 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         String path = request.getRequestURI();
 
-        // /api/auth/* 无需认证（登录、注册、发验证码等）
-        if (path.startsWith("/api/auth/")) {
+        // /api/auth/* 无需认证（登录、注册、发验证码等）；但改密必须登录态
+        // 2026-10-29 修账号接管洞：此前整段放行，任何人知道邮箱即可改密码
+        if (path.startsWith("/api/auth/") && !path.startsWith("/api/auth/set-password")) {
             return true;
         }
 

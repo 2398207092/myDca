@@ -360,7 +360,8 @@ public class HoldingService {
 
         // 如果份额或每份成本被手动改了，跳过交易记录推算的成本，直接用用户输入值
         // 只重算衍生指标（息率、回本年限等）
-        recalculateHoldingMetrics(holding, sharesOrCostChanged);
+        // 迁入持仓必须跳过成本重算（否则只改名/费率就抹掉手工成本）
+        recalculateHoldingMetrics(holding, sharesOrCostChanged || holding.isCostEstimated());
 
         holding = holdingRepository.save(holding);
         return toDTO(holding);
@@ -447,12 +448,15 @@ public class HoldingService {
                     holding.getCostPerShare() : BigDecimal.ZERO;
             totalCost = holding.getCost() != null ?
                     holding.getCost() : BigDecimal.ZERO;
-            // 净投入也从交易记录计算（不受编辑持仓影响）
-            netInvestment = costCalculator.calculateNetInvestment(
-                    holding.getCostAlgorithm(),
-                    totalBuy, totalSell, totalDividend
-            );
-            if (netInvestment.compareTo(BigDecimal.ZERO) == 0 && totalBuy.compareTo(BigDecimal.ZERO) == 0) {
+            // 净投入：迁入持仓（costEstimated=1）必须跟随成本——迁入成本就是用户真实投入的钱。
+            // 否则会被交易汇总覆盖：BTC 6,186.81 在首笔定投后变成 46.84，收益率虚高 +13,102%（2026-10-29 事故）
+            netInvestment = holding.isCostEstimated()
+                    ? totalCost
+                    : costCalculator.calculateNetInvestment(
+                            holding.getCostAlgorithm(),
+                            totalBuy, totalSell, totalDividend);
+            if (!holding.isCostEstimated()
+                    && netInvestment.compareTo(BigDecimal.ZERO) == 0 && totalBuy.compareTo(BigDecimal.ZERO) == 0) {
                 netInvestment = holding.getCost();
             }
             // 同步写入 netInvestment，避免后续查询时被覆盖

@@ -27,11 +27,7 @@ public class AuthController {
         return ApiResponse.success(authService.quickLogin());
     }
 
-    /** 获取应用级 Token（兼容旧版，登录后不再需要） */
-    @GetMapping("/token")
-    public ApiResponse<TokenResp> getToken() {
-        return ApiResponse.success(authService.getToken());
-    }
+    // 2026-10-29 移除 GET /api/auth/token：匿名可领 365 天应用级 Token（userId=null），且前端已无调用
 
     /** 发送验证码 */
     @PostMapping("/send-code")
@@ -67,8 +63,10 @@ public class AuthController {
 
     /** 设置密码（已登录用户） */
     @PostMapping("/set-password")
-    public ApiResponse<Void> setPassword(@RequestBody SetPasswordReq req) {
-        authService.setPassword(req);
+    public ApiResponse<Void> setPassword(@RequestBody SetPasswordReq req, HttpServletRequest request) {
+        // 必须登录态，且只能改自己（AuthInterceptor 已把本路径移出白名单）
+        String userId = (String) request.getAttribute("userId");
+        authService.setPassword(req, userId);
         return ApiResponse.success(null);
     }
 

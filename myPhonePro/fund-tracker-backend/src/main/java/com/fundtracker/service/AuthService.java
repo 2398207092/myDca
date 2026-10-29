@@ -300,12 +300,16 @@ public class AuthService {
     // ======================================================================
 
     @Transactional
-    public void setPassword(SetPasswordReq req) {
+    public void setPassword(SetPasswordReq req, String userId) {
         String email = req.getEmail();
         String password = req.getPassword();
 
         if (email == null || password == null) {
             throw BusinessException.invalidParam("邮箱和密码不能为空");
+        }
+        // 2026-10-29 账号接管修复：必须登录态，且只能改自己的密码
+        if (userId == null || userId.isBlank()) {
+            throw BusinessException.bizError("请先登录后再修改密码");
         }
 
         if (password.length() < 6 || password.length() > 20) {
@@ -314,6 +318,9 @@ public class AuthService {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> BusinessException.bizError("用户不存在"));
+        if (!userId.equals(user.getId())) {
+            throw BusinessException.invalidParam("只能修改当前登录账号的密码");
+        }
 
         user.setPasswordHash(passwordEncoder.encode(password));
         user.setHasPassword(true);

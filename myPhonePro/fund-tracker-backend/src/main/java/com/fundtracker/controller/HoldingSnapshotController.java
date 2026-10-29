@@ -77,11 +77,5 @@ public class HoldingSnapshotController {
         return ApiResponse.success("快照生成完成", null);
     }
 
-    /** 快照记录列表（分页） */
-    @GetMapping("/snapshots")
-    public ApiResponse<Map<String, Object>> listSnapshots(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(snapshotListService.listSnapshots(page, size));
-    }
+    // 2026-10-29 下线 /snapshots：无 userId 过滤返回全库快照（越权读），且前端无调用
 }

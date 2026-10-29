@@ -57,6 +57,10 @@ public class CoverageCategoryService {
     public CoverageCategoryDTO update(String id, UpdateCoverageCategoryReq req, String userId) {
         CoverageCategory cat = repository.findById(id)
                 .orElseThrow(() -> BusinessException.bizError("类目不存在"));
+        // 2026-10-29 越权修复：不校验归属时可改他人分类（IDOR）
+        if (userId == null || !userId.equals(cat.getUserId())) {
+            throw BusinessException.bizError("类目不存在");
+        }
         if (req.getName() != null) cat.setName(req.getName());
         if (req.getIcon() != null) cat.setIcon(req.getIcon());
         if (req.getPercentage() != null) cat.setPercentage(req.getPercentage());

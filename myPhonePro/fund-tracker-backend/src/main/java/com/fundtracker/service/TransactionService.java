@@ -188,6 +188,8 @@ public class TransactionService {
         BigDecimal oldPrice = tx.getPrice();
         BigDecimal oldFee = tx.getFee();
         TransactionType oldType = tx.getType();
+        // 迁入持仓需要按「旧影响 → 新影响」的差额增量调整，这里先固定旧 total
+        BigDecimal oldTotal = oldQuantity.multiply(oldPrice).add(oldFee).setScale(2, RoundingMode.HALF_UP);
 
         // 更新字段（仅非 null 字段）
         if (req.getType() != null) {
@@ -224,11 +226,20 @@ public class TransactionService {
             }
         }
 
-        // 从所有交易重新计算份额
-        recalculateSharesFromScratch(holding);
-        // 重新计算预测分红和指标
-        holdingService.calculatePredictedDividend(holding);
-        holdingService.recalculateHoldingMetrics(holding);
+        // 份额与成本重算
+        if (holding.isCostEstimated()) {
+            // 迁入持仓（手工录入份额/成本，无对应历史交易）：全量重算会把迁入份额和成本清零
+            // （2026-10-29 事故：编辑一笔定投 → shares 归零、cost 6,186.81→46.84、总资产蒸发 6,047）
+            // 正确做法：回退旧交易影响，再应用新交易影响
+            applyDeltaToMigratedHolding(holding, oldType, oldQuantity, oldTotal, -1);
+            applyDeltaToMigratedHolding(holding, tx.getType(), tx.getQuantity(), total, 1);
+            holdingService.calculatePredictedDividend(holding);
+            holdingService.recalculateHoldingMetrics(holding, true);
+        } else {
+            recalculateSharesFromScratch(holding);
+            holdingService.calculatePredictedDividend(holding);
+            holdingService.recalculateHoldingMetrics(holding);
+        }
         // 用已有最新价更新市值
         if (holding.getLatestPrice() != null && holding.getLatestPrice().compareTo(BigDecimal.ZERO) > 0) {
             holding.setMarketValue(holding.getShares()
@@ -254,6 +265,36 @@ public class TransactionService {
             return gross.subtract(f);
         }
         return BigDecimal.ZERO;
+    }
+
+    /**
+     * 迁入持仓（costEstimated=1）的份额/成本按单笔交易增量调整。
+     * @param sign +1 应用该笔交易，-1 回退该笔交易
+     */
+    private void applyDeltaToMigratedHolding(Holding holding, TransactionType type,
+                                             BigDecimal quantity, BigDecimal total, int sign) {
+        BigDecimal dq = quantity.multiply(BigDecimal.valueOf(sign));
+        BigDecimal dt = total.multiply(BigDecimal.valueOf(sign));
+        switch (type) {
+            case buy:
+                holding.setShares(holding.getShares().add(dq));
+                holding.setCost(holding.getCost().add(dt));
+                break;
+            case sell:
+                holding.setShares(holding.getShares().subtract(dq));
+                holding.setCost(holding.getCost().subtract(dt));
+                break;
+            case reinvest:
+            case bonus_share:
+                holding.setShares(holding.getShares().add(dq));
+                break;
+        }
+        if (holding.getShares().signum() > 0 && holding.getCost().signum() > 0) {
+            holding.setCostPerShare(holding.getCost()
+                    .divide(holding.getShares(), 4, RoundingMode.HALF_UP));
+        }
+        // 迁入持仓的净投入始终等于成本（与 HoldingService 的 skip 分支一致）
+        holding.setNetInvestment(holding.getCost());
     }
 
     private void recalculateSharesFromScratch(Holding holding) {

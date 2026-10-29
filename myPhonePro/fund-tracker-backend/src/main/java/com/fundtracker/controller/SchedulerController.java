@@ -57,7 +57,7 @@ public class SchedulerController {
             new TaskMeta("audit", "数据对账审计", "0 0 3 * * ?", "每日一致性检查：市值、现金流水、份额、成本"),
             new TaskMeta("dividend_refresh", "分红数据刷新", "0 0 6 * * ?", "抓取分红数据并同步分红事件到日历"),
             new TaskMeta("dividend_distribute", "分红自动分发", "0 30 9 * * ?", "到期分红自动到账，开启复投则自动买入"),
-            new TaskMeta("dca", "定投执行", "0 0 20 * * ?", "到期定投自动买入，并联动刷新持仓指标"),
+            new TaskMeta("dca", "定投执行", "0 0 10 * * ?", "到期定投自动买入，并联动刷新持仓指标"),
             new TaskMeta("nav", "净值数据刷新", "0 0 22 * * ?", "抓取基金净值并刷新市值、成本、分红预测"),
             new TaskMeta("snapshot", "持仓快照", "0 30 23 1/5 * ?", "每 5 天生成持仓快照（1/6/11/16/21/26 日）")
     );

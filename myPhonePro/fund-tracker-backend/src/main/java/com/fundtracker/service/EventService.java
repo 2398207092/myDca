@@ -104,6 +104,18 @@ public class EventService {
         DividendEvent event = eventRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(BusinessException::eventNotFound);
 
+        // 2026-10-29 幂等修复：重复点击/重试会重复加现金、复投模式还会重复买入份额
+        if (event.getStatus() == EventStatus.distributed) {
+            throw BusinessException.invalidParam("该分红已入账，请勿重复操作");
+        }
+        if (event.getStatus() == EventStatus.cancelled) {
+            throw BusinessException.invalidParam("该分红已取消，不能入账");
+        }
+        // 一次分红会生成 registration / ex_dividend / payout 三条等额事件，只有 payout 才代表真到账
+        if (event.getType() != EventType.payout) {
+            throw BusinessException.invalidParam("只有「派息日」事件可以标记为已到账");
+        }
+
         event.setStatus(EventStatus.distributed);
         DividendEvent savedEvent = eventRepository.save(event);
 
