@@ -55,13 +55,9 @@ public class DividendEventSyncService {
         }
         List<FundDividendRecord> records = fundDividendRecordRepository.findByFundCodeOrderByExDateDesc(fundCode);
         if (records.isEmpty()) {
-            log.info("基金 {} 无分红记录，清理旧事件", fundCode);
-            for (Holding holding : holdings) {
-                int deleted = dividendEventRepository.deleteByHoldingId(holding.getId());
-                if (deleted > 0) {
-                    log.info("清理持仓 {} 的 {} 条旧分红事件", holding.getName(), deleted);
-                }
-            }
+            // P0-6 修复：源记录为空（可能是接口异常/被风控）时不再全删用户事件——
+            // 全删会让 distributed/cancelled 全部丢失，源数据恢复后重建 pending 造成分红复活
+            log.warn("基金 {} 无分红记录，跳过同步（不清理旧事件，防止源数据异常导致分红复活）", fundCode);
             return 0;
         }
 
@@ -85,10 +81,11 @@ public class DividendEventSyncService {
             }
 
             for (FundDividendRecord record : records) {
-                // 检查 payout 事件是否已被处理（已到账 or 已复投），同步重建时保留其状态，
-                // 避免全量刷新把 distributed 重置回 pending → 首页庆祝丢失、自动分发重复复投
+                // 状态保留检测（payout）：distributed / cancelled / converted 都保留，
+                // P0-6 修复的核心 = cancelled 也保留（此前用户取消的分红被删后重建 pending → 次日复活）
                 boolean payoutConverted = false;
                 boolean payoutDistributed = false;
+                boolean payoutCancelled = false;
                 BigDecimal payoutOriginalAmount = null;
                 if (record.getPayDate() != null) {
                     List<DividendEvent> existing = existingByKey.getOrDefault(
@@ -103,14 +100,13 @@ public class DividendEventSyncService {
                             payoutOriginalAmount = e.getAmount();
                             log.debug("保留到账状态: holding={}, payDate={}", holding.getName(), record.getPayDate());
                         }
-                        if (payoutConverted && payoutDistributed) break;
+                        if (e.getStatus() == EventStatus.cancelled && payoutOriginalAmount == null) {
+                            payoutCancelled = true;
+                            payoutOriginalAmount = e.getAmount();
+                            log.debug("保留取消状态: holding={}, payDate={}", holding.getName(), record.getPayDate());
+                        }
                     }
                 }
-
-                // 先删除旧的错误事件，再重新创建
-                deleteIfExists(holding.getId(), EventType.registration, record.getRegDate());
-                deleteIfExists(holding.getId(), EventType.ex_dividend, record.getExDate());
-                deleteIfExists(holding.getId(), EventType.payout, record.getPayDate());
 
                 // 判断是否参与本次分红
                 boolean participated = false;
@@ -122,10 +118,38 @@ public class DividendEventSyncService {
                     participated = sharesAtDate.compareTo(BigDecimal.ZERO) > 0;
                 }
 
-                created += createEvent(holding, record, EventType.registration, record.getRegDate(), sharesAtDate, participated, effectiveUserId, false, EventStatus.pending, null);
-                created += createEvent(holding, record, EventType.ex_dividend, record.getExDate(), sharesAtDate, participated, effectiveUserId, false, EventStatus.pending, null);
-                created += createEvent(holding, record, EventType.payout, record.getPayDate(), sharesAtDate, participated, effectiveUserId, payoutConverted,
-                        payoutDistributed ? EventStatus.distributed : EventStatus.pending, payoutOriginalAmount);
+                // P0-6 修复：delete+recreate 改为 upsert——同键事件存在则保留终态（distributed/cancelled）
+                // 并更新元数据，不存在才新建；配合 uk_holding_type_date 唯一约束消除「删除失败→双事件」路径
+                EventStatus payoutStatus = payoutDistributed ? EventStatus.distributed
+                        : payoutCancelled ? EventStatus.cancelled
+                        : EventStatus.pending;
+                BigDecimal payoutAmountOverride = (payoutDistributed || payoutCancelled) ? payoutOriginalAmount : null;
+
+                created += upsertEvent(holding, record, EventType.registration, record.getRegDate(),
+                        sharesAtDate, participated, effectiveUserId, false, EventStatus.pending, null,
+                        existingByKey.getOrDefault(EventType.registration + "|" + record.getRegDate(), List.of()));
+                created += upsertEvent(holding, record, EventType.ex_dividend, record.getExDate(),
+                        sharesAtDate, participated, effectiveUserId, false, EventStatus.pending, null,
+                        existingByKey.getOrDefault(EventType.ex_dividend + "|" + record.getExDate(), List.of()));
+                created += upsertEvent(holding, record, EventType.payout, record.getPayDate(),
+                        sharesAtDate, participated, effectiveUserId, payoutConverted, payoutStatus, payoutAmountOverride,
+                        existingByKey.getOrDefault(EventType.payout + "|" + record.getPayDate(), List.of()));
+            }
+
+            // 孤儿清理：数据源可能改了分红日期，旧日期的 pending 事件残留会污染日历；
+            // 终态事件（distributed/cancelled）与 converted 一律保留
+            java.util.Set<String> validKeys = new java.util.HashSet<>();
+            for (FundDividendRecord r : records) {
+                validKeys.add(EventType.registration + "|" + r.getRegDate());
+                validKeys.add(EventType.ex_dividend + "|" + r.getExDate());
+                validKeys.add(EventType.payout + "|" + r.getPayDate());
+            }
+            for (DividendEvent e : dividendEventRepository.findByHoldingIdOrderByDateDesc(holding.getId())) {
+                String key = e.getType() + "|" + (e.getDate() != null ? e.getDate() : "");
+                if (!validKeys.contains(key) && e.getStatus() == EventStatus.pending) {
+                    dividendEventRepository.delete(e);
+                    log.info("清理孤儿 pending 事件: holding={}, type={}, date={}", holding.getName(), e.getType(), e.getDate());
+                }
             }
         }
 
@@ -162,38 +186,25 @@ public class DividendEventSyncService {
     }
 
     /**
-     * 删除指定持仓+类型+日期的分红事件（如果存在）
-     */
-    private void deleteIfExists(String holdingId, EventType type, LocalDate date) {
-        if (date == null) return;
-        try {
-            dividendEventRepository.deleteByHoldingIdAndTypeAndDate(holdingId, type, date);
-        } catch (Exception e) {
-            log.warn("删除分红事件失败: holdingId={}, type={}, date={}, error={}",
-                    holdingId, type, date, e.getMessage());
-        }
-    }
-
-    /**
-     * 创建分红事件
+     * upsert 分红事件（P0-6 修复：替代原「deleteIfExists + createEvent」的先删后建）
      * <p>
-     * participated=true → 按当时的实时份额计算金额
-     * participated=false → 金额为 0（未参与该次分红，但保留记录）
+     * 同键（holdingId + type + date）事件存在 → **保留终态**（distributed / cancelled 不被重置，
+     * converted 不被冲掉），仅更新元数据（名称/参与标记/描述/金额）；不存在 → 新建。
+     * 配合 dividend_events 的 uk_holding_type_date 唯一约束，消除「删除失败 → 同键双事件」路径。
      *
-     * @param status        事件初始状态（已到账的 payout 事件同步重建时保留 distributed，避免状态丢失）
-     * @param amountOverride 非空时沿用原金额（已到账事件禁止重算，防止份额变化导致金额漂移）
+     * @param status        新建时的初始状态；已存在且非终态时作为更新后的状态
+     * @param amountOverride 非空时沿用原金额（已到账/已取消事件禁止重算，防止份额变化导致金额漂移）
+     * @param existingSameKey 同键的已有事件（由调用方从预取 Map 中取，避免 N+1）
      */
-    private int createEvent(Holding holding, FundDividendRecord record, EventType type, LocalDate date, BigDecimal sharesAtDate, boolean participated, String userId, boolean converted, EventStatus status, BigDecimal amountOverride) {
+    private int upsertEvent(Holding holding, FundDividendRecord record, EventType type, LocalDate date,
+                            BigDecimal sharesAtDate, boolean participated, String userId, boolean converted,
+                            EventStatus status, BigDecimal amountOverride, List<DividendEvent> existingSameKey) {
         if (date == null) return 0;
 
-        BigDecimal amount;
-        if (amountOverride != null) {
-            amount = amountOverride;
-        } else {
-            amount = participated && record.getDividendPerShare() != null
-                    ? sharesAtDate.multiply(record.getDividendPerShare()).setScale(2, RoundingMode.HALF_UP)
-                    : BigDecimal.ZERO;
-        }
+        BigDecimal amount = amountOverride != null ? amountOverride
+                : participated && record.getDividendPerShare() != null
+                ? sharesAtDate.multiply(record.getDividendPerShare()).setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
 
         String description = switch (type) {
             case registration -> "权益登记日 · 每份 " + record.getDividendPerShare() + " 元";
@@ -201,6 +212,25 @@ public class DividendEventSyncService {
             case payout -> "分红发放 · 每份 " + record.getDividendPerShare() + " 元";
             default -> "";
         };
+
+        DividendEvent existing = existingSameKey.isEmpty() ? null : existingSameKey.get(0);
+        if (existing != null) {
+            boolean terminal = existing.getStatus() == EventStatus.distributed
+                    || existing.getStatus() == EventStatus.cancelled;
+            existing.setHoldingName(holding.getName());
+            existing.setParticipated(participated);
+            existing.setDescription(description);
+            existing.setAmount(amountOverride != null ? amountOverride
+                    : (terminal ? existing.getAmount() : amount));
+            if (!terminal) {
+                existing.setStatus(status);
+                existing.setConverted(converted);
+            }
+            dividendEventRepository.save(existing);
+            log.debug("更新分红事件: holding={}, type={}, date={}, status={}, amount={}",
+                    holding.getName(), type, date, existing.getStatus(), existing.getAmount());
+            return 0;
+        }
 
         DividendEvent event = DividendEvent.builder()
                 .id(UUID.randomUUID().toString())

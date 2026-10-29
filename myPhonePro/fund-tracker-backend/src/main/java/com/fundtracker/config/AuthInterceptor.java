@@ -71,10 +71,15 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        // 如果是用户 Token，将 userId 设置到请求属性中供 Controller 使用
-        if (validToken.getUserId() != null) {
-            request.setAttribute("userId", validToken.getUserId());
+        // P0-7 修复：拒绝 userId 为 null 的「应用级匿名 Token」——它们不对应任何登录用户，
+        // 历史上等价于公开口令；现在 Token 必须由登录产生
+        if (validToken.getUserId() == null) {
+            sendUnauthorized(response, "无效 Token：请使用登录获取的 Token 重新认证");
+            return false;
         }
+
+        // 将 userId 设置到请求属性中供 Controller 使用
+        request.setAttribute("userId", validToken.getUserId());
 
         return true;
     }

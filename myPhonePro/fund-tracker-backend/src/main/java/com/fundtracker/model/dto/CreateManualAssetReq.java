@@ -14,7 +14,9 @@ public class CreateManualAssetReq {
     @NotBlank(message = "类型不能为空")
     private String type; // crypto / cash
 
-    // 加密资产传数量（quantity）时金额由后端折算，因此不做注解校验，规则见 ManualAssetService
+    // 加密资产传数量（quantity）时金额由后端折算，因此不做必填校验，规则见 ManualAssetService；
+    // P1-18 修复：拦负数（此前可写入负现金资产），0 与 null 合法
+    @jakarta.validation.constraints.PositiveOrZero(message = "金额不能为负")
     private BigDecimal amount;
 
     private String currency; // CNY / 默认 CNY

@@ -64,7 +64,7 @@ public class HoldingController {
     public ApiResponse<HoldingDTO> updateHolding(
             HttpServletRequest request,
             @PathVariable String id,
-            @RequestBody UpdateHoldingReq req) {
+            @Valid @RequestBody UpdateHoldingReq req) {
         String userId = (String) request.getAttribute("userId");
         return ApiResponse.success("更新成功", holdingService.updateHolding(id, req, userId));
     }
