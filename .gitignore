@@ -74,4 +74,4 @@ docs/截图资源/
 .trae/
 
 # 挖漏洞临时工作文档（不进仓库）
-VULN-HUNT*.md
+VULN-*.md
