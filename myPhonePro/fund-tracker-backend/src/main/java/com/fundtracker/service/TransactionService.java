@@ -115,6 +115,12 @@ public class TransactionService {
                 BigDecimal costReduce = holding.getCostPerShare().multiply(req.getQuantity()).setScale(2, RoundingMode.HALF_UP);
                 holding.setCost(holding.getCost().subtract(costReduce).max(BigDecimal.ZERO));
                 holding.setNetInvestment(holding.getNetInvestment().subtract(costReduce).max(BigDecimal.ZERO));
+                // 全额卖出：剩余成本/每份成本一并清零，否则留下「0 份还有成本」的僵尸持仓
+                if (holding.getShares().signum() <= 0) {
+                    holding.setCost(BigDecimal.ZERO);
+                    // 保留 costPerShare（最后已知每份成本），供后续删除/编辑卖单时回退使用
+                    holding.setNetInvestment(BigDecimal.ZERO);
+                }
             }
             holdingService.recalculateHoldingMetrics(holding, true);
         } else {
@@ -231,8 +237,16 @@ public class TransactionService {
             // 迁入持仓（手工录入份额/成本，无对应历史交易）：全量重算会把迁入份额和成本清零
             // （2026-10-29 事故：编辑一笔定投 → shares 归零、cost 6,186.81→46.84、总资产蒸发 6,047）
             // 正确做法：回退旧交易影响，再应用新交易影响
-            applyDeltaToMigratedHolding(holding, oldType, oldQuantity, oldTotal, -1);
-            applyDeltaToMigratedHolding(holding, tx.getType(), tx.getQuantity(), total, 1);
+            BigDecimal cpsAtEdit = holding.getCostPerShare() != null
+                    ? holding.getCostPerShare() : BigDecimal.ZERO;
+            applyDeltaToMigratedHolding(holding, oldType, oldQuantity, oldTotal, cpsAtEdit, -1);
+            // 超卖校验：回退旧影响后 holding.shares 就是「该笔未发生」的可用份额，
+            // 与 createTransaction 的 qty > shares 语义完全对齐（否则会被清仓分支静默钳成 0）
+            if (tx.getType() == TransactionType.sell
+                    && tx.getQuantity().compareTo(holding.getShares()) > 0) {
+                throw BusinessException.invalidParam("卖出数量超过可卖份额（可卖 " + holding.getShares() + "）");
+            }
+            applyDeltaToMigratedHolding(holding, tx.getType(), tx.getQuantity(), total, cpsAtEdit, 1);
             holdingService.calculatePredictedDividend(holding);
             holdingService.recalculateHoldingMetrics(holding, true);
         } else {
@@ -269,10 +283,14 @@ public class TransactionService {
 
     /**
      * 迁入持仓（costEstimated=1）的份额/成本按单笔交易增量调整。
+     * <p>注意：costPerShareAtEdit 取的是「编辑时刻」的每份成本，多次卖出/编辑叠加后
+     * 回退量存在 ≤0.00005×份额 量级的近似误差（BTC 上 &lt;0.001 元），不可用于严格对账。
+     *
      * @param sign +1 应用该笔交易，-1 回退该笔交易
      */
     private void applyDeltaToMigratedHolding(Holding holding, TransactionType type,
-                                             BigDecimal quantity, BigDecimal total, int sign) {
+                                             BigDecimal quantity, BigDecimal total,
+                                             BigDecimal costPerShareAtEdit, int sign) {
         BigDecimal dq = quantity.multiply(BigDecimal.valueOf(sign));
         BigDecimal dt = total.multiply(BigDecimal.valueOf(sign));
         switch (type) {
@@ -281,15 +299,29 @@ public class TransactionService {
                 holding.setCost(holding.getCost().add(dt));
                 break;
             case sell:
+                // 卖出按「每份成本 × 数量」减成本（与 createTransaction 同口径）。
+                // 不能用 total（卖出所得）——那会让成本随卖价浮动，且可扣成负数
+                BigDecimal costDelta = costPerShareAtEdit.multiply(quantity)
+                        .multiply(BigDecimal.valueOf(sign));
                 holding.setShares(holding.getShares().subtract(dq));
-                holding.setCost(holding.getCost().subtract(dt));
+                holding.setCost(holding.getCost().subtract(costDelta).max(BigDecimal.ZERO));
                 break;
             case reinvest:
             case bonus_share:
                 holding.setShares(holding.getShares().add(dq));
                 break;
         }
-        if (holding.getShares().signum() > 0 && holding.getCost().signum() > 0) {
+        if (holding.getShares().signum() <= 0) {
+            // 全额卖出：份额、成本、净投入一并清零（与 CostCalculator 对 shares==0 的行为一致），
+            // 否则会留下「0 份但还有成本」的僵尸持仓
+            holding.setShares(BigDecimal.ZERO);
+            holding.setCost(BigDecimal.ZERO);
+            // 保留 costPerShare 作为「最后已知每份成本」：清仓后若删除/修改该笔卖单，
+            // 回退公式 costDelta = cps × qty 需要它；清零会导致成本永久丢失（2026-10-29 复核拦截）
+            holding.setNetInvestment(BigDecimal.ZERO);
+            return;
+        }
+        if (holding.getCost().signum() > 0) {
             holding.setCostPerShare(holding.getCost()
                     .divide(holding.getShares(), 4, RoundingMode.HALF_UP));
         }
@@ -350,7 +382,15 @@ public class TransactionService {
                 holding.setCost(holding.getCost().subtract(txTotal).max(BigDecimal.ZERO));
                 holding.setNetInvestment(holding.getNetInvestment().subtract(txTotal).max(BigDecimal.ZERO));
             } else if (txType == TransactionType.sell) {
+                // 删除卖出交易要同时恢复份额与被扣掉的成本（口径同 create：每份成本 × 数量）
                 holding.setShares(holding.getShares().add(transaction.getQuantity()));
+                BigDecimal cps = holding.getCostPerShare() != null
+                        ? holding.getCostPerShare() : BigDecimal.ZERO;
+                holding.setCost(holding.getCost()
+                        .add(cps.multiply(transaction.getQuantity()))
+                        .setScale(2, RoundingMode.HALF_UP));
+                // 净投入必须与成本保持相等（V-05 不变量）；否则快照任务会拍到 net≠cost 的错值
+                holding.setNetInvestment(holding.getCost());
             }
             if (holding.getShares().signum() > 0 && holding.getCost().signum() > 0) {
                 holding.setCostPerShare(holding.getCost().divide(holding.getShares(), 4, RoundingMode.HALF_UP));

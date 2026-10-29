@@ -98,6 +98,39 @@ class HoldingServiceTest {
     }
 
     @Test
+    @DisplayName("recalculateHoldingMetrics: 迁入持仓净投入必须等于成本（2026-10-29 V-05）")
+    void recalculateHoldingMetrics_migratedNetEqualsCost() {
+        // 迁入持仓：成本手工录入 6,186.81，已有一笔定投 46.84
+        Holding holding = Holding.builder()
+                .id("h-btc").type(HoldingType.crypto).code("BTC")
+                .costAlgorithm(CostAlgorithm.diluted)
+                .shares(new BigDecimal("0.01139738"))
+                .cost(new BigDecimal("6186.81"))
+                .costPerShare(new BigDecimal("542827.3239"))
+                .netInvestment(new BigDecimal("6186.81"))
+                .costEstimated(true)
+                .marketValue(new BigDecimal("6093.87"))
+                .predictedDividend(BigDecimal.ZERO)
+                .totalDividendReceived(BigDecimal.ZERO)
+                .build();
+        Transaction buy = Transaction.builder()
+                .type(TransactionType.buy)
+                .quantity(new BigDecimal("0.00008648"))
+                .price(new BigDecimal("541671.9582"))
+                .total(new BigDecimal("46.84"))
+                .build();
+        when(transactionRepository.findByHoldingId("h-btc")).thenReturn(List.of(buy));
+
+        // skipCostRecalc=true（迁入持仓的唯一正确调用方式）
+        holdingService.recalculateHoldingMetrics(holding, true);
+
+        assertEquals(0, new BigDecimal("6186.81").compareTo(holding.getCost()),
+                "迁入持仓成本不应被交易汇总覆盖");
+        assertEquals(0, new BigDecimal("6186.81").compareTo(holding.getNetInvestment()),
+                "迁入持仓净投入必须等于成本，不能变成只有交易部分的 46.84");
+    }
+
+    @Test
     @DisplayName("recalculateHoldingMetrics: 买入+卖出混合，验证净投入")
     void recalculateHoldingMetrics_buyAndSell() {
         Holding holding = Holding.builder()

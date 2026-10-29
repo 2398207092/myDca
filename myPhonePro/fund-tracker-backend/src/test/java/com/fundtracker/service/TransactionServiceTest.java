@@ -2,6 +2,7 @@ package com.fundtracker.service;
 
 import com.fundtracker.exception.BusinessException;
 import com.fundtracker.model.dto.CreateTransactionReq;
+import com.fundtracker.model.dto.UpdateTransactionReq;
 import com.fundtracker.model.entity.Holding;
 import com.fundtracker.model.entity.Transaction;
 import com.fundtracker.model.enums.HoldingType;
@@ -12,6 +13,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+
+import java.time.LocalDate;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -194,4 +197,137 @@ class TransactionServiceTest {
         // 反向扣减现金 1500
         verify(manualAssetService).adjustCash("h-1", null, new BigDecimal("-1500.00"), "user-1");
     }
+    @Test
+    @DisplayName("updateTransaction: 迁入持仓只改日期 → 份额/成本/净投入都不变（V-06）")
+    void updateTransaction_migratedDateOnlyKeepsNumbers() {
+        Holding holding = Holding.builder()
+                .id("h-btc").type(HoldingType.crypto).code("BTC")
+                .shares(new java.math.BigDecimal("0.01139738"))
+                .cost(new java.math.BigDecimal("6186.81"))
+                .costPerShare(new java.math.BigDecimal("542827.3239"))
+                .netInvestment(new java.math.BigDecimal("6186.81"))
+                .costEstimated(true)
+                .build();
+        Transaction tx = Transaction.builder()
+                .id("tx-1").holdingId("h-btc").userId("u1")
+                .type(TransactionType.buy)
+                .date(LocalDate.of(2026, 10, 29))
+                .quantity(new java.math.BigDecimal("0.00008648"))
+                .price(new java.math.BigDecimal("541671.9582"))
+                .fee(java.math.BigDecimal.ZERO)
+                .total(new java.math.BigDecimal("46.84"))
+                .build();
+        UpdateTransactionReq req = new UpdateTransactionReq();
+        req.setDate("2026-10-28");
+
+        org.mockito.Mockito.when(transactionRepository.findByIdAndUserId("tx-1", "u1"))
+                .thenReturn(java.util.Optional.of(tx));
+        org.mockito.Mockito.when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-btc", "u1"))
+                .thenReturn(java.util.Optional.of(holding));
+        org.mockito.Mockito.when(transactionRepository.save(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(i -> i.getArgument(0));
+        org.mockito.Mockito.when(holdingRepository.save(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(i -> i.getArgument(0));
+
+        transactionService.updateTransaction("tx-1", req, "u1");
+
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                new java.math.BigDecimal("0.01139738").compareTo(holding.getShares()),
+                "改动日期不应影响迁入份额");
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                new java.math.BigDecimal("6186.81").compareTo(holding.getCost()),
+                "改动日期不应影响迁入成本");
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                new java.math.BigDecimal("6186.81").compareTo(holding.getNetInvestment()),
+                "改动日期不应影响迁入净投入");
+    }
+
+    @Test
+    @DisplayName("迁入持仓卖出后编辑卖价 → 份额与成本都不变（E2-23）")
+    void migratedPartialSell_editPrice_keepsCost() {
+        Holding holding = Holding.builder()
+                .id("h-btc").type(HoldingType.crypto).code("BTC")
+                .shares(new java.math.BigDecimal("0.005"))
+                .cost(new java.math.BigDecimal("2714.14"))
+                .costPerShare(new java.math.BigDecimal("542827.00"))
+                .netInvestment(new java.math.BigDecimal("2714.14"))
+                .costEstimated(true)
+                .build();
+        Transaction tx = Transaction.builder()
+                .id("tx-s").holdingId("h-btc").userId("u1")
+                .type(TransactionType.sell)
+                .date(LocalDate.of(2026, 10, 29))
+                .quantity(new java.math.BigDecimal("0.005"))
+                .price(new java.math.BigDecimal("600000"))
+                .fee(java.math.BigDecimal.ZERO)
+                .total(new java.math.BigDecimal("6000"))
+                .build();
+        UpdateTransactionReq req = new UpdateTransactionReq();
+        req.setPrice(new java.math.BigDecimal("610000"));
+
+        org.mockito.Mockito.when(transactionRepository.findByIdAndUserId("tx-s", "u1"))
+                .thenReturn(java.util.Optional.of(tx));
+        org.mockito.Mockito.when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-btc", "u1"))
+                .thenReturn(java.util.Optional.of(holding));
+        org.mockito.Mockito.when(transactionRepository.save(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(i -> i.getArgument(0));
+        org.mockito.Mockito.when(holdingRepository.save(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(i -> i.getArgument(0));
+
+        transactionService.updateTransaction("tx-s", req, "u1");
+
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                new java.math.BigDecimal("0.005").compareTo(holding.getShares()),
+                "编辑卖价不应改变剩余份额");
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                new java.math.BigDecimal("2714.14").compareTo(holding.getCost()),
+                "编辑卖价不应改变剩余成本（成本按每份成本扣减，与卖价无关）");
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                holding.getCost().compareTo(holding.getNetInvestment()),
+                "净投入必须始终等于成本");
+    }
+
+    @Test
+    @DisplayName("迁入持仓清仓后删除卖单 → 份额与成本应完整恢复（E2-24 守门）")
+    void migratedClearThenDeleteSell_restoresCost() {
+        // 清仓后的持仓状态：shares/cost/net 均为 0，但保留最后已知的每份成本
+        Holding holding = Holding.builder()
+                .id("h-btc").type(HoldingType.crypto).code("BTC")
+                .shares(java.math.BigDecimal.ZERO)
+                .cost(java.math.BigDecimal.ZERO)
+                .costPerShare(new java.math.BigDecimal("542827.3239"))
+                .netInvestment(java.math.BigDecimal.ZERO)
+                .costEstimated(true)
+                .build();
+        Transaction sell = Transaction.builder()
+                .id("tx-s").holdingId("h-btc").userId("u1")
+                .type(TransactionType.sell)
+                .date(LocalDate.of(2026, 10, 29))
+                .quantity(new java.math.BigDecimal("0.01139738"))
+                .price(new java.math.BigDecimal("534672.69"))
+                .fee(java.math.BigDecimal.ZERO)
+                .total(new java.math.BigDecimal("6093.87"))
+                .build();
+        org.mockito.Mockito.when(transactionRepository.findByIdAndUserId("tx-s", "u1"))
+                .thenReturn(java.util.Optional.of(sell));
+        org.mockito.Mockito.when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-btc", "u1"))
+                .thenReturn(java.util.Optional.of(holding));
+        org.mockito.Mockito.when(holdingRepository.save(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(i -> i.getArgument(0));
+
+        transactionService.deleteTransaction("tx-s", "u1");
+
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                new java.math.BigDecimal("0.01139738").compareTo(holding.getShares()),
+                "删除卖单后份额应恢复");
+        // cost = 最后已知 cps × 数量，允许 1 分钱四舍五入误差
+        org.junit.jupiter.api.Assertions.assertTrue(
+                holding.getCost().subtract(new java.math.BigDecimal("6186.81")).abs()
+                        .compareTo(new java.math.BigDecimal("0.01")) <= 0,
+                "删除卖单后成本应恢复约 6186.81，实际 " + holding.getCost());
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                holding.getCost().compareTo(holding.getNetInvestment()),
+                "净投入必须与成本同步恢复");
+    }
+
 }
