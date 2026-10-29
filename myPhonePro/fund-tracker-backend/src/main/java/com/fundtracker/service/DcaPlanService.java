@@ -37,6 +37,7 @@ public class DcaPlanService {
     private final ManualAssetRepository manualAssetRepository;
     private final ExchangeRateService exchangeRateService;
     private final com.fundtracker.service.AccountService accountService;
+    private final CryptoPriceService cryptoPriceService;
 
     /**
      * 根据持仓类型推断交易市场
@@ -434,10 +435,18 @@ public class DcaPlanService {
         FundNavScrapeService.LatestNavResult nav = null;
 
         if (isCrypto) {
-            // 加密币定投：amount 的单位是 USDT，按当时 USDT 价折算币数，人民币成本 = USDT × 汇率
-            BigDecimal usdtPrice = holding.getQuotePrice();
-            if (usdtPrice == null || usdtPrice.signum() <= 0) {
-                throw BusinessException.invalidParam("无法获取 " + holding.getName() + " 的 USDT 价格，请先刷新价格后重试");
+            // 加密币定投：amount 的单位是 USDT，按执行时刻市价折算币数，人民币成本 = USDT × 汇率
+            // 优先实时取价（定投应按执行时价买入）；实时失败才回退持仓日更价（08:00 那批）
+            BigDecimal usdtPrice = cryptoPriceService.fetchLiveUsdtPrice(holding.getCode());
+            if (usdtPrice != null && usdtPrice.signum() > 0) {
+                // 顺手刷新持仓报价，保持展示与执行口径一致
+                holding.setQuotePrice(usdtPrice);
+            } else {
+                usdtPrice = holding.getQuotePrice();
+                if (usdtPrice == null || usdtPrice.signum() <= 0) {
+                    throw BusinessException.invalidParam("无法获取 " + holding.getName() + " 的 USDT 价格（实时取价与日更价均不可用），请稍后重试");
+                }
+                log.warn("定投执行: {} 实时取价失败，回退持仓日更价 {} USDT", holding.getCode(), usdtPrice);
             }
             BigDecimal usdCny = exchangeRateService.listAll().stream()
                     .filter(r -> "USD/CNY".equals(r.getPair()))

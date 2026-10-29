@@ -700,7 +700,10 @@ public class HoldingService {
         }
         calculatePredictedDividend(holding);
         calculateTotalDividendReceived(holding);
-        recalculateHoldingMetrics(holding);
+        // 迁入持仓（成本手工录入）必须跳过从交易推算成本——否则夜间净值刷新任务会把
+        // 迁入成本覆盖成「只有交易那部分」（2026-10-29 本地 BTC 成本被重算成 46.84 的现场；
+        // 生产 11/02 首次定投后当晚 22:00 就会踩）
+        recalculateHoldingMetrics(holding, holding.isCostEstimated());
         holdingRepository.save(holding);
         log.info("刷新持仓 {}({}) 完成: 市值={}, 预测分红={}, 已收分红={}",
                 holding.getName(), holding.getCode(),

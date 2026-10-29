@@ -41,6 +41,7 @@ class DcaPlanServiceTest {
     @Mock private com.fundtracker.repository.ManualAssetRepository manualAssetRepository;
     @Mock private com.fundtracker.service.ExchangeRateService exchangeRateService;
     @Mock private com.fundtracker.service.AccountService accountService;
+    @Mock private com.fundtracker.service.CryptoPriceService cryptoPriceService;
 
     private DcaPlanService dcaPlanService;
 
@@ -49,7 +50,8 @@ class DcaPlanServiceTest {
         dcaPlanService = new DcaPlanService(
                 dcaPlanRepository, holdingRepository,
                 transactionService, fundNavScrapeService,
-                tradingCalendar, manualAssetRepository, exchangeRateService, accountService
+                tradingCalendar, manualAssetRepository, exchangeRateService, accountService,
+                cryptoPriceService
         );
     }
 
@@ -573,6 +575,83 @@ class DcaPlanServiceTest {
             assertEquals(0, new BigDecimal("199.7").compareTo(plan.getTotalShares()));
             assertEquals(1, plan.getTotalExecutions());
             assertEquals(LocalDate.of(2026, 9, 1), plan.getNextExecutionDate());
+        }
+
+        @Test
+        @DisplayName("加密币定投 → 优先使用实时取价（而非持仓日更价）")
+        void cryptoUsesLivePrice() {
+            Holding holding = Holding.builder()
+                    .id("h-btc").name("比特币").code("BTC")
+                    .type(HoldingType.crypto).quotePrice(new BigDecimal("600000"))
+                    .build();
+            DcaPlan plan = DcaPlan.builder()
+                    .id("p-btc").holdingId("h-btc").userId("user-1")
+                    .amount(new BigDecimal("7")).frequency(DcaFrequency.weekly)
+                    .status(DcaPlanStatus.active).tradingMarket("crypto")
+                    .totalInvested(BigDecimal.ZERO).totalShares(BigDecimal.ZERO)
+                    .totalExecutions(0).nextExecutionDate(LocalDate.of(2026, 11, 2))
+                    .accountId(null)
+                    .build();
+
+            TransactionDTO txDto = new TransactionDTO();
+            txDto.setId("tx-btc");
+
+            when(dcaPlanRepository.findByIdAndUserId("p-btc", "user-1")).thenReturn(Optional.of(plan));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-btc", "user-1")).thenReturn(Optional.of(holding));
+            // 实时价 550000；日更价是 600000 —— 应使用实时的 550000
+            when(cryptoPriceService.fetchLiveUsdtPrice("BTC")).thenReturn(new BigDecimal("550000"));
+            com.fundtracker.model.dto.ExchangeRateDTO rate = new com.fundtracker.model.dto.ExchangeRateDTO();
+            rate.setPair("USD/CNY");
+            rate.setRate(new BigDecimal("6.7"));
+            when(exchangeRateService.listAll()).thenReturn(java.util.List.of(rate));
+            when(transactionService.createTransaction(any(CreateTransactionReq.class), eq("user-1"))).thenReturn(txDto);
+            when(tradingCalendar.nextTradingDay(any(LocalDate.class), eq("crypto")))
+                    .thenReturn(LocalDate.of(2026, 11, 9));
+            when(dcaPlanRepository.save(any(DcaPlan.class))).thenAnswer(i -> i.getArgument(0));
+
+            DcaExecutionResultVO result = dcaPlanService.executePlan("p-btc", "user-1");
+
+            // 币数 = 7 / 550000 = 0.00001273（8 位）；人民币单价 = 550000 × 6.7 = 3685000
+            assertEquals(0, new BigDecimal("0.00001273").compareTo(result.getQuantity()));
+            assertEquals(0, new BigDecimal("3685000.0000").compareTo(result.getNavPrice()));
+        }
+
+        @Test
+        @DisplayName("加密币定投 → 实时取价失败时回退持仓日更价")
+        void cryptoFallbackToStoredPrice() {
+            Holding holding = Holding.builder()
+                    .id("h-btc").name("比特币").code("BTC")
+                    .type(HoldingType.crypto).quotePrice(new BigDecimal("600000"))
+                    .build();
+            DcaPlan plan = DcaPlan.builder()
+                    .id("p-btc").holdingId("h-btc").userId("user-1")
+                    .amount(new BigDecimal("7")).frequency(DcaFrequency.weekly)
+                    .status(DcaPlanStatus.active).tradingMarket("crypto")
+                    .totalInvested(BigDecimal.ZERO).totalShares(BigDecimal.ZERO)
+                    .totalExecutions(0).nextExecutionDate(LocalDate.of(2026, 11, 2))
+                    .accountId(null)
+                    .build();
+
+            TransactionDTO txDto = new TransactionDTO();
+            txDto.setId("tx-btc");
+
+            when(dcaPlanRepository.findByIdAndUserId("p-btc", "user-1")).thenReturn(Optional.of(plan));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-btc", "user-1")).thenReturn(Optional.of(holding));
+            when(cryptoPriceService.fetchLiveUsdtPrice("BTC")).thenReturn(null);
+            com.fundtracker.model.dto.ExchangeRateDTO rate = new com.fundtracker.model.dto.ExchangeRateDTO();
+            rate.setPair("USD/CNY");
+            rate.setRate(new BigDecimal("6.7"));
+            when(exchangeRateService.listAll()).thenReturn(java.util.List.of(rate));
+            when(transactionService.createTransaction(any(CreateTransactionReq.class), eq("user-1"))).thenReturn(txDto);
+            when(tradingCalendar.nextTradingDay(any(LocalDate.class), eq("crypto")))
+                    .thenReturn(LocalDate.of(2026, 11, 9));
+            when(dcaPlanRepository.save(any(DcaPlan.class))).thenAnswer(i -> i.getArgument(0));
+
+            DcaExecutionResultVO result = dcaPlanService.executePlan("p-btc", "user-1");
+
+            // 回退日更价 600000：7 / 600000 = 0.00001167；人民币单价 600000 × 6.7 = 4020000
+            assertEquals(0, new BigDecimal("0.00001167").compareTo(result.getQuantity()));
+            assertEquals(0, new BigDecimal("4020000.0000").compareTo(result.getNavPrice()));
         }
 
         @Test

@@ -30,7 +30,7 @@ public class DcaScheduler {
     private final HoldingService holdingService;
     private final MonitorLogService monitorLogService;
 
-    @Scheduled(cron = "0 0 20 * * ?")
+    @Scheduled(cron = "0 0 10 * * ?")
     public void processDcaPlans() {
         long startMs = System.currentTimeMillis();
         LocalDate today = LocalDate.now();

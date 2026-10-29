@@ -105,6 +105,31 @@ public class CryptoPriceService {
                 .build();
     }
 
+    /**
+     * 实时抓取单个币的 USDT 单价（定投执行用：按执行时刻市价买入，而非日更价）。
+     * 依次尝试各数据源并遵守失败冷却；全部失败返回 null，由调用方回退持仓日更价。
+     */
+    public BigDecimal fetchLiveUsdtPrice(String assetCode) {
+        if (assetCode == null || assetCode.isBlank()) {
+            return null;
+        }
+        String symbol = assetCode.trim().toUpperCase();
+        for (CryptoPriceProvider provider : providers) {
+            if (isRecentlyFailed(provider.name())) {
+                continue;
+            }
+            Optional<BigDecimal> price = provider.fetchUsdtPrice(symbol);
+            if (price.isPresent() && price.get().signum() > 0) {
+                failedAt.remove(provider.name());
+                log.info("定投实时取价 {} = {} USDT（源={}）", symbol, price.get(), provider.name());
+                return price.get();
+            }
+            failedAt.put(provider.name(), LocalDateTime.now());
+            log.warn("定投实时取价失败：{} 源={}，尝试下一个", symbol, provider.name());
+        }
+        return null;
+    }
+
     /** 只读取当前持仓上的价格，不发请求 */
     public List<CryptoPriceDTO> currentPrices(String userId) {
         List<CryptoPriceDTO> list = new ArrayList<>();
