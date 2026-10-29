@@ -330,4 +330,50 @@ class TransactionServiceTest {
                 "净投入必须与成本同步恢复");
     }
 
+    @Test
+    @DisplayName("经 updateTransaction 清仓 → 保留 cps → 再删卖单可恢复成本（E2-24 守门·update 路径）")
+    void migratedClearViaUpdate_keepsCps() {
+        // 迁入持仓：原 0.01，已卖 0.005，剩 0.005
+        Holding holding = Holding.builder()
+                .id("h-btc").type(HoldingType.crypto).code("BTC")
+                .shares(new java.math.BigDecimal("0.005"))
+                .cost(new java.math.BigDecimal("2714.14"))
+                .costPerShare(new java.math.BigDecimal("542827.3239"))
+                .netInvestment(new java.math.BigDecimal("2714.14"))
+                .costEstimated(true)
+                .build();
+        Transaction sell = Transaction.builder()
+                .id("tx-s").holdingId("h-btc").userId("u1")
+                .type(TransactionType.sell)
+                .date(LocalDate.of(2026, 10, 29))
+                .quantity(new java.math.BigDecimal("0.005"))
+                .price(new java.math.BigDecimal("534672.69"))
+                .fee(java.math.BigDecimal.ZERO)
+                .total(new java.math.BigDecimal("2673.36"))
+                .build();
+        // 把卖单数量改成 0.01（卖掉剩余全部）→ 触发清仓分支
+        UpdateTransactionReq req = new UpdateTransactionReq();
+        req.setQuantity(new java.math.BigDecimal("0.01"));
+
+        org.mockito.Mockito.when(transactionRepository.findByIdAndUserId("tx-s", "u1"))
+                .thenReturn(java.util.Optional.of(sell));
+        org.mockito.Mockito.when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-btc", "u1"))
+                .thenReturn(java.util.Optional.of(holding));
+        org.mockito.Mockito.when(transactionRepository.save(org.mockito.Mockito.any()))
+                .thenAnswer(i -> i.getArgument(0));
+        org.mockito.Mockito.when(holdingRepository.save(org.mockito.Mockito.any()))
+                .thenAnswer(i -> i.getArgument(0));
+
+        transactionService.updateTransaction("tx-s", req, "u1");
+
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                java.math.BigDecimal.ZERO.compareTo(holding.getShares()), "清仓后份额应为 0");
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                java.math.BigDecimal.ZERO.compareTo(holding.getCost()), "清仓后成本应为 0");
+        // 关键：每份成本必须保留，否则后续删除卖单无法恢复成本
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                new java.math.BigDecimal("542827.3239").compareTo(holding.getCostPerShare()),
+                "清仓后必须保留最后已知每份成本（E2-24）");
+    }
+
 }

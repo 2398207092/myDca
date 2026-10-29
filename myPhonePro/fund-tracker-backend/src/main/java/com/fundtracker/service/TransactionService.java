@@ -197,6 +197,21 @@ public class TransactionService {
         // 迁入持仓需要按「旧影响 → 新影响」的差额增量调整，这里先固定旧 total
         BigDecimal oldTotal = oldQuantity.multiply(oldPrice).add(oldFee).setScale(2, RoundingMode.HALF_UP);
 
+        // 超卖校验（迁入/非迁入通用）：先算出「剔除本笔后」的可用份额，再比新数量。
+        // 放在改动任何字段之前，保证校验不过时实体一行未改（不依赖事务回滚兜底）
+        TransactionType newType = req.getType() != null ? TransactionType.valueOf(req.getType()) : oldType;
+        BigDecimal newQuantity = req.getQuantity() != null ? req.getQuantity() : oldQuantity;
+        BigDecimal contributed = switch (oldType) {
+            case buy, reinvest, bonus_share -> oldQuantity;
+            case sell -> oldQuantity.negate();
+        };
+        // 前提：shares 与 Σ交易一致时公式精确；手工改过份额的迁入持仓以手工值为新基数，
+        // 出现负数时钳到 0，避免错误文案输出「可卖 -0.00003」
+        BigDecimal sharesExcludingThis = holding.getShares().subtract(contributed).max(BigDecimal.ZERO);
+        if (newType == TransactionType.sell && newQuantity.compareTo(sharesExcludingThis) > 0) {
+            throw BusinessException.invalidParam("卖出数量超过可卖份额（可卖 " + sharesExcludingThis + "）");
+        }
+
         // 更新字段（仅非 null 字段）
         if (req.getType() != null) {
             tx.setType(TransactionType.valueOf(req.getType()));
@@ -239,14 +254,8 @@ public class TransactionService {
             // 正确做法：回退旧交易影响，再应用新交易影响
             BigDecimal cpsAtEdit = holding.getCostPerShare() != null
                     ? holding.getCostPerShare() : BigDecimal.ZERO;
-            applyDeltaToMigratedHolding(holding, oldType, oldQuantity, oldTotal, cpsAtEdit, -1);
-            // 超卖校验：回退旧影响后 holding.shares 就是「该笔未发生」的可用份额，
-            // 与 createTransaction 的 qty > shares 语义完全对齐（否则会被清仓分支静默钳成 0）
-            if (tx.getType() == TransactionType.sell
-                    && tx.getQuantity().compareTo(holding.getShares()) > 0) {
-                throw BusinessException.invalidParam("卖出数量超过可卖份额（可卖 " + holding.getShares() + "）");
-            }
-            applyDeltaToMigratedHolding(holding, tx.getType(), tx.getQuantity(), total, cpsAtEdit, 1);
+            applyDeltaToMigratedHolding(holding, oldType, oldQuantity, oldTotal, cpsAtEdit, -1, false);
+            applyDeltaToMigratedHolding(holding, tx.getType(), tx.getQuantity(), total, cpsAtEdit, 1, true);
             holdingService.calculatePredictedDividend(holding);
             holdingService.recalculateHoldingMetrics(holding, true);
         } else {
@@ -290,7 +299,8 @@ public class TransactionService {
      */
     private void applyDeltaToMigratedHolding(Holding holding, TransactionType type,
                                              BigDecimal quantity, BigDecimal total,
-                                             BigDecimal costPerShareAtEdit, int sign) {
+                                             BigDecimal costPerShareAtEdit, int sign,
+                                             boolean recalcCps) {
         BigDecimal dq = quantity.multiply(BigDecimal.valueOf(sign));
         BigDecimal dt = total.multiply(BigDecimal.valueOf(sign));
         switch (type) {
@@ -321,7 +331,9 @@ public class TransactionService {
             holding.setNetInvestment(BigDecimal.ZERO);
             return;
         }
-        if (holding.getCost().signum() > 0) {
+        // 每份成本只在「最终状态」重算一次：回退阶段重算会把原始 cps（如 542827.3239）
+        // 带成 4 位近似值（542828.0000），清仓后保留的就不是原值了
+        if (recalcCps && holding.getCost().signum() > 0) {
             holding.setCostPerShare(holding.getCost()
                     .divide(holding.getShares(), 4, RoundingMode.HALF_UP));
         }

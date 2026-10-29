@@ -39,7 +39,7 @@ public class TransactionController {
     @PutMapping("/{id}")
     public ApiResponse<TransactionDTO> updateTransaction(
             @PathVariable String id,
-            @RequestBody UpdateTransactionReq req,
+            @Valid @RequestBody UpdateTransactionReq req,
             HttpServletRequest request) {
         String userId = (String) request.getAttribute("userId");
         return ApiResponse.success("更新成功", transactionService.updateTransaction(id, req, userId));
