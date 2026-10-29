@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>首页原型 · 规范改造版 v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..500&family=Inter:wght@300..600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ember: #ff692d;
+    --linen: #efecea;
+    --ink: #22201d;
+    --graphite: #777573;
+    --stone: #dcd9d6;
+    --paper: #ffffff;
+    --smoke: #cccccc;
+    --pos: #1F7A4D;
+    --neg: #C2412D;
+
+    --shadow-subtle: rgba(34,32,29,0.05) 0px 1px 2px 0px;
+    --shadow-md: rgba(34,32,29,0.1) 0px 10px 15px -3px, rgba(34,32,29,0.1) 0px 4px 6px -4px;
+
+    --display: "Fraunces", "Songti SC", "SimSun", Georgia, serif;
+    --ui: "Inter", -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  }
+
+  body {
+    background: var(--linen);
+    color: var(--ink);
+    font-family: var(--ui);
+    font-weight: 350;
+    -webkit-font-smoothing: antialiased;
+    padding: 48px 24px 96px;
+  }
+
+  /* ---------- 页面外框（文档部分） ---------- */
+  .doc { max-width: 1100px; margin: 0 auto 36px; }
+  .doc .eyebrow {
+    font-size: 12px; font-weight: 500; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ember); margin-bottom: 14px;
+  }
+  .doc h1 {
+    font-family: var(--display); font-size: 40px; font-weight: 350;
+    line-height: 1.15; letter-spacing: -0.05em; margin-bottom: 12px;
+  }
+  .doc p { font-size: 15px; line-height: 1.6; letter-spacing: -0.012em; color: var(--graphite); max-width: 620px; }
+
+  /* ---------- 控制条 ---------- */
+  .console {
+    max-width: 1100px; margin: 0 auto 22px; display: flex; gap: 10px;
+    flex-wrap: wrap; align-items: center;
+  }
+  .console .lbl { font-size: 12px; font-weight: 500; color: var(--graphite); margin-right: 4px; letter-spacing: 0.04em; }
+  .tgl {
+    height: 32px; padding: 0 14px; border-radius: 9999px; border: 1px solid var(--stone);
+    background: transparent; color: var(--graphite); font-family: var(--ui);
+    font-size: 13px; font-weight: 500; letter-spacing: -0.01em; cursor: pointer;
+    transition: background .16s ease, color .16s ease, border-color .16s ease;
+  }
+  .tgl:hover { border-color: #c9c4bf; }
+  .tgl.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+  /* ---------- 手机屏 ---------- */
+  .stage { display: flex; gap: 30px; justify-content: center; align-items: flex-start; flex-wrap: wrap; max-width: 1100px; margin: 0 auto; }
+
+  .phone {
+    width: 375px; background: var(--linen);
+    border-radius: 32px; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(34,32,29,0.06), 0 22px 48px -24px rgba(34,32,29,0.34);
+    padding-bottom: 8px;
+  }
+  .status {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 22px 8px; font-size: 14px; font-weight: 500; letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .status .r { display: flex; align-items: center; gap: 5px; }
+  .screen { padding: 0 18px 18px; }
+
+  /* 通用卡片 */
+  .card {
+    background: var(--paper); border-radius: 12px;
+    box-shadow: var(--shadow-subtle);
+  }
+
+  /* ---------- 区块 1：庆祝横幅 ---------- */
+  .celebrate {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin: 0 -18px 12px; padding: 9px 18px;
+    background: var(--ember); color: #fff;
+    font-size: 14px; font-weight: 400; letter-spacing: -0.006em;
+    transition: opacity .2s ease;
+  }
+  .celebrate.hide { display: none; }
+  .celebrate .ic { display: flex; color: #fff; }
+  .celebrate .tx { font-size: 14px; font-weight: 400; letter-spacing: -0.006em; }
+  .celebrate .tx b { font-variant-numeric: tabular-nums; color: #fff; font-weight: 500; }
+  .celebrate .spark { position: absolute; right: 12px; top: 9px; color: var(--ember); opacity: .55; }
+  .celebrate .spark.s2 { right: 26px; top: 22px; opacity: .3; }
+
+  /* ---------- 区块 2：更新日志条 ---------- */
+  .changelog {
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 15px; margin-bottom: 10px;
+    background: var(--paper); border-radius: 12px;
+    box-shadow: var(--shadow-subtle);
+  }
+  .changelog .ic { color: var(--graphite); display: flex; }
+  .changelog .tx { flex: 1; min-width: 0; }
+  .changelog .t1 { font-size: 13.5px; font-weight: 500; letter-spacing: -0.012em; }
+  .changelog .t2 {
+    font-size: 11.5px; color: var(--graphite); letter-spacing: -0.004em; margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .changelog .ar { color: var(--graphite); display: flex; }
+
+  /* ---------- 区块 3：Hero ---------- */
+  .hero { padding: 22px 18px 18px; margin-bottom: 12px; background: var(--paper);
+    border: 1px solid var(--stone); box-shadow: var(--shadow-md); }
+  .hero .k { font-size: 12.5px; font-weight: 500; color: var(--graphite); letter-spacing: -0.006em; }
+  .hero .numrow { display: flex; align-items: baseline; gap: 2px; margin-top: 9px; }
+  .hero .num {
+    font-size: 48px; font-weight: 400; line-height: 1;
+    letter-spacing: -0.042em; font-variant-numeric: tabular-nums;
+  }
+  .hero .num .cur { font-size: 22px; color: var(--graphite); margin-right: 3px; letter-spacing: 0; }
+  .hero .num .dec { font-size: 24px; color: var(--graphite); }
+  .hero .chips { display: flex; gap: 7px; margin-top: 12px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px; height: 25px; padding: 0 10px;
+    border-radius: 9999px; background: rgba(34,32,29,0.045);
+    font-size: 12px; font-weight: 500; letter-spacing: -0.006em; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .chip .u { color: var(--graphite); font-weight: 400; }
+  .chip.accent { background: rgba(255,105,45,0.1); color: var(--ember); }
+  .hero .msg {
+    font-size: 12px; color: var(--graphite); letter-spacing: -0.004em;
+    margin-top: 12px; line-height: 1.5;
+  }
+  .hero .ops {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--stone);
+  }
+  .op {
+    display: inline-flex; align-items: center; gap: 4px;
+    height: 28px; padding: 0 11px; border-radius: 9999px;
+    font-size: 12.5px; font-weight: 500; color: var(--graphite); letter-spacing: -0.008em;
+    background: transparent; border: none; cursor: pointer; font-family: var(--ui);
+  }
+  .op:hover { background: rgba(34,32,29,0.045); }
+  .op .cv { transition: transform .18s ease; display: flex; }
+  .hero.expanded .op .cv { transform: rotate(180deg); }
+
+  .metrics {
+    display: none; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px;
+  }
+  .hero.expanded .metrics { display: grid; }
+  .metric {
+    background: rgba(34,32,29,0.035); border-radius: 9px; padding: 10px 6px 9px; text-align: center;
+  }
+  .metric .mk { font-size: 11px; color: var(--graphite); letter-spacing: -0.002em; margin-bottom: 5px; }
+  .metric .mv {
+    font-size: 15px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  }
+  .metric .mv .mu { font-size: 10.5px; color: var(--graphite); font-weight: 400; }
+
+  /* ---------- 区块 4：分红覆盖 ---------- */
+  .coverage { padding: 17px 16px 15px; margin-bottom: 12px; position: relative; overflow: hidden; }
+  .cov-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 13px; position: relative; }
+  .cov-head .l { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; letter-spacing: -0.012em; }
+  .cov-head .l .ic { color: var(--graphite); display: flex; }
+  .cov-head .r { display: flex; align-items: baseline; gap: 4px; font-size: 11.5px; color: var(--graphite); }
+  .cov-head .r b { font-size: 12.5px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  .nodes { display: flex; gap: 7px; flex-wrap: wrap; position: relative; }
+  .node {
+    height: 26px; padding: 0 11px; border-radius: 9999px;
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 500; letter-spacing: -0.002em;
+    border: 1px solid; font-variant-numeric: tabular-nums;
+  }
+  .node .st { font-size: 10px; font-weight: 400; }
+  .node.covered { color: var(--ember); border-color: var(--ember); background: rgba(255,105,45,0.07); }
+  .node.progress { color: #C46A3C; border-color: rgba(255,105,45,0.42); background: transparent; }
+  .node.todo { color: var(--graphite); border-color: var(--stone); background: transparent; }
+
+  .cov-cta {
+    display: flex; align-items: center; gap: 6px; margin-top: 13px; padding-top: 11px;
+    border-top: 1px solid var(--stone); position: relative;
+    font-size: 12px; color: var(--graphite); letter-spacing: -0.006em; line-height: 1.45;
+  }
+  .cov-cta .ic { color: var(--ember); display: flex; flex: 0 0 auto; }
+  .cov-cta b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  /* 覆盖空态 */
+  .cov-empty { display: none; align-items: center; gap: 10px; padding: 15px 16px; margin-bottom: 10px; }
+  .coverage.hide { display: none; }
+  .cov-empty.show { display: flex; }
+  .cov-empty .ic { color: var(--graphite); display: flex; }
+  .cov-empty .tx { flex: 1; font-size: 13.5px; color: var(--graphite); letter-spacing: -0.01em; }
+  .cov-empty .btn {
+    display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 12px;
+    border-radius: 9999px; background: var(--ink); color: #fff; border: none;
+    font-family: var(--ui); font-size: 12.5px; font-weight: 500; letter-spacing: -0.008em;
+  }
+
+  /* ---------- 区块 5：持仓 ---------- */
+  .list-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 14px 2px 9px;
+  }
+  .list-head .t { font-size: 13.5px; font-weight: 500; letter-spacing: -0.008em; color: var(--graphite); }
+  .list-head .c { font-size: 12px; color: var(--graphite); font-variant-numeric: tabular-nums; }
+
+  .hold { padding: 15px 16px 12px; margin-bottom: 9px; }
+  .hold .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .hold .nm { min-width: 0; }
+  .hold .nm .n { font-size: 14.5px; font-weight: 500; letter-spacing: -0.014em; }
+  .hold .nm .cd { font-size: 11.5px; color: var(--graphite); margin-top: 2px; letter-spacing: -0.002em; }
+  .hold .div {
+    font-size: 21px; font-weight: 350; letter-spacing: -0.032em;
+    font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap;
+  }
+  .hold .div .u { font-size: 11px; color: var(--graphite); font-weight: 400; letter-spacing: 0; margin-left: 2px; }
+  .hold .div.none { color: #8F8C87; }
+  .hold .sub {
+    display: flex; align-items: center; gap: 14px; margin-top: 10px;
+    padding-top: 9px; border-top: 1px solid var(--stone);
+    font-size: 11.5px; color: var(--graphite); letter-spacing: -0.002em;
+  }
+  .hold .sub i { font-style: normal; }
+  .hold .sub b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .hold .sub .rate { color: var(--ink); font-weight: 500; }
+  .hold .sub .dot { width: 3px; height: 3px; border-radius: 9999px; background: var(--stone); }
+
+  /* ---------- 12 个月分红柱 ---------- */
+  .bars { display: flex; align-items: flex-end; justify-content: space-between; height: 60px; margin-top: 18px; }
+  .bar { width: 3px; border-radius: 1.5px; background: #C6BFB7; }
+  .bar.on { background: var(--ember); }
+  .bar.dim { background: #C6BFB7; }
+  .bar .tip {
+    position: absolute; top: -17px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; font-weight: 500; color: var(--ember); white-space: nowrap;
+  }
+  .bar-axis {
+    position: relative; height: 14px; margin-top: 7px;
+    font-size: 9.5px; color: #A8A39C; letter-spacing: 0.02em;
+  }
+  .bar-axis span { position: absolute; bottom: 0; }
+  .bar-axis span:first-child { left: 0; }
+  .bar-axis span:last-child { left: 82%; transform: translateX(-50%); white-space: nowrap; }
+
+  /* ---------- 分段进度条 ---------- */
+  .segbar { display: flex; gap: 3px; margin-top: 12px; }
+  .seg { height: 5px; border-radius: 9999px; flex: 1; background: #E9E4DF; overflow: hidden; }
+  .seg > i { display: block; height: 100%; border-radius: 9999px; }
+  .seg.c > i { background: var(--pos); width: 100%; }
+  .seg.p > i { background: #D9A227; width: 68%; }
+  .seg.t > i { width: 0; }
+  .legend { display: flex; gap: 14px; margin-top: 9px; font-size: 10.5px; color: var(--graphite); }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend i { width: 5px; height: 5px; border-radius: 9999px; display: block; }
+
+  /* ---------- 持仓占比条 ---------- */
+  .share { height: 2px; border-radius: 9999px; background: #EFEAE5; margin-top: 10px; overflow: hidden; }
+  .share > i { display: block; height: 100%; border-radius: 9999px; background: #C9C2BA; }
+
+  /* ---------- 顶部渐变线 ---------- */
+
+  /* ---------- 紧凑持仓卡（无分红） ---------- */
+  .hold.compact { padding: 12px 16px; }
+  .hold.compact .row1 { display: flex; align-items: baseline; gap: 10px; }
+  .hold.compact .nm2 { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+  .hold.compact .n2 { font-size: 14px; font-weight: 500; letter-spacing: -0.014em; white-space: nowrap; }
+  .hold.compact .cd2 { font-size: 11px; color: var(--graphite); letter-spacing: -0.002em; white-space: nowrap; }
+  .hold.compact .mv2 { font-size: 13.5px; font-variant-numeric: tabular-nums; color: var(--ink); letter-spacing: -0.01em; }
+  .hold.compact .dv2 { font-size: 14px; color: #8F8C87; font-variant-numeric: tabular-nums; margin-left: 10px; }
+  .hold.compact .dv2 .u2 { font-size: 10px; }
+
+  /* ---------- 底部导航 ---------- */
+  .tabbar {
+    display: flex; align-items: center; justify-content: space-around;
+    margin: 18px -18px -18px; padding: 10px 0 16px;
+    background: var(--paper);
+    border-top: 1px solid var(--stone);
+  }
+  .tb { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; font-weight: 500; color: var(--graphite); letter-spacing: -0.002em; }
+  .tb.on { color: var(--ember); }
+
+  /* ---------- 局部特写 ---------- */
+  .specs { display: flex; flex-direction: column; gap: 18px; width: 404px; }
+  .spec {
+    background: var(--paper); border-radius: 12px; box-shadow: var(--shadow-md);
+    padding: 18px; overflow: hidden;
+  }
+  .spec .cap { font-size: 11.5px; font-weight: 500; color: var(--graphite); letter-spacing: 0.02em; margin-bottom: 12px; text-transform: uppercase; }
+  .spec .zoom { transform: scale(1.44); transform-origin: top left; width: 232px; }
+  .spec.tall { height: 196px; }
+  .spec.mid { height: 158px; }
+
+  footer { max-width: 1100px; margin: 44px auto 0; font-size: 12.5px; line-height: 1.75; color: var(--graphite); letter-spacing: -0.004em; }
+  footer b { color: var(--ink); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="doc">
+  <p class="eyebrow">首页原型 · 规范改造版 v3</p>
+  <h1>持仓</h1>
+  <p>按 <code>design/03-页面要素.md</code> 逐条实现，5 个区块、8 个交互、三态。<br>
+     语言沿用 Monarch：亚麻底、白卡片、唯一橙、字重 350、负字距。图标改用 Lucide 线条（stroke 1.5）。</p>
+</div>
+
+<div class="console">
+  <span class="lbl">切换状态</span>
+  <button class="tgl on" data-act="celebrate">今日有分红</button>
+  <button class="tgl" data-act="expanded">展开指标</button>
+  <button class="tgl" data-act="empty">空态（无支出）</button>
+</div>
+
+<div class="stage">
+
+  <!-- ============ 手机屏 ============ -->
+  <div class="phone" id="phone">
+    <div class="status">
+      <span>9:41</span>
+      <span class="r">
+        <svg width="17" height="11" viewBox="0 0 17 11" fill="none"><rect x="0" y="7" width="3" height="4" rx="1" fill="currentColor"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="currentColor"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="currentColor"/><rect x="13.5" y="0" width="3" height="11" rx="1" fill="currentColor"/></svg>
+        <svg width="16" height="11" viewBox="0 0 16 11" fill="none"><path d="M1 3.6A10 10 0 0 1 15 3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="9" r="1.4" fill="currentColor"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-width="1" opacity="0.35"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/></svg>
+      </span>
+    </div>
+
+    <div class="screen">
+
+      <!-- 区块 1：庆祝横幅 -->
+      <div class="celebrate" id="celebrate">
+        <span class="ic">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/>
+          </svg>
+        </span>
+        <span class="tx">今日分红 <b>¥386.00</b> 已到账</span>
+      </div>
+
+      <!-- 区块 2：更新日志条 -->
+      <div class="changelog">
+        <span class="ic">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h13a2 2 0 0 1 2 2v12a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/>
+            <path d="M8 8h6M8 12h6M8 16h4"/>
+          </svg>
+        </span>
+        <span class="tx">
+          <div class="t1">查看更新日志</div>
+          <div class="t2">v1.4.2 · 分红日历支持跨年查看 · 3 天前</div>
+        </span>
+        <span class="ar">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+        </span>
+      </div>
+
+      <!-- 区块 3：Hero 分红卡 -->
+      <div class="card hero" id="hero" >
+        <div class="k">预测年度分红</div>
+        <div class="numrow">
+          <span class="num"><span class="cur">¥</span>3,842<span class="dec">.60</span></span>
+        </div>
+        <div class="chips">
+          <span class="chip">连续 <b>128</b> <span class="u">天</span></span>
+          <span class="chip">十年 <span class="u">约</span> ¥38,426</span>
+          </div>
+        <div class="bars">
+          <div class="bar dim" style="height:45%"></div>
+          <div class="bar dim" style="height:41%"></div>
+          <div class="bar" style="height:3px"></div>
+          <div class="bar dim" style="height:73%"></div>
+          <div class="bar dim" style="height:69%"></div>
+          <div class="bar" style="height:3px"></div>
+          <div class="bar dim" style="height:100%"></div>
+          <div class="bar" style="height:3px"></div>
+          <div class="bar dim" style="height:75%"></div>
+          <div class="bar on" style="height:87%"></div>
+          <div class="bar" style="height:3px"></div>
+          <div class="bar" style="height:3px"></div>
+        </div>
+        <div class="bar-axis"><span>1月</span><span style="color:var(--ember);font-weight:500">10月 602</span></div>
+
+        <div class="msg">本月净值已更新，按当前持仓推算全年可收 ¥3,842.60</div>
+
+        <div class="ops">
+          <button class="op" id="opToggle">
+            <span id="opText">查看指标</span>
+            <span class="cv"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+          </button>
+          <button class="op">设置指标</button>
+        </div>
+
+        <div class="metrics">
+          <div class="metric"><div class="mk">年化收益率</div><div class="mv">6.4<span class="mu">%</span></div></div>
+          <div class="metric"><div class="mk">分红次数</div><div class="mv">8<span class="mu">次</span></div></div>
+          <div class="metric"><div class="mk">持仓成本</div><div class="mv">10.2<span class="mu">万</span></div></div>
+          <div class="metric"><div class="mk">累计收益</div><div class="mv">3,580</div></div>
+          <div class="metric"><div class="mk">最大回撤</div><div class="mv">−4.1<span class="mu">%</span></div></div>
+          <div class="metric"><div class="mk">持有天数</div><div class="mv">421</div></div>
+        </div>
+      </div>
+
+      <!-- 区块 4：分红覆盖（形态 A） -->
+      <div class="card coverage" id="coverage">
+        <div class="cov-head">
+          <span class="l">
+            <span class="ic">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>
+            </span>
+            分红覆盖
+          </span>
+          <span class="r">年度支出 <b>¥6,200</b></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;margin-top:2px">
+          <span style="flex:1;height:5px;border-radius:9999px;background:#E9E4DF;overflow:hidden;display:flex">
+            <i style="display:block;height:100%;width:30%;background:var(--ember)"></i>
+            <i style="display:block;height:100%;width:32%;background:rgba(255,105,45,0.4)"></i>
+          </span>
+          <span style="font-size:11px;font-weight:500;color:var(--graphite);font-variant-numeric:tabular-nums">62%</span>
+        </div>
+        <div class="nodes" style="margin-top:11px">
+          <span class="node covered">¥1,860 <span class="st">已覆盖</span></span>
+          <span class="node progress">¥2,480 <span class="st">奋斗中</span></span>
+          <span class="node todo">¥1,860 <span class="st">待点亮</span></span>
+        </div>
+        <div class="cov-cta">
+          <span class="ic">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
+          </span>
+          再攒 <b>¥420</b> 分红就能点亮 <b>旅行基金</b>
+        </div>
+      </div>
+
+      <!-- 区块 4 空态 -->
+      <div class="card cov-empty" id="covEmpty">
+        <span class="ic">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+        </span>
+        <span class="tx">尚未设置生活支出</span>
+        <button class="btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          添加
+        </button>
+      </div>
+
+      <!-- 区块 5：持仓列表 -->
+      <div class="list-head"><span class="t">持仓</span><span class="c">5 支</span></div>
+
+      <div class="card hold">
+        <div class="top">
+          <div class="nm"><div class="n">红利低波100</div><div class="cd">512890 · A股</div></div>
+          <div class="div">¥2,148<span class="u">/年</span></div>
+        </div>
+        <div class="sub">
+          <span>市值 <b>48,200</b></span><span class="dot"></span>
+          <span>成本 <b>42,180</b></span><span class="dot"></span>
+          <span class="rate">+6.4%</span>
+        </div>
+        
+      </div>
+
+      <div class="card hold">
+        <div class="top">
+          <div class="nm"><div class="n">标普500</div><div class="cd">513500 · QDII</div></div>
+          <div class="div">¥886<span class="u">/年</span></div>
+        </div>
+        <div class="sub">
+          <span>市值 <b>26,750</b></span><span class="dot"></span>
+          <span>成本 <b>23,900</b></span><span class="dot"></span>
+          <span class="rate">+3.3%</span>
+        </div>
+        
+      </div>
+
+            <div class="card hold compact">
+        <div class="row1">
+          <span class="nm2"><span class="n2">黄金ETF</span><span class="cd2">518880 · 商品</span></span>
+          <span class="mv2">21,400</span>
+        </div>
+      </div>
+
+            <div class="card hold compact">
+        <div class="row1">
+          <span class="nm2"><span class="n2">比特币</span><span class="cd2">BTC · 加密</span></span>
+          <span class="mv2">12,800</span>
+        </div>
+      </div>
+
+            <div class="card hold compact">
+        <div class="row1">
+          <span class="nm2"><span class="n2">现金</span><span class="cd2">活期 · 无风险</span></span>
+          <span class="mv2">32,600</span>
+        </div>
+      </div>
+
+      <!-- 底部导航 -->
+      <div class="tabbar">
+        <div class="tb on">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V14M12 20V8M20 20v-5"/></svg>
+          持仓
+        </div>
+        <div class="tb">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          月历
+        </div>
+        <div class="tb">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.2 2"/></svg>
+          年度
+        </div>
+        <div class="tb">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-4 3.3-6 7-6s7 2 7 6"/></svg>
+          我的
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ 局部特写 ============ -->
+  <div class="specs">
+    <div class="spec tall">
+      <div class="cap">Hero 卡 · 1.55×</div>
+      <div class="zoom">
+        <div class="card hero" style="margin:0">
+          <div class="k">预测年度分红</div>
+          <div class="numrow"><span class="num"><span class="cur">¥</span>3,842<span class="dec">.60</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spec mid">
+      <div class="cap">持仓卡 · 1.55×</div>
+      <div class="zoom">
+        <div class="card hold" style="margin:0">
+          <div class="top">
+            <div class="nm"><div class="n">红利低波100</div><div class="cd">512890 · A股</div></div>
+            <div class="div">¥2,148<span class="u">/年</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spec mid">
+      <div class="cap">覆盖节点 · 1.55×</div>
+      <div class="zoom">
+        <div style="background:var(--paper);border-radius:12px;padding:14px">
+          <div class="nodes">
+            <span class="node covered">¥1,860 <span class="st">已覆盖</span></span>
+            <span class="node progress">¥2,480 <span class="st">奋斗中</span></span>
+            <span class="node todo">¥1,860 <span class="st">待点亮</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <b>v2 → v3：把自造组件全部改写成规范形态</b>
+  <br>· 庆祝横幅 → <b>Promo Banner</b>（满宽纯橙 #ff692d、白字 14/400 居中、8px 垂直内边距）
+  <br>· 更新日志条 → <b>Feature Card</b>（白底、12px、无可见边框）
+  <br>· Hero 卡 → <b>Product Screenshot Card</b>（纯白 + 1px Stone 边框 + 0.1 双层阴影）
+  <br>· 12 个月柱状图 → <b>细线语言</b>（3px 竖线，仅 Stone / Ember 两色，无圆角填充块）
+  <br>· 覆盖三态节点 → <b>单一橙分层</b>（实橙 / 40% 橙 / Stone），删掉绿与金
+  <br>· 分段进度条 → 实橙 + 40% 橙 + Stone
+  <br>· 底部导航 → <b>纯白</b>（去掉 backdrop 毛玻璃，规范里的导航栏是实色白）
+  <br>· 持仓股息率 → <b>Ink 中性色</b>（原本是绿）
+  <br><br><b>结果</b>：整屏只剩<b>一个彩色（Ember Orange）</b>加中性暖灰，这是 Monarch 的核心特征。
+  丰富度现在完全依赖信息结构——高度节奏、细线、留白，不再依赖颜色。
+  <br><b>代价</b>：比 v2 素。如果觉得太素，唯一合规的回旋是不再引入新色，而是加强结构对比。
+  <br><b>仍是欠账</b>：error 态、持仓空态、极端数字、圆角阴影逐项校准。
+  <br>数据为模拟值 · 2026-10-28
+</footer>
+
+<script>
+(function () {
+  var phone = document.getElementById('phone');
+  var celebrate = document.getElementById('celebrate');
+  var hero = document.getElementById('hero');
+  var coverage = document.getElementById('coverage');
+  var covEmpty = document.getElementById('covEmpty');
+  var opToggle = document.getElementById('opToggle');
+  var opText = document.getElementById('opText');
+
+  document.querySelectorAll('.tgl').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var act = btn.dataset.act;
+      if (act === 'celebrate') {
+        celebrate.classList.toggle('hide');
+        btn.classList.toggle('on', !celebrate.classList.contains('hide'));
+      }
+      if (act === 'expanded') {
+        hero.classList.toggle('expanded');
+        var on = hero.classList.contains('expanded');
+        btn.classList.toggle('on', on);
+        opText.textContent = on ? '收起指标' : '查看指标';
+      }
+      if (act === 'empty') {
+        coverage.classList.toggle('hide');
+        covEmpty.classList.toggle('show');
+        var emptyOn = covEmpty.classList.contains('show');
+        btn.classList.toggle('on', emptyOn);
+      }
+    });
+  });
+
+  opToggle.addEventListener('click', function () {
+    hero.classList.toggle('expanded');
+    var on = hero.classList.contains('expanded');
+    opText.textContent = on ? '收起指标' : '查看指标';
+    var tgl = document.querySelector('[data-act="expanded"]');
+    if (tgl) tgl.classList.toggle('on', on);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 一键自检：文档 → 接口契约 → UI 冒烟
+# 一键自检：设计门禁 → 文档 → 接口契约 → UI 冒烟
 # 用法：bash scripts/check-all.sh
 # 前置：后端 8080（契约与 UI 都需要）、前端 5173（仅 UI 需要）；token 自动通过 dev-quick-login 获取（也可用环境变量 TOKEN 传入）
 
@@ -25,11 +25,15 @@ if [ -z "${TOKEN:-}" ]; then
 fi
 echo
 
-echo "########## 1/3 文档自检 ##########"
+echo "########## 1/4 设计门禁 ##########"
+if node scripts/design-check.cjs; then echo "→ 设计 OK"; else echo "→ 设计失败"; fail=1; fi
+
+echo
+echo "########## 2/4 文档自检 ##########"
 if bash scripts/doc-check.sh; then echo "→ 文档 OK"; else echo "→ 文档失败"; fail=1; fi
 
 echo
-echo "########## 2/3 接口契约 ##########"
+echo "########## 3/4 接口契约 ##########"
 if [ "$be" = "401" ] || [ "$be" = "200" ]; then
   if node scripts/api-contract-check.cjs; then echo "→ 契约 OK"; else echo "→ 契约失败"; fail=1; fi
 else
@@ -38,7 +42,7 @@ else
 fi
 
 echo
-echo "########## 3/3 UI 冒烟 ##########"
+echo "########## 4/4 UI 冒烟 ##########"
 if [ "$be" = "401" ] || [ "$be" = "200" ]; then
   if [ "$fe" = "200" ]; then
     if node scripts/ui-check.cjs; then echo "→ UI OK"; else echo "→ UI 失败"; fail=1; fi

@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>设计语言 · Monarch 还原</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..500&family=Inter:wght@300..500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* Monarch 原始 tokens */
+    --ember: #ff692d;
+    --linen: #efecea;
+    --ink: #22201d;
+    --graphite: #777573;
+    --stone: #dcd9d6;
+    --paper: #ffffff;
+    --smoke: #cccccc;
+
+    --shadow-subtle: rgba(34,32,29,0.05) 0px 1px 2px 0px;
+    --shadow-md: rgba(34,32,29,0.1) 0px 10px 15px -3px, rgba(34,32,29,0.1) 0px 4px 6px -4px;
+
+    /* 字体：Copernicus → Fraunces / 宋体；ABC Oracle → Inter / 系统无衬线 */
+    --display: "Fraunces", "Songti SC", "SimSun", Georgia, serif;
+    --ui: "Inter", -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  }
+
+  body {
+    background: var(--linen);
+    color: var(--ink);
+    font-family: var(--ui);
+    font-weight: 350;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    padding: 64px 24px 104px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  .eyebrow {
+    font-size: 13px; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ember); margin-bottom: 18px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-size: 56px; font-weight: 350; line-height: 1.12;
+    letter-spacing: -0.055em; margin-bottom: 20px;
+  }
+  .lede {
+    font-size: 16px; line-height: 1.56; letter-spacing: -0.012em;
+    color: var(--graphite); max-width: 600px; font-weight: 350;
+  }
+  .lede b { color: var(--ink); font-weight: 500; }
+
+  section { padding: 56px 0; border-top: 1px solid var(--stone); }
+  section:first-of-type { border-top: none; padding-top: 44px; }
+  h2 {
+    font-family: var(--display);
+    font-size: 32px; font-weight: 350; line-height: 1.2;
+    letter-spacing: -0.05em; margin-bottom: 8px;
+  }
+  .sub { font-size: 14px; line-height: 1.5; letter-spacing: -0.008em; color: var(--graphite); margin-bottom: 28px; }
+
+  /* 色彩 */
+  .sw { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .sw-item .box {
+    height: 72px; border-radius: 12px; margin-bottom: 10px;
+    box-shadow: var(--shadow-subtle); border: 1px solid rgba(34,32,29,0.04);
+  }
+  .sw-item .nm { font-size: 14px; font-weight: 500; letter-spacing: -0.01em; }
+  .sw-item .vl { font-size: 12.5px; color: var(--graphite); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .sw-item .rl { font-size: 12.5px; color: var(--graphite); line-height: 1.5; margin-top: 6px; }
+
+  /* 字体 */
+  .ty { background: var(--paper); border-radius: 12px; box-shadow: var(--shadow-subtle); overflow: hidden; }
+  .ty-row { display: flex; align-items: baseline; gap: 24px; padding: 16px 24px; }
+  .ty-row + .ty-row { border-top: 1px solid var(--stone); }
+  .ty-row .meta {
+    flex: 0 0 196px; font-size: 11.5px; color: var(--graphite);
+    font-variant-numeric: tabular-nums; line-height: 1.4;
+  }
+  .ty-row .sm { flex: 1; }
+
+  /* 组件 */
+  .btn-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .pill-primary {
+    display: inline-flex; align-items: center; height: 44px; padding: 0 24px;
+    border-radius: 9999px; background: var(--ember); color: #fff;
+    font-family: var(--ui); font-size: 16px; font-weight: 500; letter-spacing: -0.012em;
+    border: none; box-shadow: var(--shadow-subtle);
+  }
+  .pill-ghost {
+    display: inline-flex; align-items: center; height: 44px; padding: 0 24px;
+    border-radius: 9999px; background: transparent; color: var(--ink);
+    font-size: 16px; font-weight: 500; letter-spacing: -0.012em; border: none;
+  }
+  .pill-outline {
+    display: inline-flex; align-items: center; height: 36px; padding: 0 20px;
+    border-radius: 9999px; background: transparent; color: var(--ember);
+    font-size: 14px; font-weight: 500; letter-spacing: -0.01em;
+    border: 1.5px solid var(--ember);
+  }
+
+  .card-demo {
+    background: var(--paper); border-radius: 12px; border: 1px solid var(--stone);
+    box-shadow: var(--shadow-md); padding: 24px; margin-top: 26px; max-width: 520px;
+  }
+  .card-demo .lbl { font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ember); }
+  .card-demo .h { font-family: var(--display); font-size: 32px; font-weight: 350; letter-spacing: -0.05em; line-height: 1.2; margin-top: 10px; }
+  .card-demo .p { font-size: 15px; line-height: 1.55; letter-spacing: -0.01em; color: var(--graphite); margin-top: 10px; }
+
+  /* 展示台 */
+  .stage {
+    background: #E7E3E0; margin: 0 -24px; padding: 60px 32px;
+    border-top: 1px solid var(--stone);
+  }
+  .phones { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; }
+  .pw { width: 375px; }
+  .pcap { font-size: 13px; font-weight: 500; letter-spacing: -0.005em; color: var(--graphite); margin-bottom: 14px; }
+
+  .phone {
+    width: 375px; height: 800px; background: var(--linen);
+    border-radius: 34px; overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 1px 2px rgba(34,32,29,0.06), 0 18px 40px -20px rgba(34,32,29,0.28);
+  }
+  .status {
+    flex: 0 0 50px; display: flex; align-items: flex-end; justify-content: space-between;
+    padding: 0 26px 6px; font-size: 14px; font-weight: 500; letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .status .r { display: flex; align-items: center; gap: 5px; }
+  .body { flex: 1; overflow: hidden; padding: 0 20px; }
+
+  /* 页面标题 */
+  .p-title {
+    font-family: var(--display);
+    font-size: 38px; font-weight: 350; line-height: 1.15;
+    letter-spacing: -0.052em; padding: 8px 0 4px;
+  }
+  .p-sub { font-size: 13px; color: var(--graphite); letter-spacing: -0.005em; }
+
+  /* 主卡片 */
+  .hero {
+    background: var(--paper); border-radius: 12px; padding: 22px 22px 20px;
+    margin-top: 18px; box-shadow: var(--shadow-md);
+  }
+  .hero .k {
+    font-size: 13px; font-weight: 500; letter-spacing: -0.008em; color: var(--graphite);
+  }
+  .hero .v {
+    font-size: 40px; font-weight: 350; line-height: 1.1; letter-spacing: -0.035em;
+    font-variant-numeric: tabular-nums; margin-top: 8px;
+  }
+  .hero .v .cur { font-size: 22px; color: var(--graphite); margin-right: 2px; letter-spacing: 0; }
+  .hero .v .dec { font-size: 24px; color: var(--graphite); }
+  .hero .meta { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .hero .meta .tag {
+    display: inline-flex; align-items: center; height: 26px; padding: 0 11px;
+    border-radius: 9999px; background: rgba(255,105,45,0.10); color: var(--ember);
+    font-size: 12.5px; font-weight: 500; letter-spacing: -0.005em;
+  }
+  .hero .meta .txt { font-size: 13px; color: var(--graphite); letter-spacing: -0.005em; }
+
+  /* 列表 */
+  .list-h {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 26px 2px 10px;
+  }
+  .list-h .t { font-size: 13.5px; font-weight: 500; letter-spacing: -0.008em; color: var(--graphite); }
+  .list-h .a { font-size: 13px; font-weight: 500; color: var(--ember); letter-spacing: -0.005em; }
+
+  .sheet { background: var(--paper); border-radius: 12px; box-shadow: var(--shadow-subtle); overflow: hidden; }
+  .row {
+    display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+  }
+  .row + .row { border-top: 1px solid var(--stone); }
+  .row .r-main { flex: 1; min-width: 0; }
+  .row .r-t { font-size: 15px; font-weight: 500; letter-spacing: -0.012em; }
+  .row .r-s { font-size: 12.5px; color: var(--graphite); margin-top: 2px; letter-spacing: -0.004em; }
+  .row .r-v { font-size: 15px; font-weight: 500; letter-spacing: -0.012em; font-variant-numeric: tabular-nums; }
+  .row .r-p { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; width: 58px; text-align: right; }
+  .up { color: #1F7A4D; } .down { color: #C2412D; }
+  .badge {
+    width: 34px; height: 34px; border-radius: 9999px; display: flex;
+    align-items: center; justify-content: center; font-size: 13px; font-weight: 500;
+    letter-spacing: -0.01em; flex: 0 0 34px;
+  }
+
+  /* tab bar */
+  .tabbar {
+    flex: 0 0 72px; display: flex; align-items: center; justify-content: space-around;
+    background: rgba(255,255,255,0.86); backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border-top: 1px solid var(--stone); padding-bottom: 8px;
+  }
+  .tb { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10.5px; letter-spacing: -0.005em; color: var(--graphite); font-weight: 500; }
+  .tb.on { color: var(--ember); }
+
+  /* 月历 */
+  .cal { background: var(--paper); border-radius: 12px; box-shadow: var(--shadow-subtle); padding: 10px 8px 14px; margin-top: 4px; }
+  .cal-top { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px 14px; }
+  .cal-top .m { font-family: var(--display); font-size: 22px; font-weight: 350; letter-spacing: -0.04em; }
+  .cal-top .nav { font-size: 13px; color: var(--ember); font-weight: 500; }
+  .wd { display: grid; grid-template-columns: repeat(7,1fr); padding-bottom: 6px; }
+  .wd span { text-align: center; font-size: 10.5px; letter-spacing: 0.04em; color: var(--graphite); font-weight: 500; }
+  .grid { display: grid; grid-template-columns: repeat(7,1fr); }
+  .d {
+    height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 13.5px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; position: relative;
+  }
+  .d.pad { color: #B8B3AF; }
+  .d .mk { width: 3.5px; height: 3.5px; border-radius: 9999px; background: var(--ember); margin-top: 3px; }
+  .d.sel .n {
+    width: 28px; height: 28px; border-radius: 9999px; background: var(--ember); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 500;
+  }
+
+  /* 图表 */
+  .chart { margin: 4px -20px 0; }
+  .chart svg { display: block; width: 100%; height: 92px; }
+
+  footer { margin-top: 40px; font-size: 13px; line-height: 1.7; letter-spacing: -0.005em; color: var(--graphite); }
+
+  .loc { background: var(--paper); border-radius: 12px; box-shadow: var(--shadow-subtle); overflow: hidden; }
+  .loc-row { padding: 16px 22px; display: flex; gap: 20px; align-items: baseline; }
+  .loc-row + .loc-row { border-top: 1px solid var(--stone); }
+  .loc-row .a { flex: 0 0 130px; font-size: 13px; font-weight: 500; letter-spacing: 0.02em; color: var(--graphite); }
+  .loc-row .b { flex: 1; font-size: 14px; line-height: 1.55; letter-spacing: -0.008em; }
+  .loc-row .b code { background: rgba(34,32,29,0.05); padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Design language · rebuilt from Monarch</p>
+    <h1>晨光下的暖亚麻</h1>
+    <p class="lede">
+      按 Monarch 的设计系统还原：亚麻色画布、纯白卡片、唯一一抹橙色作为强调色。
+      质感的关键不在配色，在<b>字重 350、标题负字距 −0.055em、以及几乎看不见的阴影</b>。
+      下面每个数值都取自它的 DESIGN.md，不是估的。
+    </p>
+  </header>
+
+  <section>
+    <h2>色彩</h2>
+    <p class="sub">七色。只有一个是彩色，其余全在暖灰轴上——所以橙色一出现就是决定性的。</p>
+    <div class="sw">
+      <div class="sw-item">
+        <div class="box" style="background:#ff692d"></div>
+        <div class="nm">Ember Orange</div><div class="vl">#ff692d</div>
+        <div class="rl">主操作、激活态、关键强调。系统里唯一的彩色</div>
+      </div>
+      <div class="sw-item">
+        <div class="box" style="background:#efecea"></div>
+        <div class="nm">Linen</div><div class="vl">#efecea</div>
+        <div class="rl">页面画布。暖奶油底，把白色卡片托起来</div>
+      </div>
+      <div class="sw-item">
+        <div class="box" style="background:#ffffff"></div>
+        <div class="nm">Paper</div><div class="vl">#ffffff</div>
+        <div class="rl">卡片、面板、输入框</div>
+      </div>
+      <div class="sw-item">
+        <div class="box" style="background:#22201d"></div>
+        <div class="nm">Ink</div><div class="vl">#22201d</div>
+        <div class="rl">主文字。近黑带暖棕底调，与亚麻和谐</div>
+      </div>
+      <div class="sw-item">
+        <div class="box" style="background:#777573"></div>
+        <div class="nm">Graphite</div><div class="vl">#777573</div>
+        <div class="rl">次要文字、说明、图注</div>
+      </div>
+      <div class="sw-item">
+        <div class="box" style="background:#dcd9d6"></div>
+        <div class="nm">Stone</div><div class="vl">#dcd9d6</div>
+        <div class="rl">发丝边框、分隔线。暖中性，缝合卡片</div>
+      </div>
+      <div class="sw-item">
+        <div class="box" style="background:#cccccc"></div>
+        <div class="nm">Smoke</div><div class="vl">#cccccc</div>
+        <div class="rl">深底上的浅字、反色标签</div>
+      </div>
+      <div class="sw-item">
+        <div class="box" style="background:linear-gradient(90deg,#1F7A4D 0%,#1F7A4D 50%,#C2412D 50%,#C2412D 100%)"></div>
+        <div class="nm">涨 / 跌</div><div class="vl">本地化新增</div>
+        <div class="rl">Monarch 无涨跌色，本项目需要。<b>不属于原系统</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>字体</h2>
+    <p class="sub">两套字，分工不混：展示用衬线，界面用轻无衬线。两套都压负字距。</p>
+    <div class="ty">
+      <div class="ty-row">
+        <span class="meta">Display<br>Fraunces 350 · 38px<br>−0.052em</span>
+        <span class="sm" style="font-family:var(--display);font-size:38px;font-weight:350;letter-spacing:-0.052em;line-height:1.15">持仓 <span style="font-family:var(--ui);font-size:30px;letter-spacing:-0.04em">Holdings</span></span>
+      </div>
+      <div class="ty-row">
+        <span class="meta">Heading<br>Fraunces 350 · 26px<br>−0.05em</span>
+        <span class="sm" style="font-family:var(--display);font-size:26px;font-weight:350;letter-spacing:-0.05em;line-height:1.2">分红月历 Dividend calendar</span>
+      </div>
+      <div class="ty-row">
+        <span class="meta">Body<br>Inter 350 · 15px<br>−0.012em</span>
+        <span class="sm" style="font-size:15px;font-weight:350;letter-spacing:-0.012em;line-height:1.55">本月净值已更新，分红将于 24 日到账</span>
+      </div>
+      <div class="ty-row">
+        <span class="meta">Caption<br>Inter 350 · 12.5px<br>−0.004em</span>
+        <span class="sm" style="font-size:12.5px;font-weight:350;letter-spacing:-0.004em;color:var(--graphite)">数据来源：天天基金 · 更新于 15:00</span>
+      </div>
+      <div class="ty-row">
+        <span class="meta">Number<br>Inter 350 · 40px<br>−0.035em · tabular</span>
+        <span class="sm" style="font-size:40px;font-weight:350;letter-spacing:-0.035em;font-variant-numeric:tabular-nums">¥ 3,842.60</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>形状与阴影</h2>
+    <p class="sub">卡片 12、按钮全圆、发丝线 1px。阴影轻到几乎没有，靠色差分层而不是靠投影。</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
+      <div style="background:var(--paper);border-radius:12px;padding:22px;box-shadow:var(--shadow-subtle)">
+        <div style="font-size:14px;font-weight:500;letter-spacing:-0.01em">shadow-subtle</div>
+        <div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">rgba(34,32,29,0.05)<br>0 1px 2px 0</div>
+      </div>
+      <div style="background:var(--paper);border-radius:12px;padding:22px;box-shadow:var(--shadow-md)">
+        <div style="font-size:14px;font-weight:500;letter-spacing:-0.01em">shadow-md</div>
+        <div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">双层：0 10px 15px -3px<br>+ 0 4px 6px -4px</div>
+      </div>
+      <div style="background:var(--paper);border-radius:12px;padding:22px;border:1px solid var(--stone);box-shadow:none">
+        <div style="font-size:14px;font-weight:500;letter-spacing:-0.01em">1px Stone 描边</div>
+        <div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">#dcd9d6<br>用于截图卡片与分隔</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>组件</h2>
+    <p class="sub">三种胶囊按钮，用途不重叠：实心是主操作，幽灵是次操作，描边是第三级链接。</p>
+    <div class="btn-row">
+      <button class="pill-primary">解锁更好的习惯</button>
+      <button class="pill-ghost">登录</button>
+      <button class="pill-outline">了解更多</button>
+    </div>
+    <div class="card-demo">
+      <div class="lbl">Feature</div>
+      <div class="h">一个安静的记账本</div>
+      <div class="p">标签用橙色小字大写拉开字距，标题用衬线压紧字距，正文用 350 字重——对比全在字重和字距上，不在颜色上。</div>
+    </div>
+  </section>
+
+</div>
+
+<div class="stage">
+  <div class="phones">
+
+    <!-- 屏一 -->
+    <div class="pw">
+      <div class="pcap">屏一 · 持仓</div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span class="r">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1" fill="currentColor"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="currentColor"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="currentColor"/><rect x="13.5" y="0" width="3" height="11" rx="1" fill="currentColor"/></svg>
+          <svg width="16" height="11" viewBox="0 0 16 11"><path d="M1 3.6A10 10 0 0 1 15 3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="9" r="1.4" fill="currentColor"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" stroke-width="1" opacity="0.35"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/></svg>
+        </span></div>
+        <div class="body">
+          <div class="p-title">持仓</div>
+          <div class="p-sub">2026 年 10 月 · 4 项</div>
+
+          <div class="hero">
+            <div class="k">预测年度分红</div>
+            <div class="v"><span class="cur">¥</span>3,842<span class="dec">.60</span></div>
+            <div class="meta">
+              <span class="tag">+12.4%</span>
+              <span class="txt">较去年 · 已覆盖支出 62%</span>
+            </div>
+          </div>
+
+          <div class="list-h"><span class="t">持仓明细</span><span class="a">全部 ›</span></div>
+          <div class="sheet">
+            <div class="row">
+              <span class="badge" style="background:rgba(255,105,45,0.10);color:#ff692d">红</span>
+              <div class="r-main"><div class="r-t">红利低波100</div><div class="r-s">A股 · 48,200</div></div>
+              <div class="r-p up">+0.82%</div>
+            </div>
+            <div class="row">
+              <span class="badge" style="background:rgba(34,32,29,0.05);color:#777573">标</span>
+              <div class="r-main"><div class="r-t">标普500</div><div class="r-s">QDII · 26,750</div></div>
+              <div class="r-p up">+1.24%</div>
+            </div>
+            <div class="row">
+              <span class="badge" style="background:rgba(34,32,29,0.05);color:#777573">黄</span>
+              <div class="r-main"><div class="r-t">黄金ETF</div><div class="r-s">商品 · 21,400</div></div>
+              <div class="r-p down">−0.38%</div>
+            </div>
+            <div class="row">
+              <span class="badge" style="background:rgba(34,32,29,0.05);color:#777573">比</span>
+              <div class="r-main"><div class="r-t">比特币</div><div class="r-s">加密 · 12,800</div></div>
+              <div class="r-p up">+2.61%</div>
+            </div>
+            <div class="row">
+              <span class="badge" style="background:rgba(34,32,29,0.05);color:#777573">现</span>
+              <div class="r-main"><div class="r-t">现金</div><div class="r-s">活期 · 32,600</div></div>
+              <div class="r-p" style="color:var(--graphite)">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tb on"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3.5 17V11M11 17V5M18.5 17v-4"/></svg>持仓</div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="5" width="16" height="14" rx="3"/><path d="M3 9.5h16M7 2.5v3M15 2.5v3"/></svg>月历</div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M11 6.5v5l3 2"/></svg>年度</div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="7.5" r="3.5"/><path d="M4 19c0-3.9 3.1-5.7 7-5.7s7 1.8 7 5.7"/></svg>我的</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 屏二 -->
+    <div class="pw">
+      <div class="pcap">屏二 · 分红月历</div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span class="r">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1" fill="currentColor"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="currentColor"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="currentColor"/><rect x="13.5" y="0" width="3" height="11" rx="1" fill="currentColor"/></svg>
+          <svg width="16" height="11" viewBox="0 0 16 11"><path d="M1 3.6A10 10 0 0 1 15 3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="9" r="1.4" fill="currentColor"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" stroke-width="1" opacity="0.35"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/></svg>
+        </span></div>
+        <div class="body">
+          <div class="p-title">月历</div>
+          <div class="p-sub">全年累计 ¥4,180.00 · 8 次</div>
+
+          <div class="cal">
+            <div class="cal-top">
+              <span class="nav">‹</span>
+              <span class="m">2026 年 10 月</span>
+              <span class="nav">›</span>
+            </div>
+            <div class="wd"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+            <div class="grid">
+              <div class="d pad"><span class="n">27</span></div>
+              <div class="d pad"><span class="n">28</span></div>
+              <div class="d pad"><span class="n">29</span></div>
+              <div class="d pad"><span class="n">30</span></div>
+              <div class="d"><span class="n">1</span></div>
+              <div class="d"><span class="n">2</span></div>
+              <div class="d"><span class="n">3</span></div>
+              <div class="d"><span class="n">4</span></div>
+              <div class="d"><span class="n">5</span></div>
+              <div class="d"><span class="n">6</span></div>
+              <div class="d"><span class="n">7</span></div>
+              <div class="d"><span class="n">8</span></div>
+              <div class="d"><span class="n">9</span><span class="mk"></span></div>
+              <div class="d"><span class="n">10</span></div>
+              <div class="d"><span class="n">11</span></div>
+              <div class="d"><span class="n">12</span></div>
+              <div class="d"><span class="n">13</span></div>
+              <div class="d"><span class="n">14</span></div>
+              <div class="d"><span class="n">15</span></div>
+              <div class="d"><span class="n">16</span></div>
+              <div class="d"><span class="n">17</span></div>
+              <div class="d"><span class="n">18</span><span class="mk"></span></div>
+              <div class="d"><span class="n">19</span></div>
+              <div class="d"><span class="n">20</span></div>
+              <div class="d"><span class="n">21</span></div>
+              <div class="d"><span class="n">22</span></div>
+              <div class="d"><span class="n">23</span></div>
+              <div class="d sel"><span class="n">24</span></div>
+              <div class="d"><span class="n">25</span></div>
+              <div class="d"><span class="n">26</span></div>
+              <div class="d"><span class="n">27</span></div>
+              <div class="d"><span class="n">28</span><span class="mk"></span></div>
+              <div class="d"><span class="n">29</span></div>
+              <div class="d"><span class="n">30</span></div>
+              <div class="d"><span class="n">31</span></div>
+              <div class="d pad"><span class="n">1</span></div>
+            </div>
+          </div>
+
+          <div class="list-h"><span class="t">10 月 24 日分红</span><span class="a">3 笔</span></div>
+          <div class="sheet">
+            <div class="row">
+              <div class="r-main"><div class="r-t">红利低波100</div><div class="r-s">现金分红 · 已到账</div></div>
+              <div class="r-v up">+386.00</div>
+            </div>
+            <div class="row">
+              <div class="r-main"><div class="r-t">标普500</div><div class="r-s">现金分红 · 已到账</div></div>
+              <div class="r-v up">+142.00</div>
+            </div>
+            <div class="row">
+              <div class="r-main"><div class="r-t">黄金ETF</div><div class="r-s">现金分红 · 已到账</div></div>
+              <div class="r-v up">+74.00</div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3.5 17V11M11 17V5M18.5 17v-4"/></svg>持仓</div>
+          <div class="tb on"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="5" width="16" height="14" rx="3"/><path d="M3 9.5h16M7 2.5v3M15 2.5v3"/></svg>月历</div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M11 6.5v5l3 2"/></svg>年度</div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="7.5" r="3.5"/><path d="M4 19c0-3.9 3.1-5.7 7-5.7s7 1.8 7 5.7"/></svg>我的</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 屏三 -->
+    <div class="pw">
+      <div class="pcap">屏三 · 持仓详情</div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span class="r">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1" fill="currentColor"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="currentColor"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="currentColor"/><rect x="13.5" y="0" width="3" height="11" rx="1" fill="currentColor"/></svg>
+          <svg width="16" height="11" viewBox="0 0 16 11"><path d="M1 3.6A10 10 0 0 1 15 3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="9" r="1.4" fill="currentColor"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" stroke-width="1" opacity="0.35"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/></svg>
+        </span></div>
+        <div class="body">
+          <div style="display:flex;align-items:center;gap:6px;padding:6px 0 2px;font-size:14px;color:var(--ink);font-weight:500">
+            <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1.5L1.5 8l6 6.5"/></svg>持仓
+          </div>
+          <div class="p-title" style="font-size:32px;padding-top:6px">红利低波100</div>
+          <div class="p-sub">A股 · 持有 421 天</div>
+
+          <div class="hero" style="padding-bottom:0">
+            <div class="v" style="margin-top:0"><span class="cur">¥</span>48,200<span class="dec">.00</span></div>
+            <div class="meta">
+              <span class="tag">+0.82%</span>
+              <span class="txt">今日 +390.20</span>
+            </div>
+            <div class="chart"><svg id="c3" viewBox="0 0 375 92" preserveAspectRatio="none"></svg></div>
+          </div>
+
+          <div class="list-h"><span class="t">持仓数据</span></div>
+          <div class="sheet">
+            <div class="row"><div class="r-main"><div class="r-t">持仓成本</div></div><div class="r-v">42,180.00</div></div>
+            <div class="row"><div class="r-main"><div class="r-t">累计分红</div></div><div class="r-v up">1,246.00</div></div>
+            <div class="row"><div class="r-main"><div class="r-t">年化收益</div></div><div class="r-v">6.4%</div></div>
+          </div>
+
+          <div class="list-h"><span class="t">最近记录</span><span class="a">全部 ›</span></div>
+          <div class="sheet">
+            <div class="row">
+              <div class="r-main"><div class="r-t">现金分红</div><div class="r-s">10 月 24 日</div></div>
+              <div class="r-v up">+386.00</div>
+            </div>
+            <div class="row">
+              <div class="r-main"><div class="r-t">定投买入 200 份</div><div class="r-s">9 月 11 日</div></div>
+              <div class="r-v">−1,860.00</div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tb on"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3.5 17V11M11 17V5M18.5 17v-4"/></svg>持仓</div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="5" width="16" height="14" rx="3"/><path d="M3 9.5h16M7 2.5v3M15 2.5v3"/></svg>月历</div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M11 6.5v5l3 2"/></svg>年度</div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="7.5" r="3.5"/><path d="M4 19c0-3.9 3.1-5.7 7-5.7s7 1.8 7 5.7"/></svg>我的</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="wrap">
+  <section style="border-top:none;padding-top:52px">
+    <h2>为中文做的四处改动</h2>
+    <p class="sub">原系统是英文的。直接照搬会崩，这四处必须调，且必须记录——它们不算“还原”，算“本地化”。</p>
+    <div class="loc">
+      <div class="loc-row">
+        <span class="a">展示字</span>
+        <span class="b">Copernicus 是西文衬线，中文无对应。改用 <code>Fraunces + 宋体</code> 混排：西文数字走 Fraunces，中文走宋体。中文字形没有那套笔画细节，视觉重量本来就大，所以字号下调约 15%。</span>
+      </div>
+      <div class="loc-row">
+        <span class="a">字距</span>
+        <span class="b">原文标题 −0.067em 在中文会糊成一团。中文降到 <code>−0.052em</code>，仍有紧压感但不粘连。正文维持 −0.012em。</span>
+      </div>
+      <div class="loc-row">
+        <span class="a">行高</span>
+        <span class="b">英文 1.20 行高对中文太挤（方块字无升部降部）。标题改 <code>1.15–1.2</code>，正文改 <code>1.55</code>。</span>
+      </div>
+      <div class="loc-row">
+        <span class="a">涨跌色</span>
+        <span class="b">Monarch 没有涨跌色，它是预算类 App。本项目必须有，新增 <code>#1F7A4D</code> / <code>#C2412D</code>，并刻意降饱和，避免与 Ember Orange 抢注意力。</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>规范符合性</h2>
+    <p class="sub">逐条对照 Monarch 的 Do's / Don'ts。第一版有四处不合规，已改。</p>
+    <div class="loc">
+      <div class="loc-row">
+        <span class="a">已修正 ①</span>
+        <span class="b">分组标题原本用大写 + 拉开字距（HOLDINGS、PREDICTED ANNUAL DIVIDEND）。规范原文：<code>tracked caps are reserved for eyebrow labels only</code>，正文分组不允许。已改回正常大小写。</span>
+      </div>
+      <div class="loc-row">
+        <span class="a">已修正 ②</span>
+        <span class="b">卡片阴影原用 <code>shadow-subtle</code>（0.05）。规范只有两档层级，卡片该用 <code>shadow-md</code>：0.1 双层。同时修正了我把第二层透明度写成 0.08 的错误。</span>
+      </div>
+      <div class="loc-row">
+        <span class="a">已修正 ③</span>
+        <span class="b">返回箭头原用橙色。规范：橙色只用于<code>填充按钮、激活态、eyebrow label</code>，图标线条走 Ink。已改。</span>
+      </div>
+      <div class="loc-row">
+        <span class="a">已修正 ④</span>
+        <span class="b">首屏字段名原写成英文大写，与「分工作严格」的字体规则冲突（衬线只做标题、无衬线只做 UI）。已统一为中文正常句式。</span>
+      </div>
+      <div class="loc-row">
+        <span class="a">刻意偏离</span>
+        <span class="b">涨跌色、中文衬线替代、字距收紧幅度、正文行高——这四项是本地化，不是还原，见上一节。</span>
+      </div>
+      <div class="loc-row">
+        <span class="a">未采用</span>
+        <span class="b">生活方式摄影、促销横幅、奖项条、全宽渐变——属于营销站组件，工具类 App 用不上。唯一值得保留的：分红到账这类庆祝场景可用 <code>linear-gradient(to right, #e5484d, #ff692d)</code>，规范限定它只做点缀、不做表面。</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    设计语言还原 · 基于 Monarch DESIGN.md（refero.design）· 2026-10-28<br>
+    字体：Fraunces 与 Inter 来自 Google Fonts，对应 Copernicus 与 ABC Oracle 的官方替代建议。
+    中文回退宋体 + 系统无衬线。所有色值、圆角、阴影、字重、字距均取自规范原文。
+  </footer>
+</div>
+
+<script>
+(function () {
+  var svg = document.getElementById('c3');
+  var NS = 'http://www.w3.org/2000/svg';
+  var w = 375, h = 92;
+  var data = [0.42,0.40,0.47,0.45,0.52,0.50,0.58,0.55,0.63,0.61,0.70,0.68,0.75,0.79];
+  var n = data.length;
+  var lo = Math.min.apply(null, data), hi = Math.max.apply(null, data);
+  var span = (hi - lo) || 1;
+  function x(i) { return (i / (n - 1)) * w; }
+  function y(v) { return h - 16 - ((v - lo) / span) * (h - 40); }
+
+  var d = 'M0 ' + h;
+  for (var i = 0; i < n; i++) d += ' L' + x(i).toFixed(1) + ' ' + y(data[i]).toFixed(1);
+  d += ' L' + w + ' ' + h + ' Z';
+
+  var area = document.createElementNS(NS, 'path');
+  area.setAttribute('d', d);
+  area.setAttribute('fill', '#ff692d');
+  area.setAttribute('opacity', '0.07');
+  svg.appendChild(area);
+
+  var line = '';
+  for (var j = 0; j < n; j++) line += (j ? ' L' : 'M') + x(j).toFixed(1) + ' ' + y(data[j]).toFixed(1);
+  var ln = document.createElementNS(NS, 'path');
+  ln.setAttribute('d', line);
+  ln.setAttribute('fill', 'none');
+  ln.setAttribute('stroke', '#ff692d');
+  ln.setAttribute('stroke-width', '1.8');
+  ln.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(ln);
+
+  var base = document.createElementNS(NS, 'line');
+  base.setAttribute('x1', 0); base.setAttribute('y1', h - 0.5);
+  base.setAttribute('x2', w); base.setAttribute('y2', h - 0.5);
+  base.setAttribute('stroke', '#dcd9d6');
+  base.setAttribute('stroke-width', '1');
+  svg.appendChild(base);
+})();
+</script>
+</body>
+</html>

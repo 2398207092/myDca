@@ -53,7 +53,8 @@ public class DcaPlan {
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal totalInvested;
 
-    @Column(nullable = false, precision = 18, scale = 4)
+    // 精度 24,8：BTC 定投单期约 0.000086 枚，18,4 会截成 0.0001（累计份额/平均成本失真，2026-10-29 修）
+    @Column(nullable = false, precision = 24, scale = 8)
     private BigDecimal totalShares;
 
     @Column(nullable = false)
