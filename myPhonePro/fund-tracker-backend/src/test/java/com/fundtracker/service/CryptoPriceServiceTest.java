@@ -105,10 +105,8 @@ class CryptoPriceServiceTest {
     }
 
     @Test
-    @DisplayName("没有 USDT 持仓时不写库、返回 0 更新")
+    @DisplayName("没有 USDT 持仓时不发网络请求、返回 0 更新")
     void noHoldings() {
-        when(okx.fetchUsdtPrice(anyString())).thenReturn(Optional.of(new BigDecimal("80000")));
-        when(exchangeRateService.listAll()).thenReturn(List.of(rate("USD/CNY", "6.7")));
         when(holdingRepository.findByUserIdAndQuoteCurrencyAndDeletedFalse("u1", "USDT"))
                 .thenReturn(List.of());
 
@@ -116,6 +114,8 @@ class CryptoPriceServiceTest {
 
         assertEquals(0, resp.getUpdatedHoldings());
         assertTrue(resp.getPrices().isEmpty());
+        // 2026-10-29：无持仓时直接返回，不再抓 BTC/ETH（请求数减半、冷启动更快）
+        org.mockito.Mockito.verifyNoInteractions(gate, okx);
     }
 
     @Test

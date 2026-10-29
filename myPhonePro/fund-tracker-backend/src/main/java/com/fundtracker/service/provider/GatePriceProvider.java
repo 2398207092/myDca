@@ -30,7 +30,7 @@ public class GatePriceProvider implements CryptoPriceProvider {
             "Accept", "application/json"
     );
 
-    private final HttpClientWrapper http;
+    private final com.fundtracker.service.CryptoHttpClient http;
     private final ObjectMapper mapper;
 
     @Override
@@ -41,10 +41,11 @@ public class GatePriceProvider implements CryptoPriceProvider {
     @Override
     public Optional<BigDecimal> fetchUsdtPrice(String symbol) {
         String url = URL.formatted(symbol.toUpperCase());
-        String body = http.getText(url, HEADERS);
-        if (body == null || body.isBlank()) {
+        java.util.Optional<String> resp = http.getText(url, HEADERS);
+        if (resp.isEmpty() || resp.get().isBlank()) {
             return Optional.empty();
         }
+        String body = resp.get();
         try {
             JsonNode root = mapper.readTree(body);
             if (!root.isArray() || root.isEmpty()) {

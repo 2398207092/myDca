@@ -20,6 +20,7 @@ import java.util.Optional;
  */
 @Slf4j
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "app.crypto.okx-enabled", havingValue = "true")
 @Order(1)
 @RequiredArgsConstructor
 public class OkxPriceProvider implements CryptoPriceProvider {
@@ -30,7 +31,7 @@ public class OkxPriceProvider implements CryptoPriceProvider {
             "Accept", "application/json"
     );
 
-    private final HttpClientWrapper http;
+    private final com.fundtracker.service.CryptoHttpClient http;
     private final ObjectMapper mapper;
 
     @Override
@@ -41,10 +42,11 @@ public class OkxPriceProvider implements CryptoPriceProvider {
     @Override
     public Optional<BigDecimal> fetchUsdtPrice(String symbol) {
         String url = URL.formatted(symbol.toUpperCase());
-        String body = http.getText(url, HEADERS);
-        if (body == null || body.isBlank()) {
+        java.util.Optional<String> resp = http.getText(url, HEADERS);
+        if (resp.isEmpty() || resp.get().isBlank()) {
             return Optional.empty();
         }
+        String body = resp.get();
         try {
             JsonNode root = mapper.readTree(body);
             if (!"0".equals(root.path("code").asText())) {

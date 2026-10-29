@@ -41,6 +41,8 @@ function showToast(msg: string, type: 'success' | 'error' | 'info' = 'success') 
 async function refreshPrice() {
   if (refreshing.value) return
   refreshing.value = true
+  // 兜底提示：数据源超时上限 4s/源，超过 10s 说明外网异常，先告知用户别干等
+  const slowHint = setTimeout(() => showToast('数据源响应较慢，正在重试…', 'info'), 10000)
   try {
     const resp = await refreshCryptoPrices()
     if (resp.stale) {
@@ -55,6 +57,7 @@ async function refreshPrice() {
   } catch (e: any) {
     showToast(e?.message || '刷新失败', 'error')
   } finally {
+    clearTimeout(slowHint)
     refreshing.value = false
   }
 }

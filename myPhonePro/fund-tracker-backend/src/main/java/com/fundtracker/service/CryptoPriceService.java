@@ -35,8 +35,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class CryptoPriceService {
 
-    /** 当前支持的币种。与前端「添加标的」的快捷入口保持一致 */
-    private static final List<String> SYMBOLS = List.of("BTC", "ETH");
     private static final Duration SKIP_FAILED_FOR = Duration.ofMinutes(10);
     private static final BigDecimal DEFAULT_USD_CNY = new BigDecimal("7.2");
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -58,7 +56,24 @@ public class CryptoPriceService {
         Set<String> failedSources = new LinkedHashSet<>();
         String source = null;
 
-        for (String symbol : SYMBOLS) {
+        // 只抓实际持有/录入了的币：没有 ETH 持仓时不发 ETH 请求（请求数减半，冷启动更快）
+        Set<String> symbols = new LinkedHashSet<>();
+        for (Holding h : listTargets(userId)) {
+            if (h.getCode() != null && !h.getCode().isBlank()) {
+                symbols.add(h.getCode().trim().toUpperCase());
+            }
+        }
+        if (symbols.isEmpty()) {
+            return RefreshCryptoPricesResp.builder()
+                    .prices(currentPrices(userId))
+                    .updatedHoldings(0)
+                    .refreshedAt(LocalDateTime.now().format(TS))
+                    .stale(false)
+                    .message("没有加密资产，无需刷新")
+                    .build();
+        }
+
+        for (String symbol : symbols) {
             for (CryptoPriceProvider provider : providers) {
                 if (isRecentlyFailed(provider.name())) {
                     continue;
