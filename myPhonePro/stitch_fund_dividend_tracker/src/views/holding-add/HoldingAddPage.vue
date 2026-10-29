@@ -18,9 +18,15 @@ const isSearching = ref(false)
 const selectedHolding = ref<HoldingSearchResult | null>(null)
 const showResults = ref(false)
 
+// 本地时区日期串（toISOString 走 UTC，北京时间 0-8 点会错标为昨天，参考 CalendarPage 的正确写法）
+function localToday(): string {
+  const n = new Date()
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+}
+
 // Step 2: Holding Info
 const shares = ref<number | null>(null)
-const buyDate = ref(new Date().toISOString().split('T')[0])
+const buyDate = ref(localToday())
 const buyFeeRate = ref(0.15)
 const sellFeeRate = ref(0)
 const costAlgorithm = ref<'diluted' | 'diluted_only' | 'weighted_avg'>('diluted')

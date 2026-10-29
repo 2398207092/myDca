@@ -47,7 +47,7 @@ public class ExchangeRateService {
 
     @Transactional
     public RefreshExchangeRatesResp refresh() {
-        // 30 秒限流检查
+        // 30 秒限流检查（仅手动接口；定时任务走 refreshScheduled 不受限流）
         if (lastRefreshTime != null &&
                 lastRefreshTime.plusSeconds(30).isAfter(LocalDateTime.now())) {
             throw BusinessException.rateLimitExceeded();
@@ -56,6 +56,26 @@ public class ExchangeRateService {
         lastRefreshTime = LocalDateTime.now();
         String refreshedAt = lastRefreshTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
+        doRefresh();
+
+        List<ExchangeRate> rates = repository.findAll();
+        return RefreshExchangeRatesResp.builder()
+                .rates(rates.stream().map(this::toDTO).collect(Collectors.toList()))
+                .refreshedAt(refreshedAt)
+                .build();
+    }
+
+    /**
+     * P1-28：定时任务入口。返回 API 刷新是否成功；API 不可达时返回 false（不抛异常），
+     * 由调度器写入监控日志使失败可见（refresh 内部失败仅 log.warn，调度器无法感知）。
+     */
+    @Transactional
+    public boolean refreshScheduled() {
+        return doRefresh();
+    }
+
+    /** 拉取 API 并更新数据库。返回是否获取到有效汇率。 */
+    private boolean doRefresh() {
         // 从 API 拉取实时汇率
         List<ExchangeRate> apiRates = fetchFromApi();
 
@@ -75,16 +95,12 @@ public class ExchangeRateService {
             }
             // 删除不再支持的货币对（如有）
             // 保留当前已有的
+            return true;
         } else {
             // API 失败，使用已有数据库值（不修改）
             log.warn("刷新汇率失败，API 不可达，使用本地缓存值");
+            return false;
         }
-
-        List<ExchangeRate> rates = repository.findAll();
-        return RefreshExchangeRatesResp.builder()
-                .rates(rates.stream().map(this::toDTO).collect(Collectors.toList()))
-                .refreshedAt(refreshedAt)
-                .build();
     }
 
     /**

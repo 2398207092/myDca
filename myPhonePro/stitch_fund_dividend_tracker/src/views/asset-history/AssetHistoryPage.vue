@@ -6,6 +6,7 @@ import type { HoldingItem } from '@/api/holding'
 import {
   getAssetOverview,
   getHoldingDiff,
+  getHoldingSeries,
   triggerSnapshot,
   type TotalAssetSeries,
   type HoldingDiff,
@@ -22,6 +23,20 @@ const range = ref<HistoryRange>('month')
 // 总资产
 const totalData = ref<TotalAssetSeries | null>(null)
 const totalTab = ref<'value' | 'shares' | 'profit'>('value')
+
+// 加密币持仓份额（按日期）：后端 totalShares 是基金份额与币数裸加（TotalAssetSeriesService），
+// 前端拉取 crypto 持仓的单持仓序列按日期减去，得到纯基金份额口径
+const cryptoSharesByDate = ref<Map<string, number>>(new Map())
+
+/** 某快照点剔除加密币后的基金总份额 */
+function fundSharesOf(point: { date: string; totalShares: number }): number {
+  return point.totalShares - (cryptoSharesByDate.value.get(point.date) ?? 0)
+}
+
+/** 某快照点的加密币总枚数（坐标详情单独展示用） */
+function cryptoSharesOf(point: { date: string }): number {
+  return cryptoSharesByDate.value.get(point.date) ?? 0
+}
 
 // 持仓卡片
 const holdings = ref<HoldingItem[]>([])
@@ -263,7 +278,8 @@ function renderTotalChart() {
     }))
     activeCatLines.value = catLines
   } else if (totalTab.value === 'shares') {
-    data = series.map(p => p.totalShares)
+    // 份额 tab 只统计基金份额：从 totalShares 中剔除加密币枚数（币数与份额混合相加无意义）
+    data = series.map(p => fundSharesOf(p))
     activeCatLines.value = []
   } else {
     data = series.map(p => p.totalProfitLoss)
@@ -332,6 +348,21 @@ async function loadHoldingDiffs(holdingList: HoldingItem[]) {
   holdingDiffs.value = diffs
 }
 
+async function loadCryptoShares(holdingList: HoldingItem[]) {
+  const cryptoIds = holdingList.filter(h => h.quoteCurrency === 'USDT').map(h => h.id)
+  if (cryptoIds.length === 0) { cryptoSharesByDate.value = new Map(); return }
+  const results = await Promise.allSettled(cryptoIds.map(id => getHoldingSeries(id, range.value)))
+  const byDate = new Map<string, number>()
+  results.forEach((r) => {
+    if (r.status === 'fulfilled') {
+      r.value.series.forEach((p) => {
+        byDate.set(p.date, (byDate.get(p.date) ?? 0) + (p.shares || 0))
+      })
+    }
+  })
+  cryptoSharesByDate.value = byDate
+}
+
 async function loadAll() {
   loading.value = true
   errorMsg.value = ''
@@ -345,6 +376,7 @@ async function loadAll() {
     await Promise.all([
       loadTotalData(),
       loadHoldingDiffs(holdingList),
+      loadCryptoShares(holdingList),
     ])
   } catch (e: any) {
     console.error('加载数据失败:', e)
@@ -498,8 +530,11 @@ function handleResize() { totalChart?.resize() }
                 <p class="text-sm font-bold text-text-primary font-display">{{ fmtMoney(selectedPoint.totalMarketValue) }}</p>
               </div>
               <div>
-                <p class="text-[10px] text-text-tertiary">总份额</p>
-                <p class="text-sm font-bold text-text-primary font-display">{{ selectedPoint.totalShares.toLocaleString() }} 份</p>
+                <p class="text-[10px] text-text-tertiary">基金总份额</p>
+                <p class="text-sm font-bold text-text-primary font-display">{{ fundSharesOf(selectedPoint).toLocaleString() }} 份</p>
+                <p v-if="cryptoSharesOf(selectedPoint) > 0" class="text-[10px] text-text-tertiary mt-0.5">
+                  加密币 {{ cryptoSharesOf(selectedPoint).toLocaleString() }} 枚（不计入份额）
+                </p>
               </div>
               <div>
                 <p class="text-[10px] text-text-tertiary">盈亏</p>

@@ -177,6 +177,12 @@ public class AccountService {
         if ("exchange".equals(newPurpose) && !"USDT".equals(newCurrency)) {
             throw BusinessException.invalidParam("交易所账户的本位币必须是 USDT，请先调整本位币或用途");
         }
+        // 本位币变更校验（P1-30 修复：必须在 setter 之前用旧值判断——
+        // 原实现先 set 再比较，new.equals(new) 恒 false，守卫不可达成死代码）：
+        // 账户本位币不可改，否则已有资产会从所有 matchesAssetType 匹配校验中漏掉
+        if (req.getBaseCurrency() != null && !newCurrency.equals(account.getBaseCurrency())) {
+            throw BusinessException.invalidParam("账户本位币不可直接修改（账户下已有资产），如需调整请先移走该账户下的资产");
+        }
         account.setPurpose(newPurpose);
         account.setBaseCurrency(newCurrency);
         if (req.getSortOrder() != null) account.setSortOrder(req.getSortOrder());
@@ -186,10 +192,6 @@ public class AccountService {
             account.setDefault(true);
         }
 
-        // 本位币变更校验：账户下已有资产必须与新本位币匹配，否则这些资产会从所有匹配校验中漏掉
-        if (req.getBaseCurrency() != null && !normalizeCurrency(req.getBaseCurrency()).equals(account.getBaseCurrency())) {
-            throw BusinessException.invalidParam("账户本位币不可直接修改（账户下已有资产），如需调整请先移走该账户下的资产");
-        }
         account = accountRepository.save(account);
         List<ManualAsset> assets = manualAssetRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .filter(a -> id.equals(a.getAccountId()))
@@ -298,16 +300,30 @@ public class AccountService {
      * 资产类型与账户本位币是否匹配：
      * USDT 账户（交易所）只能挂加密资产；CNY 账户只能挂人民币资产（现金/基金等）。
      * accountId 为空视为不约束。
+     *
+     * P1-29 修复：带 userId 的重载会先校验账户存在且归属于该用户，
+     * 防止把持仓挂到任意账户（含他人账户）。
      */
-    public boolean matchesAssetType(String accountId, boolean isCryptoAsset) {
+    public boolean matchesAssetTypeForUser(String userId, String accountId, boolean isCryptoAsset) {
         if (accountId == null || accountId.isBlank()) {
             return true;
         }
-        Account acc = accountRepository.findById(accountId).orElse(null);
+        Optional<Account> opt = userId == null
+                ? accountRepository.findById(accountId)
+                : accountRepository.findByIdAndUserIdAndDeletedFalse(accountId, userId);
+        Account acc = opt.orElse(null);
         if (acc == null) {
-            return false; // 账户不存在视作不匹配，由调用方决定报错文案
+            return false; // 账户不存在（或不属于该用户）视作不匹配，由调用方决定报错文案
         }
         boolean usdtAccount = "USDT".equalsIgnoreCase(acc.getBaseCurrency());
         return isCryptoAsset == usdtAccount;
+    }
+
+    /**
+     * 兼容旧调用：不传 userId 跳过归属校验（仅本位币匹配）。
+     * 新代码请使用 {@link #matchesAssetTypeForUser}。
+     */
+    public boolean matchesAssetType(String accountId, boolean isCryptoAsset) {
+        return matchesAssetTypeForUser(null, accountId, isCryptoAsset);
     }
 }

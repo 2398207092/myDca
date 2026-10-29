@@ -5,11 +5,20 @@ import { getDcaPlan, updateDcaPlan, deleteDcaPlan, executeDcaPlan, type DcaPlanV
 import { listExchangeRates } from '@/api/exchangeRate'
 import { listTransactions, type TransactionItem } from '@/api/transaction'
 import PageStateComp from '@/components/shared/PageState.vue'
+import ToastNotification from '@/components/shared/ToastNotification.vue'
 import DcaExecuteSheet from '@/components/dca/DcaExecuteSheet.vue'
 import DcaPlanSheet from '@/components/dca/DcaPlanSheet.vue'
 
 const route = useRoute()
 const router = useRouter()
+
+// Toast 通知（写操作失败必须可见，禁止静默失败）
+const toastMsg = ref<string | null>(null)
+const toastType = ref<'success' | 'error' | 'info'>('error')
+function showToast(msg: string, type: 'success' | 'error' | 'info' = 'error') {
+  toastMsg.value = msg
+  toastType.value = type
+}
 
 const pageState = ref<'loading' | 'ready' | 'empty' | 'error'>('loading')
 const plan = ref<DcaPlanVO | null>(null)
@@ -103,10 +112,11 @@ const dayLabel = computed(() => {
 })
 
 // === Actions ===
+// 加密币平均成本需按汇率折算成人民币；汇率缺失时返回 null（显示 --），不得用未折算 USDT 值冒充人民币
 const avgCost = computed(() => {
   if (!plan.value || plan.value.totalShares === 0) return '0.0000'
-  // 加密币：累计投入是 USDT，平均成本统一换算成人民币口径（与持仓成本一致）
-  const invested = isCrypto.value && usdCny.value ? plan.value.totalInvested * usdCny.value : plan.value.totalInvested
+  if (isCrypto.value && !usdCny.value) return null
+  const invested = isCrypto.value ? plan.value.totalInvested * usdCny.value! : plan.value.totalInvested
   return (invested / plan.value.totalShares).toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
 })
 
@@ -132,8 +142,9 @@ async function handlePauseResume() {
     const newStatus = plan.value.status === 'active' ? 'paused' : 'active'
     await updateDcaPlan(plan.value.id, { status: newStatus })
     await loadData()
-  } catch (e) {
+  } catch (e: any) {
     console.error('操作失败:', e)
+    showToast(e?.message || '暂停/恢复操作失败，请重试', 'error')
   } finally {
     updating.value = false
   }
@@ -145,8 +156,10 @@ async function handleEnd() {
   try {
     await updateDcaPlan(plan.value.id, { status: 'ended' })
     await loadData()
-  } catch (e) {
+  } catch (e: any) {
     console.error('终止失败:', e)
+    // 终止失败必须让用户知道定投仍在运行（否则会继续真金扣款）
+    showToast(e?.message || '终止定投失败，定投仍在运行，请重试', 'error')
   } finally {
     updating.value = false
   }
@@ -158,8 +171,9 @@ async function handleDelete() {
   try {
     await deleteDcaPlan(plan.value.id)
     router.back()
-  } catch (e) {
+  } catch (e: any) {
     console.error('删除失败:', e)
+    showToast(e?.message || '删除计划失败，请重试', 'error')
   } finally {
     updating.value = false
     showDeleteConfirm.value = false
@@ -177,6 +191,7 @@ function formatQuantity(n: number): string {
 
 <template>
   <div class="min-h-screen bg-page-bg">
+    <ToastNotification :message="toastMsg" :type="toastType" @close="toastMsg = null" />
     <!-- Header — 统一 -->
     <header class="flex items-center justify-between px-gutter h-14 sticky top-0 z-50 bg-card-bg border-b border-border-light/40">
       <button @click="goBack" class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80">
@@ -231,7 +246,10 @@ function formatQuantity(n: number): string {
         </div>
         <div class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
           <p class="font-body text-xs text-text-tertiary mb-1">平均成本</p>
-          <p class="font-display text-lg font-semibold text-text-primary">
+          <p v-if="avgCost === null" class="font-display text-lg font-semibold text-text-tertiary">
+            --<span class="text-xs ml-1">汇率获取失败</span>
+          </p>
+          <p v-else class="font-display text-lg font-semibold text-text-primary">
             ¥{{ avgCost }}<span class="text-xs ml-1">{{ isCrypto ? '/枚' : '/份' }}</span>
           </p>
         </div>
@@ -297,12 +315,12 @@ function formatQuantity(n: number): string {
             <div>
               <p class="font-body text-sm text-text-primary">{{ tx.date }}</p>
               <p class="font-body text-xs text-text-tertiary">
-                @ ¥{{ formatAmount(tx.price) }}
+                @ {{ isCrypto ? 'USDT ' + formatAmount(tx.price) : '¥' + formatAmount(tx.price) }}
               </p>
             </div>
             <div class="text-right">
-              <p class="font-body text-sm text-text-primary">¥{{ formatAmount(tx.total) }}</p>
-              <p class="font-body text-xs text-text-tertiary">{{ formatQuantity(tx.quantity) }} 份</p>
+              <p class="font-body text-sm text-text-primary">{{ isCrypto ? formatAmount(tx.total) + ' USDT' : '¥' + formatAmount(tx.total) }}</p>
+              <p class="font-body text-xs text-text-tertiary">{{ formatQuantity(tx.quantity) }} {{ isCrypto ? '枚' : '份' }}</p>
             </div>
           </div>
         </div>
@@ -392,6 +410,7 @@ function formatQuantity(n: number): string {
             :plan-id="planId"
             :holding-name="plan?.holdingName || ''"
             :amount="plan?.amount || 0"
+            :trading-market="plan?.tradingMarket || 'fund'"
             @close="showExecuteSheet = false"
             @executed="handleExecuted"
           />

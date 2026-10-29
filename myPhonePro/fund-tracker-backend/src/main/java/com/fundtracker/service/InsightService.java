@@ -122,8 +122,10 @@ public class InsightService {
                     .distinct()
                     .collect(Collectors.toList());
 
-            // 总金额 = sum of all event amounts for this fund
+            // P1-2：只统计 payout（派息发放）——一次分红会生成 registration/ex_dividend/payout
+            // 三条等额事件，全加会把月度明细放大 3 倍；用户语义 = 当月实际到账
             BigDecimal totalAmount = events.stream()
+                    .filter(e -> e.getType() == EventType.payout)
                     .map(e -> e.getAmount() != null ? e.getAmount() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 

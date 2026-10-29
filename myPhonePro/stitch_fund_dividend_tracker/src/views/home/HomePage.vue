@@ -114,10 +114,12 @@ function runAnimations() {
   })
 }
 
-function formatShares(value: number | undefined | null): string {
+/** 份额显示：基金（CNY）保留 2 位，加密币（USDT）用 8 位精度（币数量级小，2 位会丢信息） */
+function formatShares(value: number | undefined | null, quoteCurrency?: string): string {
   if (value == null || value === 0) return '--'
-  if (value >= 10000) return `${(value / 10000).toFixed(2)}万份`
-  return `${value.toFixed(2)}份`
+  if (quoteCurrency !== 'USDT' && value >= 10000) return `${(value / 10000).toFixed(2)}万份`
+  const digits = quoteCurrency === 'USDT' ? 8 : 2
+  return `${value.toFixed(digits)}${quoteCurrency === 'USDT' ? '枚' : '份'}`
 }
 
 function dividendRateText(rate: number | undefined | null): string {
@@ -600,7 +602,7 @@ onBeforeUnmount(() => {
                 <!-- 份额（最后一格：无右分隔线） -->
                 <div class="flex flex-col items-center gap-1 px-1 min-w-0">
                   <span class="font-body text-xs text-text-tertiary">份额</span>
-                  <span class="font-body text-sm font-medium text-text-primary tabular-nums truncate">{{ formatShares(holding.shares).replace(/份$/, '') }}</span>
+                  <span class="font-body text-sm font-medium text-text-primary tabular-nums truncate">{{ formatShares(holding.shares, holding.quoteCurrency).replace(/(份|枚)$/, '') }}</span>
                 </div>
               </div>
 

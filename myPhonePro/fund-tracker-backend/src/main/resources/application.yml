@@ -16,6 +16,8 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+    # P2-12：关闭 OSIV，Session 只在事务期打开，避免视图层懒加载意外触发 SQL
+    open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
@@ -37,8 +39,10 @@ spring:
 springdoc:
   api-docs:
     path: /api-docs
+    enabled: false  # P2-21：生产 systemd 未激活 prod profile，swagger 关闭直接放默认段（本地需要时手动临时开启）
   swagger-ui:
     path: /swagger-ui.html
+    enabled: false
 
 # 应用自定义配置
 app:
@@ -59,3 +63,16 @@ management:
   endpoint:
     health:
       show-details: never  # 不显示数据库连接等明细，避免泄露内部信息
+
+---
+# 生产环境 profile（P2-21：Swagger/api-docs 游离在 /api/** 拦截外，公网匿名可看全 API 文档，prod 下整体关闭）
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

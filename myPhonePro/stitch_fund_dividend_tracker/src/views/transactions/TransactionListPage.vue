@@ -2,12 +2,24 @@
 import { ref, watch, onActivated } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { listTransactions, updateTransaction, deleteTransaction, type TransactionItem, type UpdateTransactionReq } from '@/api/transaction'
+import { getHolding } from '@/api/holding'
+import ToastNotification from '@/components/shared/ToastNotification.vue'
 
 const route = useRoute()
 const router = useRouter()
 
+// Toast 通知（写操作失败必须可见，禁止静默失败）
+const toastMsg = ref<string | null>(null)
+const toastType = ref<'success' | 'error' | 'info'>('error')
+function showToast(msg: string, type: 'success' | 'error' | 'info' = 'error') {
+  toastMsg.value = msg
+  toastType.value = type
+}
+
 const loading = ref(true)
 const transactions = ref<TransactionItem[]>([])
+// 当前持仓是否为加密币（quoteCurrency=USDT）：影响份额单位（枚）与单价单位（USDT）
+const isCrypto = ref(false)
 
 async function loadTransactions(holdingId: string) {
   if (!holdingId) return
@@ -19,6 +31,8 @@ async function loadTransactions(holdingId: string) {
   } finally {
     loading.value = false
   }
+  // 持仓币种信息（失败不阻断列表展示，回退为基金口径）
+  getHolding(holdingId).then((h) => { isCrypto.value = h.quoteCurrency === 'USDT' }).catch(() => { isCrypto.value = false })
 }
 
 // 最稳健的模式：监听路由参数变化加载数据（与 HoldingDetailPage 一致）
@@ -114,6 +128,7 @@ async function doDeleteTx() {
     transactions.value = await listTransactions(route.params.id as string)
   } catch (e: any) {
     console.error('删除失败:', e)
+    showToast(e?.message || '删除交易失败，请重试', 'error')
     showDeleteConfirm.value = false
   }
 }
@@ -125,7 +140,8 @@ function formatAmount(n: number, withSign = false): string {
 
 function formatQuantity(n: number): string {
   if (n === 0) return '—'
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+  // 加密币份额（枚数量级小）需要 8 位精度，基金保持 4 位上限
+  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: isCrypto.value ? 8 : 4 })
 }
 
 function txLabel(type: string): { text: string; color: string } {
@@ -152,6 +168,7 @@ function goAddTrade() {
 
 <template>
   <div class="min-h-screen bg-page-bg flex flex-col">
+    <ToastNotification :message="toastMsg" :type="toastType" @close="toastMsg = null" />
     <!-- Header — 统一 -->
     <header class="flex items-center justify-between px-gutter h-14 sticky top-0 z-50 bg-card-bg border-b border-border-light/40">
       <button @click="goBack" class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80">
@@ -210,12 +227,12 @@ function goAddTrade() {
                 {{ formatAmount(tx.total, true) }}
               </template>
               <template v-else>
-                {{ formatQuantity(tx.quantity) }} 份
+                {{ formatQuantity(tx.quantity) }} {{ isCrypto ? '枚' : '份' }}
               </template>
             </p>
             <p v-if="tx.type !== 'dividend'" class="font-body text-xs text-text-tertiary">
-              @ {{ formatAmount(tx.price, true) }}
-              <template v-if="tx.fee"> / 手续费 {{ formatAmount(tx.fee, true) }}</template>
+              @ {{ isCrypto ? formatAmount(tx.price) + ' USDT' : formatAmount(tx.price, true) }}
+              <template v-if="tx.fee"> / 手续费 {{ isCrypto ? formatAmount(tx.fee) + ' USDT' : formatAmount(tx.fee, true) }}</template>
             </p>
           </div>
         </div>

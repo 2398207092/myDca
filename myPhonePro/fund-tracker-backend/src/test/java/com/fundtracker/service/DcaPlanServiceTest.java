@@ -43,6 +43,7 @@ class DcaPlanServiceTest {
     @Mock private com.fundtracker.service.ExchangeRateService exchangeRateService;
     @Mock private com.fundtracker.service.AccountService accountService;
     @Mock private com.fundtracker.service.CryptoPriceService cryptoPriceService;
+    @Mock private com.fundtracker.repository.AccountRepository accountRepository;
 
     private DcaPlanService dcaPlanService;
 
@@ -52,7 +53,7 @@ class DcaPlanServiceTest {
                 dcaPlanRepository, holdingRepository,
                 transactionService, transactionRepository, fundNavScrapeService,
                 tradingCalendar, manualAssetRepository, exchangeRateService, accountService,
-                cryptoPriceService
+                cryptoPriceService, accountRepository
         );
     }
 
@@ -172,6 +173,80 @@ class DcaPlanServiceTest {
             req.setFrequency("invalid_freq");
 
             when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
+
+            assertThrows(BusinessException.class, () -> dcaPlanService.createPlan(req, "user-1"));
+        }
+
+        @Test
+        @DisplayName("挂不存在的账户 → 抛异常（P1-29）")
+        void accountNotFound() {
+            Holding holding = Holding.builder().id("h-1").name("测试基金").type(HoldingType.fund).build();
+            CreateDcaPlanReq req = new CreateDcaPlanReq();
+            req.setHoldingId("h-1");
+            req.setAmount(new BigDecimal("500"));
+            req.setFrequency("weekly");
+            req.setAccountId("acc-404");
+
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
+            when(accountRepository.findByIdAndUserIdAndDeletedFalse("acc-404", "user-1")).thenReturn(Optional.empty());
+
+            assertThrows(BusinessException.class, () -> dcaPlanService.createPlan(req, "user-1"));
+        }
+
+        @Test
+        @DisplayName("挂他人的账户 → 抛异常（P1-29）")
+        void accountBelongsToOtherUser() {
+            Holding holding = Holding.builder().id("h-1").name("测试基金").type(HoldingType.fund).build();
+            CreateDcaPlanReq req = new CreateDcaPlanReq();
+            req.setHoldingId("h-1");
+            req.setAmount(new BigDecimal("500"));
+            req.setFrequency("weekly");
+            req.setAccountId("acc-other");
+
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
+            // 双条件查询查不到 = 他人账户（P1-29 的归属校验口径）
+            when(accountRepository.findByIdAndUserIdAndDeletedFalse("acc-other", "user-1")).thenReturn(Optional.empty());
+
+            assertThrows(BusinessException.class, () -> dcaPlanService.createPlan(req, "user-1"));
+        }
+
+        @Test
+        @DisplayName("基金计划挂 CNY 账户 → 成功（P1-29 本位币匹配）")
+        void fundPlanWithCnyAccount() {
+            Holding holding = Holding.builder().id("h-1").name("测试基金").type(HoldingType.fund).build();
+            CreateDcaPlanReq req = new CreateDcaPlanReq();
+            req.setHoldingId("h-1");
+            req.setAmount(new BigDecimal("500"));
+            req.setFrequency("weekly");
+            req.setAccountId("acc-cny");
+
+            com.fundtracker.model.entity.Account acc = com.fundtracker.model.entity.Account.builder()
+                    .id("acc-cny").userId("user-1").baseCurrency("CNY").build();
+
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
+            when(accountRepository.findByIdAndUserIdAndDeletedFalse("acc-cny", "user-1")).thenReturn(Optional.of(acc));
+            when(tradingCalendar.nextTradingDay(any(LocalDate.class), eq("china"))).thenAnswer(i -> i.getArgument(0));
+            when(dcaPlanRepository.save(any(DcaPlan.class))).thenAnswer(i -> i.getArgument(0));
+
+            DcaPlanVO result = dcaPlanService.createPlan(req, "user-1");
+            assertEquals("acc-cny", result.getAccountId());
+        }
+
+        @Test
+        @DisplayName("加密币计划挂 CNY 账户 → 抛异常（P1-29 本位币不匹配）")
+        void cryptoPlanWithCnyAccount() {
+            Holding holding = Holding.builder().id("h-btc").name("比特币").type(HoldingType.crypto).build();
+            CreateDcaPlanReq req = new CreateDcaPlanReq();
+            req.setHoldingId("h-btc");
+            req.setAmount(new BigDecimal("7"));
+            req.setFrequency("weekly");
+            req.setAccountId("acc-cny");
+
+            com.fundtracker.model.entity.Account acc = com.fundtracker.model.entity.Account.builder()
+                    .id("acc-cny").userId("user-1").baseCurrency("CNY").build();
+
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-btc", "user-1")).thenReturn(Optional.of(holding));
+            when(accountRepository.findByIdAndUserIdAndDeletedFalse("acc-cny", "user-1")).thenReturn(Optional.of(acc));
 
             assertThrows(BusinessException.class, () -> dcaPlanService.createPlan(req, "user-1"));
         }
@@ -399,6 +474,53 @@ class DcaPlanServiceTest {
             when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
 
             assertThrows(BusinessException.class, () -> dcaPlanService.updatePlan("p-1", req, "user-1"));
+        }
+
+        @Test
+        @DisplayName("改挂不存在的账户 → 抛异常，accountId 保持原值（P1-29）")
+        void updateAccountNotFound() {
+            DcaPlan plan = DcaPlan.builder().id("p-1").holdingId("h-1")
+                    .frequency(DcaFrequency.monthly).status(DcaPlanStatus.active)
+                    .accountId("acc-old").build();
+            UpdateDcaPlanReq req = new UpdateDcaPlanReq();
+            req.setAccountId("acc-404");
+
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
+            when(accountRepository.findByIdAndUserIdAndDeletedFalse("acc-404", "user-1")).thenReturn(Optional.empty());
+
+            assertThrows(BusinessException.class, () -> dcaPlanService.updatePlan("p-1", req, "user-1"));
+            assertEquals("acc-old", plan.getAccountId(), "校验失败时 accountId 不得被改动");
+        }
+
+        @Test
+        @DisplayName("改挂他人账户 → 抛异常（P1-29）")
+        void updateAccountBelongsToOtherUser() {
+            DcaPlan plan = DcaPlan.builder().id("p-1").holdingId("h-1")
+                    .frequency(DcaFrequency.monthly).status(DcaPlanStatus.active).build();
+            UpdateDcaPlanReq req = new UpdateDcaPlanReq();
+            req.setAccountId("acc-other");
+
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
+            when(accountRepository.findByIdAndUserIdAndDeletedFalse("acc-other", "user-1")).thenReturn(Optional.empty());
+
+            assertThrows(BusinessException.class, () -> dcaPlanService.updatePlan("p-1", req, "user-1"));
+        }
+
+        @Test
+        @DisplayName("空串清除账户 → 不触发校验（P1-29）")
+        void updateAccountBlankClearsWithoutValidation() {
+            DcaPlan plan = DcaPlan.builder().id("p-1").holdingId("h-1")
+                    .frequency(DcaFrequency.monthly).status(DcaPlanStatus.active)
+                    .accountId("acc-old").build();
+            UpdateDcaPlanReq req = new UpdateDcaPlanReq();
+            req.setAccountId("  ");
+
+            stubUpdate(plan);
+
+            DcaPlanVO result = dcaPlanService.updatePlan("p-1", req, "user-1");
+
+            assertNull(result.getAccountId(), "空串应清除账户关联");
+            verifyNoInteractions(accountRepository);
         }
 
         private void stubUpdate(DcaPlan plan) {
@@ -677,6 +799,77 @@ class DcaPlanServiceTest {
             // 回退日更价 600000：7 / 600000 = 0.00001167；人民币单价 600000 × 6.7 = 4020000
             assertEquals(0, new BigDecimal("0.00001167").compareTo(result.getQuantity()));
             assertEquals(0, new BigDecimal("4020000.0000").compareTo(result.getNavPrice()));
+        }
+
+        @Test
+        @DisplayName("加密币定投 → totalInvested 累加人民币折算额而非 USDT（P1-21）")
+        void cryptoTotalInvestedInCny() {
+            Holding holding = Holding.builder()
+                    .id("h-btc").name("比特币").code("BTC")
+                    .type(HoldingType.crypto).quotePrice(new BigDecimal("600000"))
+                    .build();
+            DcaPlan plan = DcaPlan.builder()
+                    .id("p-btc").holdingId("h-btc").userId("user-1")
+                    .amount(new BigDecimal("7")).frequency(DcaFrequency.weekly)
+                    .status(DcaPlanStatus.active).tradingMarket("crypto")
+                    .totalInvested(BigDecimal.ZERO).totalShares(BigDecimal.ZERO)
+                    .totalExecutions(0).nextExecutionDate(LocalDate.of(2026, 11, 2))
+                    .accountId(null)
+                    .build();
+
+            TransactionDTO txDto = new TransactionDTO();
+            txDto.setId("tx-btc");
+
+            when(dcaPlanRepository.findByIdAndUserId("p-btc", "user-1")).thenReturn(Optional.of(plan));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-btc", "user-1")).thenReturn(Optional.of(holding));
+            when(cryptoPriceService.fetchLiveUsdtPrice("BTC")).thenReturn(new BigDecimal("550000"));
+            com.fundtracker.model.dto.ExchangeRateDTO rate = new com.fundtracker.model.dto.ExchangeRateDTO();
+            rate.setPair("USD/CNY");
+            rate.setRate(new BigDecimal("6.7"));
+            when(exchangeRateService.listAll()).thenReturn(java.util.List.of(rate));
+            when(transactionService.createTransaction(any(CreateTransactionReq.class), eq("user-1"))).thenReturn(txDto);
+            when(tradingCalendar.nextTradingDay(any(LocalDate.class), eq("crypto")))
+                    .thenReturn(LocalDate.of(2026, 11, 9));
+            when(dcaPlanRepository.save(any(DcaPlan.class))).thenAnswer(i -> i.getArgument(0));
+
+            dcaPlanService.executePlan("p-btc", "user-1");
+
+            // 修复前：totalInvested = 7（USDT 直接累加）；修复后 = 7 × 6.7 = 46.90（人民币）
+            assertEquals(0, new BigDecimal("46.90").compareTo(plan.getTotalInvested()),
+                    "totalInvested 必须是人民币折算额，实际 " + plan.getTotalInvested());
+            assertEquals(1, plan.getTotalExecutions());
+        }
+
+        @Test
+        @DisplayName("基金定投 → totalInvested 仍按人民币金额累加（P1-21 回归）")
+        void fundTotalInvestedUnchanged() {
+            Holding holding = Holding.builder()
+                    .id("h-1").name("测试基金").code("000001")
+                    .type(HoldingType.fund).build();
+            DcaPlan plan = DcaPlan.builder()
+                    .id("p-1").holdingId("h-1").userId("user-1")
+                    .amount(new BigDecimal("500")).frequency(DcaFrequency.monthly)
+                    .status(DcaPlanStatus.active).tradingMarket("china")
+                    .totalInvested(BigDecimal.ZERO).totalShares(BigDecimal.ZERO)
+                    .totalExecutions(0).nextExecutionDate(LocalDate.of(2026, 8, 3))
+                    .build();
+
+            FundNavScrapeService.LatestNavResult nav =
+                    new FundNavScrapeService.LatestNavResult(new BigDecimal("2.5"), LocalDate.of(2026, 7, 31), 1);
+            TransactionDTO txDto = new TransactionDTO();
+            txDto.setId("tx-1");
+
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
+            when(fundNavScrapeService.getLatestNavBefore("000001", LocalDate.now())).thenReturn(nav);
+            when(transactionService.createTransaction(any(CreateTransactionReq.class), eq("user-1"))).thenReturn(txDto);
+            when(tradingCalendar.nextTradingDay(any(LocalDate.class), eq("china")))
+                    .thenReturn(LocalDate.of(2026, 9, 1));
+            when(dcaPlanRepository.save(any(DcaPlan.class))).thenAnswer(i -> i.getArgument(0));
+
+            dcaPlanService.executePlan("p-1", "user-1");
+
+            assertEquals(0, new BigDecimal("500").compareTo(plan.getTotalInvested()));
         }
 
         @Test

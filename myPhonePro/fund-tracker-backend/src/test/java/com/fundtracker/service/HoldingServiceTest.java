@@ -272,7 +272,7 @@ class HoldingServiceTest {
         req.setAccountId("acc-1");
 
         when(holdingRepository.existsByCodeAndUserIdAndDeletedFalse("000001", "user-1")).thenReturn(false);
-        when(accountService.matchesAssetType("acc-1", false)).thenReturn(true);
+        when(accountService.matchesAssetTypeForUser("user-1", "acc-1", false)).thenReturn(true);
         when(holdingRepository.save(any(Holding.class))).thenAnswer(i -> i.getArgument(0));
         doThrow(com.fundtracker.exception.BusinessException.bizError("该账户下没有现金资产"))
                 .when(manualAssetService).adjustCash(anyString(), any(BigDecimal.class), anyString());
@@ -319,5 +319,89 @@ class HoldingServiceTest {
         verify(manualAssetService).adjustCash("h-1", "acc-1", new BigDecimal("11.00"), "user-1");
         verify(transactionRepository).deleteByHoldingId("h-1");
         verify(holdingRepository).delete(holding);
+    }
+
+    // ===== P1-29：持仓挂账户必须校验属主 =====
+
+    @Test
+    @DisplayName("createHolding: 挂他人账户被拒（P1-29，走 matchesAssetTypeForUser）")
+    void createHolding_foreignAccountRejected() {
+        com.fundtracker.model.dto.CreateHoldingReq req = new com.fundtracker.model.dto.CreateHoldingReq();
+        req.setCode("000001");
+        req.setName("测试基金");
+        req.setType("fund");
+        req.setShares(new BigDecimal("100"));
+        req.setCost(new BigDecimal("2.5"));
+        req.setAccountId("acc-other");
+
+        when(holdingRepository.existsByCodeAndUserIdAndDeletedFalse("000001", "user-1")).thenReturn(false);
+        // 账户属于别人 → 归属校验失败
+        when(accountService.matchesAssetTypeForUser("user-1", "acc-other", false)).thenReturn(false);
+
+        com.fundtracker.exception.BusinessException ex = assertThrows(
+                com.fundtracker.exception.BusinessException.class,
+                () -> holdingService.createHolding("user-1", req));
+        assertTrue(ex.getMessage().contains("人民币资产"),
+                "应抛本位币/归属校验错误，实际: " + ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("updateHolding: 改挂他人账户被拒（P1-29）")
+    void updateHolding_foreignAccountRejected() {
+        Holding holding = Holding.builder()
+                .id("h-1").name("测试基金").code("000001")
+                .type(HoldingType.fund).accountId("acc-1")
+                .shares(new BigDecimal("100")).deleted(false)
+                .build();
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1"))
+                .thenReturn(java.util.Optional.of(holding));
+        when(accountService.matchesAssetTypeForUser("user-1", "acc-other", false)).thenReturn(false);
+
+        com.fundtracker.model.dto.UpdateHoldingReq req = new com.fundtracker.model.dto.UpdateHoldingReq();
+        req.setAccountId("acc-other");
+
+        com.fundtracker.exception.BusinessException ex = assertThrows(
+                com.fundtracker.exception.BusinessException.class,
+                () -> holdingService.updateHolding("h-1", req, "user-1"));
+        assertTrue(ex.getMessage().contains("人民币资产"),
+                "应抛本位币/归属校验错误，实际: " + ex.getMessage());
+    }
+
+    // ===== P1-24：迁入持仓（costEstimated=true）成本不得被伪造初始买入交易重算覆盖 =====
+
+    @Test
+    @DisplayName("P1-24 复现: createHolding 迁入持仓成本保持用户输入，不被初始交易重算覆盖")
+    void createHolding_costEstimated_keepsUserCost() {
+        com.fundtracker.model.dto.CreateHoldingReq req = new com.fundtracker.model.dto.CreateHoldingReq();
+        req.setCode("000001");
+        req.setName("迁入基金");
+        req.setType("fund");
+        req.setShares(new BigDecimal("1000"));
+        req.setCost(new BigDecimal("2.5"));
+        req.setAccountId("acc-1");
+        req.setCostEstimated(true);
+        req.setBuyFeeRate(new BigDecimal("0.15"));
+
+        when(holdingRepository.existsByCodeAndUserIdAndDeletedFalse("000001", "user-1")).thenReturn(false);
+        when(accountService.matchesAssetTypeForUser("user-1", "acc-1", false)).thenReturn(true);
+        when(holdingRepository.save(any(Holding.class))).thenAnswer(i -> i.getArgument(0));
+
+        // 捕获伪造的初始买入交易，供 recalculateHoldingMetrics 查询
+        List<Transaction> savedTx = new java.util.ArrayList<>();
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(i -> {
+            savedTx.add(i.getArgument(0));
+            return i.getArgument(0);
+        });
+        when(transactionRepository.findByHoldingId(anyString()))
+                .thenAnswer(i -> new java.util.ArrayList<>(savedTx));
+
+        when(fundNavScrapeService.getLatestNavFromDb(anyString())).thenReturn(null);
+        when(fundDividendRecordRepository.findByFundCodeOrderByExDateDesc(anyString()))
+                .thenReturn(List.of());
+
+        com.fundtracker.model.dto.HoldingDTO dto = holdingService.createHolding("user-1", req);
+
+        assertEquals(0, new BigDecimal("2.5").compareTo(dto.getCostPerShare()),
+                "迁入持仓（costEstimated=true）的手输成本不应被伪造初始买入交易重算覆盖");
     }
 }

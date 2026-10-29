@@ -75,16 +75,17 @@ public class HoldingService {
 
     /**
      * 账户归属：校验资产类型与账户本位币匹配（USDT 账户只能挂加密资产，CNY 账户不能）。
+     * P1-29 修复：同时校验账户归属于当前用户，防止挂到他人账户。
      * 不传 accountId 视为未归属，允许（历史持仓都没有账户）。
      */
-    private String resolveAccountId(CreateHoldingReq req) {
+    private String resolveAccountId(CreateHoldingReq req, String userId) {
         String accountId = req.getAccountId();
         if (accountId == null || accountId.isBlank()) {
             // 资产必须归属账户：不关联会让现金账与资产账脱节（失真）
             throw BusinessException.invalidParam("请选择归属账户");
         }
         boolean isCrypto = "crypto".equalsIgnoreCase(req.getType());
-        if (!accountService.matchesAssetType(accountId, isCrypto)) {
+        if (!accountService.matchesAssetTypeForUser(userId, accountId, isCrypto)) {
             throw BusinessException.invalidParam(isCrypto
                     ? "加密资产只能挂在 USDT 本位币的账户（如交易所账户）下"
                     : "人民币资产不能挂在 USDT 本位币的账户（交易所）下");
@@ -215,7 +216,7 @@ public class HoldingService {
                 .reinvestRecoveryYears(BigDecimal.ZERO)
                 .color(color)
                 .assetCategory(resolveAssetCategory(req))
-                .accountId(resolveAccountId(req))
+                .accountId(resolveAccountId(req, userId))
                 .buyFeeRate(buyFeeRate)
                 .sellFeeRate(sellFeeRate)
                 .userId(userId)
@@ -302,7 +303,9 @@ public class HoldingService {
         calculatePredictedDividend(holding);
 
         // 重新计算所有指标（成本息率、市值息率、回本进度等）
-        recalculateHoldingMetrics(holding);
+        // P1-24 修复：迁入持仓（costEstimated=true）必须跳过成本重算——
+        // 上面的伪造初始买入交易会把用户手输成本覆盖成 price×(1+费率%)
+        recalculateHoldingMetrics(holding, holding.isCostEstimated());
 
         holding = holdingRepository.save(holding);
 
@@ -347,7 +350,7 @@ public class HoldingService {
             }
             {
                 boolean isCrypto = holding.getType() == HoldingType.crypto;
-                if (!accountService.matchesAssetType(newAccountId, isCrypto)) {
+                if (!accountService.matchesAssetTypeForUser(userId, newAccountId, isCrypto)) {
                     throw BusinessException.invalidParam(isCrypto
                             ? "加密资产只能挂在 USDT 本位币的账户（如交易所账户）下"
                             : "人民币资产不能挂在 USDT 本位币的账户（交易所）下");

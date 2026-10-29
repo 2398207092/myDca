@@ -59,6 +59,12 @@ public class AuthService {
         LocalDateTime lockUntil;
     }
 
+    /** 验证码连续错误最大次数（P1-31：达到即作废该验证码，防爆破） */
+    private static final int MAX_CODE_ATTEMPTS = 5;
+
+    /** 验证码错误计数（内存，email → 连续错误次数，与密码登录同风格） */
+    private final Map<String, Integer> codeWrongAttempts = new ConcurrentHashMap<>();
+
     // ======================================================================
     // 应用级 Token（兼容旧版）
     // ======================================================================
@@ -199,7 +205,7 @@ public class AuthService {
         }
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> BusinessException.bizError("该邮箱未注册，请先注册"));
+                .orElseThrow(() -> BusinessException.bizError("邮箱或密码错误"));
 
         if (!user.isHasPassword() || user.getPasswordHash() == null) {
             throw BusinessException.bizError("该账号未设置密码，请使用验证码登录");
@@ -214,7 +220,8 @@ public class AuthService {
                 a.count = 0;
                 log.warn("账号 {} 密码连续失败 {} 次，锁定 {} 分钟", email, MAX_LOGIN_ATTEMPTS, LOCK_MINUTES);
             }
-            throw BusinessException.bizError("密码错误");
+            // P2-22：与「邮箱未注册」统一文案，避免暴露邮箱注册状态
+            throw BusinessException.bizError("邮箱或密码错误");
         }
 
         // 登录成功：清除失败记录
@@ -391,8 +398,20 @@ public class AuthService {
         }
 
         if (!vc.getCode().equals(code)) {
+            // P1-31：验证码错误必须计数，防 6 位码在 5 分钟窗口内无限试错
+            int wrong = codeWrongAttempts.merge(email, 1, Integer::sum);
+            if (wrong >= MAX_CODE_ATTEMPTS) {
+                // 连续错 5 次：作废该验证码（DB 层已用标记，后续即便码对也无法通过）
+                vc.setUsed(true);
+                verificationCodeRepository.save(vc);
+                codeWrongAttempts.remove(email);
+                log.warn("邮箱 {} 验证码连续错误 {} 次，验证码已作废", email, MAX_CODE_ATTEMPTS);
+            }
             throw BusinessException.bizError("验证码错误");
         }
+
+        // 验证通过：清除错误计数
+        codeWrongAttempts.remove(email);
 
         // 标记为已使用
         vc.setUsed(true);

@@ -39,13 +39,14 @@ class TransactionServiceTest {
     @Mock private ManualAssetService manualAssetService;
     @Mock private FundNavScrapeService fundNavScrapeService;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private com.fundtracker.repository.DcaPlanRepository dcaPlanRepository;
 
     private TransactionService transactionService;
 
     @BeforeEach
     void setUp() {
         transactionService = new TransactionService(
-                transactionRepository, holdingRepository,
+                transactionRepository, holdingRepository, dcaPlanRepository,
                 holdingService, manualAssetService, fundNavScrapeService,
                 eventPublisher
         );
@@ -197,6 +198,211 @@ class TransactionServiceTest {
         // 反向扣减现金 1500
         verify(manualAssetService).adjustCash("h-1", null, new BigDecimal("-1500.00"), "user-1");
     }
+    @Test
+    @DisplayName("删除 dca 买入交易 → 回退计划计数器（P1-20）")
+    void deleteTransaction_dca_rollsBackPlanCounters() {
+        Transaction tx = Transaction.builder()
+                .id("tx-1")
+                .holdingId("h-1")
+                .type(TransactionType.buy)
+                .date(LocalDate.of(2026, 10, 20))
+                .quantity(new BigDecimal("2.5"))
+                .price(new BigDecimal("18"))
+                .fee(BigDecimal.ZERO)
+                .total(new BigDecimal("46.84"))
+                .source("dca")
+                .dcaPlanId("p-1")
+                .build();
+
+        Holding holding = Holding.builder()
+                .id("h-1")
+                .type(HoldingType.fund)
+                .shares(new BigDecimal("100"))
+                .build();
+
+        com.fundtracker.model.entity.DcaPlan plan = com.fundtracker.model.entity.DcaPlan.builder()
+                .id("p-1")
+                .totalExecutions(36)
+                .totalInvested(new BigDecimal("470"))
+                .totalShares(new BigDecimal("100"))
+                .nextExecutionDate(LocalDate.of(2026, 11, 5))
+                .lastExecutedAt(java.time.LocalDateTime.of(2026, 10, 20, 9, 0))
+                .build();
+
+        when(transactionRepository.findByIdAndUserId("tx-1", "user-1")).thenReturn(Optional.of(tx));
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
+        when(transactionRepository.findByHoldingId("h-1")).thenReturn(java.util.List.of());
+        doNothing().when(transactionRepository).delete(tx);
+        when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
+        when(dcaPlanRepository.save(any(com.fundtracker.model.entity.DcaPlan.class)))
+                .thenAnswer(i -> i.getArgument(0));
+
+        transactionService.deleteTransaction("tx-1", "user-1");
+
+        assertEquals(35, plan.getTotalExecutions());
+        assertEquals(0, new BigDecimal("423.16").compareTo(plan.getTotalInvested()));
+        assertEquals(0, new BigDecimal("97.5").compareTo(plan.getTotalShares()));
+        // last_executed_at / next_execution_date 不回退
+        assertEquals(LocalDate.of(2026, 11, 5), plan.getNextExecutionDate());
+        assertEquals(java.time.LocalDateTime.of(2026, 10, 20, 9, 0), plan.getLastExecutedAt());
+        verify(dcaPlanRepository).save(plan);
+    }
+
+    @Test
+    @DisplayName("删除 dca 交易且计划计数不足以回退 → 钳 0 防负（P1-20）")
+    void deleteTransaction_dca_countersClampedAtZero() {
+        Transaction tx = Transaction.builder()
+                .id("tx-1")
+                .holdingId("h-1")
+                .type(TransactionType.buy)
+                .date(LocalDate.of(2026, 10, 20))
+                .quantity(new BigDecimal("2.5"))
+                .price(new BigDecimal("18"))
+                .fee(BigDecimal.ZERO)
+                .total(new BigDecimal("46.84"))
+                .source("dca")
+                .dcaPlanId("p-1")
+                .build();
+
+        Holding holding = Holding.builder()
+                .id("h-1")
+                .type(HoldingType.fund)
+                .shares(new BigDecimal("100"))
+                .build();
+
+        com.fundtracker.model.entity.DcaPlan plan = com.fundtracker.model.entity.DcaPlan.builder()
+                .id("p-1")
+                .totalExecutions(0)
+                .totalInvested(BigDecimal.ZERO)
+                .totalShares(BigDecimal.ZERO)
+                .build();
+
+        when(transactionRepository.findByIdAndUserId("tx-1", "user-1")).thenReturn(Optional.of(tx));
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
+        when(transactionRepository.findByHoldingId("h-1")).thenReturn(java.util.List.of());
+        doNothing().when(transactionRepository).delete(tx);
+        when(dcaPlanRepository.findById("p-1")).thenReturn(Optional.of(plan));
+        when(dcaPlanRepository.save(any(com.fundtracker.model.entity.DcaPlan.class)))
+                .thenAnswer(i -> i.getArgument(0));
+
+        transactionService.deleteTransaction("tx-1", "user-1");
+
+        assertEquals(0, plan.getTotalExecutions());
+        assertEquals(0, BigDecimal.ZERO.compareTo(plan.getTotalInvested()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(plan.getTotalShares()));
+    }
+
+    @Test
+    @DisplayName("删除非 dca 交易 → 不触碰计划仓库（P1-20）")
+    void deleteTransaction_manual_doesNotTouchPlan() {
+        Transaction tx = Transaction.builder()
+                .id("tx-1")
+                .holdingId("h-1")
+                .type(TransactionType.buy)
+                .date(LocalDate.of(2026, 10, 20))
+                .quantity(new BigDecimal("100"))
+                .price(new BigDecimal("10"))
+                .fee(BigDecimal.ZERO)
+                .total(new BigDecimal("1000.00"))
+                .source("manual")
+                .dcaPlanId(null)
+                .build();
+
+        Holding holding = Holding.builder()
+                .id("h-1")
+                .type(HoldingType.fund)
+                .shares(new BigDecimal("1000"))
+                .build();
+
+        when(transactionRepository.findByIdAndUserId("tx-1", "user-1")).thenReturn(Optional.of(tx));
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
+        when(transactionRepository.findByHoldingId("h-1")).thenReturn(java.util.List.of());
+        doNothing().when(transactionRepository).delete(tx);
+
+        transactionService.deleteTransaction("tx-1", "user-1");
+
+        verifyNoInteractions(dcaPlanRepository);
+    }
+
+    @Test
+    @DisplayName("非迁入持仓编辑卖单超额 → 抛业务异常而非静默钳 0（P1-27）")
+    void updateTransaction_nonMigrated_sellOverrun_rejected() {
+        Holding holding = Holding.builder()
+                .id("h-1")
+                .type(HoldingType.fund)
+                .costEstimated(false)
+                .shares(new BigDecimal("500"))
+                .cost(new BigDecimal("5000"))
+                .build();
+        Transaction sell = Transaction.builder()
+                .id("tx-s").holdingId("h-1").userId("user-1")
+                .type(TransactionType.sell)
+                .date(LocalDate.of(2026, 10, 20))
+                .quantity(new BigDecimal("100"))
+                .price(new BigDecimal("10"))
+                .fee(BigDecimal.ZERO)
+                .total(new BigDecimal("1000.00"))
+                .source("manual")
+                .build();
+        UpdateTransactionReq req = new UpdateTransactionReq();
+        req.setQuantity(new BigDecimal("700"));
+
+        when(transactionRepository.findByIdAndUserId("tx-s", "user-1")).thenReturn(Optional.of(sell));
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> transactionService.updateTransaction("tx-s", req, "user-1"));
+
+        // 报错文案必须带可卖份额，而非静默钳 0
+        assertTrue(ex.getMessage().contains("超过可卖份额"), "实际文案: " + ex.getMessage());
+        assertEquals(0, new BigDecimal("500").compareTo(holding.getShares()), "校验失败时份额不得被改动");
+        assertEquals(0, new BigDecimal("5000").compareTo(holding.getCost()));
+    }
+
+    @Test
+    @DisplayName("非迁入持仓删除卖单 → 份额从交易流重算恢复，不被静默钳 0（P1-27）")
+    void deleteTransaction_nonMigrated_sellRestoresShares() {
+        Transaction sell = Transaction.builder()
+                .id("tx-s")
+                .holdingId("h-1")
+                .type(TransactionType.sell)
+                .date(LocalDate.of(2026, 10, 20))
+                .quantity(new BigDecimal("500"))
+                .price(new BigDecimal("10"))
+                .fee(BigDecimal.ZERO)
+                .total(new BigDecimal("5000.00"))
+                .source("manual")
+                .build();
+        Transaction buy = Transaction.builder()
+                .id("tx-b")
+                .holdingId("h-1")
+                .type(TransactionType.buy)
+                .date(LocalDate.of(2026, 1, 10))
+                .quantity(new BigDecimal("1000"))
+                .price(new BigDecimal("10"))
+                .fee(BigDecimal.ZERO)
+                .total(new BigDecimal("10000.00"))
+                .source("manual")
+                .build();
+
+        Holding holding = Holding.builder()
+                .id("h-1")
+                .type(HoldingType.fund)
+                .costEstimated(false)
+                .shares(new BigDecimal("500"))
+                .build();
+
+        when(transactionRepository.findByIdAndUserId("tx-s", "user-1")).thenReturn(Optional.of(sell));
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
+        // 删除卖单后，交易流里只剩这笔买入
+        when(transactionRepository.findByHoldingId("h-1")).thenReturn(java.util.List.of(buy));
+        doNothing().when(transactionRepository).delete(sell);
+
+        transactionService.deleteTransaction("tx-s", "user-1");
+
+        assertEquals(0, new BigDecimal("1000").compareTo(holding.getShares()));
+    }
+
     @Test
     @DisplayName("updateTransaction: 迁入持仓只改日期 → 份额/成本/净投入都不变（V-06）")
     void updateTransaction_migratedDateOnlyKeepsNumbers() {

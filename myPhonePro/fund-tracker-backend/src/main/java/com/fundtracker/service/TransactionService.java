@@ -3,10 +3,12 @@ package com.fundtracker.service;
 import com.fundtracker.event.TransactionChangedEvent;
 import com.fundtracker.exception.BusinessException;
 import com.fundtracker.model.dto.*;
+import com.fundtracker.model.entity.DcaPlan;
 import com.fundtracker.model.entity.Holding;
 import com.fundtracker.model.entity.Transaction;
 import com.fundtracker.model.enums.HoldingType;
 import com.fundtracker.model.enums.TransactionType;
+import com.fundtracker.repository.DcaPlanRepository;
 import com.fundtracker.repository.HoldingRepository;
 import com.fundtracker.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final HoldingRepository holdingRepository;
+    private final DcaPlanRepository dcaPlanRepository;
     private final HoldingService holdingService;
     private final ManualAssetService manualAssetService;
     private final FundNavScrapeService fundNavScrapeService;
@@ -370,6 +373,21 @@ public class TransactionService {
                 .orElseThrow(BusinessException::holdingNotFound);
 
         transactionRepository.delete(transaction);
+
+        // P1-20：删除定投交易必须回退计划累计计数器，否则累计期数/投入永久失真且不可自愈。
+        // last_executed_at / next_execution_date 不动——执行进度本身没有被撤销。
+        if ("dca".equals(transaction.getSource()) && transaction.getDcaPlanId() != null) {
+            dcaPlanRepository.findById(transaction.getDcaPlanId()).ifPresent(plan -> {
+                plan.setTotalExecutions(Math.max(0, plan.getTotalExecutions() - 1));
+                plan.setTotalInvested(plan.getTotalInvested()
+                        .subtract(txTotal).max(BigDecimal.ZERO));
+                plan.setTotalShares(plan.getTotalShares()
+                        .subtract(transaction.getQuantity()).max(BigDecimal.ZERO));
+                dcaPlanRepository.save(plan);
+                log.info("回退定投计划计数器: plan={}, 期数={}, 投入={}, 份额={}",
+                        plan.getId(), plan.getTotalExecutions(), plan.getTotalInvested(), plan.getTotalShares());
+            });
+        }
 
         // 现金反向调整：与 createTransaction 对称（同一条规则，见 createTransaction 注释）。
         // 加密币不动人民币现金；reinvest 删除也不该把现金加回来（当初就没扣）。

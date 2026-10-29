@@ -36,8 +36,9 @@ public class HoldingSnapshot {
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal marketValue;
 
-    /** 当时份额 */
-    @Column(nullable = false, precision = 18, scale = 4)
+    /** 当时份额。P1-19：18,4 会把 BTC 份额 0.01139738 截断成 0.0115（+0.9%），放宽到 24,8。
+     *  历史截断值不回填（回填当前份额反而伪造历史），自部署起新快照为 8 位。 */
+    @Column(nullable = false, precision = 24, scale = 8)
     private BigDecimal shares;
 
     /** 当时累计投入成本（净投入 = 总买入 - 总卖出） */

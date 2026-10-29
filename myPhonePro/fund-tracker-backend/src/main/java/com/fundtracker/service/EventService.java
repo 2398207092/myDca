@@ -168,8 +168,8 @@ public class EventService {
                                 throw new RuntimeException("分红复投失败: " + e.getMessage(), e);
                             }
                         } else {
-                            // 现金模式：分红到账，增加现金
-                            manualAssetService.adjustCash(holding.getId(), distributeAmount, holding.getUserId());
+                            // 现金模式：分红到账，增加现金（P1-26：入持仓归属账户，与买入扣款对称；未归属时退回主现金）
+                            manualAssetService.adjustCash(holding.getId(), holding.getAccountId(), distributeAmount, holding.getUserId());
                             log.info("分红到账: {} 现金 +{}", holding.getName(), distributeAmount);
                         }
                     });
@@ -215,8 +215,8 @@ public class EventService {
         final BigDecimal amount = event.getAmount();
         holdingRepository.findByIdAndUserIdAndDeletedFalse(event.getHoldingId(), userId)
                 .ifPresent(holding -> {
-                    // 扣除之前加到现金里的分红金额
-                    manualAssetService.adjustCash(holding.getId(), amount.negate(), holding.getUserId());
+                    // 扣除之前加到现金里的分红金额（P1-26：与入账同一账户，对称）
+                    manualAssetService.adjustCash(holding.getId(), holding.getAccountId(), amount.negate(), holding.getUserId());
                     log.info("分红转复投: {} 现金 -{}", holding.getName(), amount);
 
                     // 按最新净值买入份额
@@ -255,8 +255,8 @@ public class EventService {
                         eventRepository.save(event);
                     } catch (Exception e) {
                         log.error("分红转复投买入失败: {}", e.getMessage());
-                        // 买入失败时回滚现金扣除
-                        manualAssetService.adjustCash(holding.getId(), amount, holding.getUserId());
+                        // 买入失败时回滚现金扣除（P1-26：同一归属账户回补）
+                        manualAssetService.adjustCash(holding.getId(), holding.getAccountId(), amount, holding.getUserId());
                         throw new RuntimeException("复投买入失败", e);
                     }
                 });

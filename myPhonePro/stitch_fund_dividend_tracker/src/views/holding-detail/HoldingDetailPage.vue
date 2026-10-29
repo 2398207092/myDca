@@ -352,8 +352,9 @@ async function toggleDividendReinvest() {
     const newVal = !holding.value.dividendReinvest
     const updated = await updateDividendReinvest(route.params.id as string, newVal)
     if (holding.value) holding.value.dividendReinvest = updated.dividendReinvest
-  } catch (e) {
+  } catch (e: any) {
     console.error('更新复投设置失败', e)
+    showToast(e?.message || '更新复投设置失败', 'error')
   } finally {
     reinvestSaving.value = false
   }
@@ -421,8 +422,9 @@ async function saveEditHolding() {
     await updateHolding(route.params.id as string, req)
     showEditSheet.value = false
     await loadData()
-  } catch (e) {
+  } catch (e: any) {
     console.error('保存失败:', e)
+    showToast(e?.message || '保存失败，请重试', 'error')
   } finally {
     editSaving.value = false
   }
@@ -438,8 +440,9 @@ async function doDelete() {
   try {
     await deleteHolding(route.params.id as string)
     router.push('/')
-  } catch (e) {
+  } catch (e: any) {
     console.error('删除失败:', e)
+    showToast(e?.message || '删除持仓失败，请重试', 'error')
   } finally {
     showDeleteConfirm.value = false
   }
@@ -1012,6 +1015,7 @@ onActivated(() => {
             :plan-id="selectedPlanId"
             :holding-name="dcaPlans.find(p => p.id === selectedPlanId)?.holdingName || ''"
             :amount="dcaPlans.find(p => p.id === selectedPlanId)?.amount || 0"
+            :trading-market="dcaPlans.find(p => p.id === selectedPlanId)?.tradingMarket || 'fund'"
             @close="showExecuteSheet = false"
             @executed="handleDcaExecuted"
           />

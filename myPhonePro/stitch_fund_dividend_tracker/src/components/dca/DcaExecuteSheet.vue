@@ -6,9 +6,14 @@ interface Props {
   planId: string
   holdingName: string
   amount: number
+  /** 交易市场：crypto 计划的金额单位是 USDT，不是人民币 */
+  tradingMarket?: string
 }
 
 const props = defineProps<Props>()
+
+/** 加密币定投：金额/单价单位是 USDT，份额单位是枚 */
+const isCrypto = (props.tradingMarket ?? 'fund') === 'crypto'
 
 const emit = defineEmits<{
   close: []
@@ -56,7 +61,7 @@ function formatNumber(n: number, digits = 2): string {
       <div class="bg-card-alt rounded-xl px-md py-md mb-lg">
         <div class="flex justify-between items-center">
           <span class="font-body text-xs text-text-tertiary">金额</span>
-          <span class="font-display text-lg font-semibold text-brand">¥{{ formatNumber(amount) }}</span>
+          <span class="font-display text-lg font-semibold text-brand">{{ isCrypto ? formatNumber(amount) + ' USDT' : '¥' + formatNumber(amount) }}</span>
         </div>
       </div>
 
@@ -89,15 +94,15 @@ function formatNumber(n: number, digits = 2): string {
         <div class="w-full bg-card-alt rounded-xl px-md py-md space-y-sm mb-lg">
           <div class="flex justify-between items-center">
             <span class="font-body text-xs text-text-tertiary">金额</span>
-            <span class="font-body text-sm text-text-primary">¥{{ formatNumber(result.amount) }}</span>
+            <span class="font-body text-sm text-text-primary">{{ isCrypto ? formatNumber(result.amount) + ' USDT' : '¥' + formatNumber(result.amount) }}</span>
           </div>
           <div class="flex justify-between items-center">
             <span class="font-body text-xs text-text-tertiary">成交份额</span>
-            <span class="font-body text-sm text-text-primary">{{ formatNumber(result.quantity, 4) }} 份</span>
+            <span class="font-body text-sm text-text-primary">{{ formatNumber(result.quantity, 4) }} {{ isCrypto ? '枚' : '份' }}</span>
           </div>
           <div class="flex justify-between items-center">
             <span class="font-body text-xs text-text-tertiary">{{ result.navDate ? '成交净值' : '成交单价' }}</span>
-            <span class="font-body text-sm text-text-primary">¥{{ formatNumber(result.navPrice, 4) }}</span>
+            <span class="font-body text-sm text-text-primary">{{ isCrypto ? 'USDT ' + formatNumber(result.navPrice, 4) : '¥' + formatNumber(result.navPrice, 4) }}</span>
           </div>
           <div class="flex justify-between items-center">
             <span class="font-body text-xs text-text-tertiary">净值日期</span>

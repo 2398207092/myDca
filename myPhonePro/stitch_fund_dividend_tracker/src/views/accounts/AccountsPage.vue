@@ -6,8 +6,17 @@ import {
   type AccountItem,
 } from '@/api/account'
 import PageStateComp from '@/components/shared/PageState.vue'
+import ToastNotification from '@/components/shared/ToastNotification.vue'
 
 const router = useRouter()
+
+// Toast 通知（写操作失败必须可见，禁止静默失败）
+const toastMsg = ref<string | null>(null)
+const toastType = ref<'success' | 'error' | 'info'>('error')
+function showToast(msg: string, type: 'success' | 'error' | 'info' = 'error') {
+  toastMsg.value = msg
+  toastType.value = type
+}
 
 const pageState = ref<'loading' | 'ready' | 'error'>('loading')
 const accounts = ref<AccountItem[]>([])
@@ -134,8 +143,9 @@ async function setDefault(a: AccountItem) {
   try {
     await updateAccount(a.id, { isDefault: true })
     await load()
-  } catch (e) {
+  } catch (e: any) {
     console.error('设置默认账户失败:', e)
+    showToast(e?.message || '设置默认账户失败，请重试', 'error')
   }
 }
 
@@ -168,6 +178,7 @@ function goBack() { router.back() }
 
 <template>
   <div class="min-h-screen bg-page-bg">
+    <ToastNotification :message="toastMsg" :type="toastType" @close="toastMsg = null" />
     <header class="flex items-center justify-between px-gutter h-14 sticky top-0 z-50 bg-card-bg border-b border-border-light/40">
       <button class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80" @click="goBack">
         <span class="material-symbols-outlined text-text-secondary">arrow_back</span>

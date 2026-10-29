@@ -2,12 +2,14 @@ package com.fundtracker.service;
 
 import com.fundtracker.exception.BusinessException;
 import com.fundtracker.model.dto.*;
+import com.fundtracker.model.entity.Account;
 import com.fundtracker.model.entity.DcaPlan;
 import com.fundtracker.model.entity.Holding;
 import com.fundtracker.model.entity.ManualAsset;
 import com.fundtracker.model.enums.DcaFrequency;
 import com.fundtracker.model.enums.DcaPlanStatus;
 import com.fundtracker.model.enums.HoldingType;
+import com.fundtracker.repository.AccountRepository;
 import com.fundtracker.repository.DcaPlanRepository;
 import com.fundtracker.repository.HoldingRepository;
 import com.fundtracker.repository.ManualAssetRepository;
@@ -40,6 +42,7 @@ public class DcaPlanService {
     private final ExchangeRateService exchangeRateService;
     private final com.fundtracker.service.AccountService accountService;
     private final CryptoPriceService cryptoPriceService;
+    private final AccountRepository accountRepository;
 
     /**
      * 根据持仓类型推断交易市场
@@ -262,6 +265,32 @@ public class DcaPlanService {
         }
     }
 
+    /**
+     * P1-29：定投计划挂扣款账户时的校验——账户必须存在且归属当前用户，
+     * 且账户本位币与持仓资产类型匹配（USDT 账户只接加密币，CNY 账户只接人民币资产）。
+     *
+     * <p>本位币匹配逻辑内联实现（等价于 AccountService.matchesAssetType 的判定式），
+     * 因为归属校验必须用双条件查询（findByIdAndUserIdAndDeletedFalse），
+     * 查到账户后顺带比对 baseCurrency，无需二次查询。
+     */
+    private void validatePlanAccount(String accountId, Holding holding, String userId) {
+        if (accountId == null || accountId.isBlank()) {
+            return;
+        }
+        Account acc = accountRepository.findByIdAndUserIdAndDeletedFalse(accountId, userId)
+                .orElseThrow(() -> BusinessException.invalidParam("扣款账户不存在或不属于当前用户"));
+        // 持仓理论上必存在（创建时已校验）；极端情况下仅跳过本位币匹配，不做归属放行
+        if (holding == null) {
+            return;
+        }
+        boolean isCrypto = holding.getType() == HoldingType.crypto;
+        boolean usdtAccount = "USDT".equalsIgnoreCase(acc.getBaseCurrency());
+        if (isCrypto != usdtAccount) {
+            throw BusinessException.invalidParam(
+                    "扣款账户本位币（" + acc.getBaseCurrency() + "）与资产类型不匹配");
+        }
+    }
+
     @Transactional
     public DcaPlanVO createPlan(CreateDcaPlanReq req, String userId) {
         Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(req.getHoldingId(), userId)
@@ -269,6 +298,8 @@ public class DcaPlanService {
 
         DcaFrequency frequency = parseFrequency(req.getFrequency());
         validateDay(frequency, req.getDay());
+        // P1-29：accountId 直接落库前必须校验存在性、归属与本位币匹配
+        validatePlanAccount(req.getAccountId(), holding, userId);
 
         String market = inferTradingMarket(holding);
         LocalDate today = LocalDate.now();
@@ -350,9 +381,16 @@ public class DcaPlanService {
             }
         }
 
-        // --- 扣款账户：空串 = 清除关联，非空 = 设置 ---
+        // --- 扣款账户：空串 = 清除关联，非空 = 设置（P1-29：非空时校验存在/归属/本位币）---
         if (req.getAccountId() != null) {
-            plan.setAccountId(req.getAccountId().isBlank() ? null : req.getAccountId());
+            if (req.getAccountId().isBlank()) {
+                plan.setAccountId(null);
+            } else {
+                Holding holdingForAccountCheck =
+                        holdingRepository.findByIdAndUserIdAndDeletedFalse(plan.getHoldingId(), userId).orElse(null);
+                validatePlanAccount(req.getAccountId(), holdingForAccountCheck, userId);
+                plan.setAccountId(req.getAccountId());
+            }
         }
 
         // --- 每期金额 ---
@@ -505,8 +543,9 @@ public class DcaPlanService {
         // 扣款：从计划关联的账户扣现金（基金）或 USDT（加密币）
         String deductionInfo = deductForExecution(plan, holding, userId, amountCny, amountUsdt);
 
-        // 更新计划统计
-        plan.setTotalInvested(plan.getTotalInvested().add(plan.getAmount()));
+        // 更新计划统计（P1-21：totalInvested 统一人民币口径——crypto 的 amount 是 USDT，
+        // 直接累加会把 USDT 混进 ¥ 累计（BTC 计划显示 ¥7 实际流水 ¥46.84）；amountCny 两种分支都已折算好）
+        plan.setTotalInvested(plan.getTotalInvested().add(amountCny));
         plan.setTotalShares(plan.getTotalShares().add(quantity));
         plan.setTotalExecutions(plan.getTotalExecutions() + 1);
         plan.setLastExecutedAt(LocalDateTime.now());

@@ -15,9 +15,15 @@ const formState = ref<'loading' | 'ready' | 'submitting'>('loading')
 const error = ref('')
 const success = ref(false)
 
+// 本地时区日期串（toISOString 走 UTC，北京时间 0-8 点会错标为昨天，参考 CalendarPage 的正确写法）
+function localToday(): string {
+  const n = new Date()
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+}
+
 // Form state
 const transactionType = ref<'buy' | 'sell' | 'bonus_share' | 'reinvest'>('buy')
-const date = ref(new Date().toISOString().split('T')[0])
+const date = ref(localToday())
 const quantity = ref(0)
 const price = ref(0)
 const fee = ref(0)
@@ -31,8 +37,12 @@ const navState = ref<'idle' | 'loading' | 'found' | 'notfound' | 'error'>('idle'
 const qtyLabel = ref('买入数量')
 const priceLabel = ref('买入金额 (总价)')
 const dateLabel = ref('交易日期')
-const qtySuffix = ref('份')
-const priceSuffix = ref('CNY')
+
+// 加密币持仓（quoteCurrency=USDT）：数量单位是枚、价格单位是 USDT，与后端原样入账口径一致
+const isCryptoHolding = computed(() => holdingItem.value?.quoteCurrency === 'USDT')
+const qtySuffix = computed(() => (isCryptoHolding.value ? '枚' : '份'))
+const priceSuffix = computed(() => (isCryptoHolding.value ? 'USDT' : 'CNY'))
+const currencySuffix = computed(() => (isCryptoHolding.value ? 'USDT' : 'CNY'))
 
 // Quantity placeholder based on type
 const qtyPlaceholder = computed(() => {
@@ -51,7 +61,10 @@ const estimatedImpact = computed(() => {
   const total = qty * unit + feeVal
   const sign = transactionType.value === 'buy' || transactionType.value === 'bonus_share' || transactionType.value === 'reinvest' ? '+' : '-'
   const totalStr = total.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  return `${sign}${qty.toLocaleString()} 份 / ¥${totalStr}`
+  // 加密币：数量单位是枚、金额单位是 USDT（price 单位与持仓 quoteCurrency 一致）
+  const qtyUnit = isCryptoHolding.value ? '枚' : '份'
+  const totalText = isCryptoHolding.value ? `${totalStr} USDT` : `¥${totalStr}`
+  return `${sign}${qty.toLocaleString()} ${qtyUnit} / ${totalText}`
 })
 
 const impactProgress = computed(() => {
@@ -70,6 +83,12 @@ const currentBuyFeeRate = computed(() => holdingItem.value?.buyFeeRate ?? 0.15)
 
 // 按选中日期拉取本地净值，并基于买入金额自动计算手续费与份额
 async function fetchNav() {
+  // 加密币持仓没有基金净值接口，价格需手动输入 USDT 单价
+  if (isCryptoHolding.value) {
+    navState.value = 'idle'
+    navResult.value = null
+    return
+  }
   if (transactionType.value !== 'buy') {
     navState.value = 'idle'
     navResult.value = null
@@ -125,29 +144,21 @@ function setType(type: 'buy' | 'sell' | 'bonus_share' | 'reinvest') {
       qtyLabel.value = '买入数量'
       priceLabel.value = '买入单价'
       dateLabel.value = '交易日期'
-      qtySuffix.value = '份'
-      priceSuffix.value = 'CNY'
       break
     case 'sell':
       qtyLabel.value = '卖出数量'
       priceLabel.value = '卖出金额 (总价)'
       dateLabel.value = '交易日期'
-      qtySuffix.value = '份'
-      priceSuffix.value = 'CNY'
       break
     case 'bonus_share':
       qtyLabel.value = '送股数量'
       priceLabel.value = '登记价格 (通常为0)'
       dateLabel.value = '除权日期'
-      qtySuffix.value = '份'
-      priceSuffix.value = 'CNY'
       break
     case 'reinvest':
       qtyLabel.value = '复投数量'
       priceLabel.value = '复投单位净值'
       dateLabel.value = '分红再投日'
-      qtySuffix.value = '份'
-      priceSuffix.value = 'CNY'
       break
   }
 
@@ -295,8 +306,15 @@ async function handleSubmit() {
           </div>
         </div>
 
-        <!-- Buy-only: 当日净值状态 -->
-        <div v-if="transactionType === 'buy'"
+        <!-- 加密币持仓提示：不拉净值、不自动扣交易所余额 -->
+        <div v-if="isCryptoHolding"
+             class="flex items-center gap-2 px-md py-2 rounded-lg text-xs font-body bg-card-alt text-text-secondary">
+          <span class="material-symbols-outlined text-[14px]">currency_bitcoin</span>
+          <span>加密币交易：请手动输入 USDT 单价；不会自动扣减交易所 USDT 余额，请以交易所记录为准</span>
+        </div>
+
+        <!-- Buy-only: 当日净值状态（加密币持仓不拉净值） -->
+        <div v-if="transactionType === 'buy' && !isCryptoHolding"
              class="flex items-center gap-2 px-md py-2 rounded-lg text-xs font-body"
              :class="navState === 'found' ? 'bg-brand-light/60 text-brand' : navState === 'loading' ? 'bg-card-alt text-text-secondary' : navState === 'notfound' || navState === 'error' ? 'bg-error/10 text-error' : 'bg-card-alt text-text-tertiary'">
           <span class="material-symbols-outlined text-[14px]">
@@ -324,7 +342,7 @@ async function handleSubmit() {
               step="any"
               min="0"
             />
-            <span class="absolute right-md top-1/2 -translate-y-1/2 font-body text-xs text-text-tertiary">CNY</span>
+            <span class="absolute right-md top-1/2 -translate-y-1/2 font-body text-xs text-text-tertiary">{{ currencySuffix }}</span>
           </div>
         </div>
 
@@ -372,7 +390,7 @@ async function handleSubmit() {
               step="any"
               min="0"
             />
-            <span class="absolute right-md top-1/2 -translate-y-1/2 font-body text-xs text-text-tertiary">CNY</span>
+            <span class="absolute right-md top-1/2 -translate-y-1/2 font-body text-xs text-text-tertiary">{{ currencySuffix }}</span>
           </div>
         </div>
 

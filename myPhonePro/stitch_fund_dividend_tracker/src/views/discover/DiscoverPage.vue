@@ -14,9 +14,18 @@ import type { HoldingItem } from '@/api/holding'
 import type { DcaPlanVO, DcaBudgetVO } from '@/api/dca'
 import AppHeader from '@/components/shared/AppHeader.vue'
 import PageStateComp from '@/components/shared/PageState.vue'
+import ToastNotification from '@/components/shared/ToastNotification.vue'
 import { formatMoney } from '@/utils/format'
 
 const router = useRouter()
+
+// Toast 通知（写操作失败必须可见，禁止静默失败）
+const toastMsg = ref<string | null>(null)
+const toastType = ref<'success' | 'error' | 'info'>('error')
+function showToast(msg: string, type: 'success' | 'error' | 'info' = 'error') {
+  toastMsg.value = msg
+  toastType.value = type
+}
 const pageState = ref<'loading' | 'ready' | 'error'>('loading')
 const errorMsg = ref('')
 const overview = ref<AssetOverview | null>(null)
@@ -231,17 +240,26 @@ async function loadDcaPlans() {
 }
 
 // Computed DCA summary
+// 口径：加密币计划的 amount/totalInvested 单位是 USDT（与后端 DcaPlanService 一致），
+// 汇总成人民币前必须先乘 USD/CNY 折算，禁止与 CNY 计划裸相加
 const activeDcaPlans = computed(() => dcaPlans.value.filter(p => p.status === 'active'))
+const hasCryptoDcaPlan = computed(() => dcaPlans.value.some(p => p.tradingMarket === 'crypto'))
+const cryptoRate = computed(() => (hasCryptoDcaPlan.value ? usdCny.value : null))
+function toCny(amount: number, market: string): number {
+  return market === 'crypto' ? amount * (cryptoRate.value ?? 0) : amount
+}
 const dcaDailyTotal = computed(() => {
   return activeDcaPlans.value
     .filter(p => p.frequency === 'daily')
-    .reduce((s, p) => s + p.amount, 0)
+    .reduce((s, p) => s + toCny(p.amount, p.tradingMarket), 0)
 })
 const dcaTotalInvested = computed(() => {
-  return dcaPlans.value.reduce((s, p) => s + p.totalInvested, 0)
+  return dcaPlans.value.reduce((s, p) => s + toCny(p.totalInvested, p.tradingMarket), 0)
 })
-const dcaPersistenceDays = computed(() => {
-  if (dcaPlans.value.length === 0) return 0
+/** 存在加密币定投但汇率缺失时，人民币汇总无法完整（缺部分不冒充完整值） */
+const dcaRateMissing = computed(() => hasCryptoDcaPlan.value && !usdCny.value)
+
+const dcaPersistenceDays = computed(() => {  if (dcaPlans.value.length === 0) return 0
   const earliest = dcaPlans.value.reduce((earliest, p) =>
     p.startedAt < earliest ? p.startedAt : earliest,
     dcaPlans.value[0].startedAt
@@ -281,6 +299,7 @@ async function saveBatchCategory() {
       showBatchCatSheet.value = false
   } catch (e: any) {
     console.error('批量分类失败:', e)
+    showToast(e?.message || '批量分类失败，请重试', 'error')
   } finally {
     savingBatch.value = false
   }
@@ -311,6 +330,7 @@ async function saveCategory() {
     await silentRefresh()
   } catch (e: any) {
     console.error('保存分类失败:', e)
+    showToast(e?.message || '保存分类失败，请重试', 'error')
   } finally {
     savingCategory.value = false
   }
@@ -414,6 +434,7 @@ async function saveAsset() {
     await silentRefresh()
   } catch (e: any) {
     console.error('保存资产失败:', e)
+    showToast(e?.message || '保存资产失败，请重试', 'error')
   } finally {
     savingAsset.value = false
   }
@@ -435,12 +456,14 @@ async function doDelete() {
     await silentRefresh()
   } catch (e: any) {
     console.error('删除失败:', e)
+    showToast(e?.message || '删除资产失败，请重试', 'error')
   }
 }
 </script>
 
 <template>
   <div class="min-h-screen bg-page-bg">
+    <ToastNotification :message="toastMsg" :type="toastType" @close="toastMsg = null" />
     <AppHeader title="资产概览" :show-logo="true" />
 
     <!-- Loading State -->
@@ -867,15 +890,18 @@ async function doDelete() {
         <!-- Compact stats row -->
         <div class="flex bg-card-alt rounded-lg mb-md">
           <div class="flex-1 py-2 text-center border-r border-card-bg">
-            <span class="font-body text-xs text-text-tertiary">每日 ¥{{ dcaDailyTotal }}</span>
+            <span class="font-body text-xs text-text-tertiary">{{ dcaRateMissing ? '每日 ¥--' : `每日 ¥${dcaDailyTotal}` }}</span>
           </div>
           <div class="flex-1 py-2 text-center border-r border-card-bg">
-            <span class="font-body text-xs text-text-tertiary">累计 ¥{{ dcaTotalInvested.toLocaleString() }}</span>
+            <span class="font-body text-xs text-text-tertiary">{{ dcaRateMissing ? '累计 ¥--' : `累计 ¥${dcaTotalInvested.toLocaleString()}` }}</span>
           </div>
           <div class="flex-1 py-2 text-center">
             <span class="font-body text-xs text-text-tertiary">{{ dcaPersistenceDays }} 天</span>
           </div>
         </div>
+        <p v-if="dcaRateMissing" class="font-body text-[10px] text-error mb-md px-1">
+          含 USDT 定投计划，汇率获取失败，人民币汇总暂不可用
+        </p>
 
         <!-- Plan list (max 3) -->
         <div class="border-t border-border-light/40"></div>
