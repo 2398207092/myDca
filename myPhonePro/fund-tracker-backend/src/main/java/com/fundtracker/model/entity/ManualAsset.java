@@ -70,6 +70,11 @@ public class ManualAsset {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    /** 乐观锁版本号：并发读改写时失败方报错回滚，而非静默丢更新（P1-29/并发簇修复） */
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

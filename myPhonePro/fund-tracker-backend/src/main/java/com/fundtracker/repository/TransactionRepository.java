@@ -24,4 +24,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
 
     int deleteByHoldingId(String holdingId);
     Optional<Transaction> findByIdAndUserId(String id, String userId);
+
+    /** 当日防重：同一计划同一天是否已有定投交易（配合 uk_dca_plan_date 唯一约束兜底并发） */
+    boolean existsByDcaPlanIdAndDate(String dcaPlanId, LocalDate date);
 }

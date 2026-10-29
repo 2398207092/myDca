@@ -84,15 +84,15 @@ public class SchedulerController {
         TaskMeta meta = TASKS.stream().filter(t -> t.id().equals(id)).findFirst()
                 .orElseThrow(() -> BusinessException.invalidParam("未知任务: " + id));
 
-        // 节流：同一任务 5 分钟内只能手动触发一次
+        // 节流：同一任务 5 分钟内只能手动触发一次（compute 原子操作，消除并发穿透窗口）
         long now = System.currentTimeMillis();
-        Long last = lastManualRun.get(id);
-        if (last != null && now - last < THROTTLE_MS) {
-            long remainSec = (THROTTLE_MS - (now - last)) / 1000;
+        long prev = lastManualRun.compute(id, (k, last) ->
+                (last != null && now - last < THROTTLE_MS) ? last : now);
+        if (prev != now) {
+            long remainSec = (THROTTLE_MS - (now - prev)) / 1000;
             throw new BusinessException(4001,
                     "手动触发过于频繁，请约 " + (remainSec / 60 + 1) + " 分钟后再试");
         }
-        lastManualRun.put(id, now);
 
         long startMs = System.currentTimeMillis();
         boolean success = true;

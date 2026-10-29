@@ -129,4 +129,9 @@ public class Holding {
     @Column(nullable = false, precision = 8, scale = 4)
     @Builder.Default
     private BigDecimal sellFeeRate = BigDecimal.ZERO;
+
+    /** 乐观锁版本号：夜间刷新/手动编辑/交易重算并发写持仓时报错回滚，而非静默丢更新 */
+    @Version
+    @Column(nullable = false)
+    private Long version;
 }

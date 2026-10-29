@@ -20,6 +20,8 @@ const result = ref<DcaExecutionResultVO | null>(null)
 const errorMsg = ref('')
 
 async function handleExecute() {
+  // 防重复提交：执行中忽略后续触发（后端另有当日防重兜底）
+  if (state.value === 'loading') return
   state.value = 'loading'
   errorMsg.value = ''
   try {

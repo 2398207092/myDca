@@ -1,5 +1,6 @@
 package com.fundtracker.exception;
 
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -29,6 +30,17 @@ public class GlobalExceptionHandler {
         body.put("message", "参数错误");
         body.put("errors", errors);
         return ResponseEntity.badRequest().body(body);
+    }
+
+    /** 乐观锁冲突：并发写同一行时，后到者明确报错而非静默覆盖（配合实体 @Version） */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> handleOptimisticLock(OptimisticLockingFailureException ex) {
+        log.warn("乐观锁冲突（并发写竞争）: {}", ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        body.put("code", 4090);
+        body.put("message", "数据刚被其他操作修改，请刷新后重试");
+        body.put("data", null);
+        return ResponseEntity.status(HttpStatus.OK).body(body);
     }
 
     @ExceptionHandler(BusinessException.class)

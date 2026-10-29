@@ -117,6 +117,17 @@ function getHeaders(): Record<string, string> {
   return headers
 }
 
+/** 带超时的 fetch：写请求同样 15s 超时，避免弱网下无限悬挂诱导用户重试造成重复提交 */
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export async function get<T>(url: string, params?: Record<string, string | number | undefined>): Promise<T> {
   const query: string[] = []
   if (params) {
@@ -127,15 +138,12 @@ export async function get<T>(url: string, params?: Record<string, string | numbe
     }
   }
   const fullUrl = BASE_URL + url + (query.length ? '?' + query.join('&') : '')
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 15000)
-  const res = await fetch(fullUrl, { headers: getHeaders(), signal: controller.signal })
-  clearTimeout(timeout)
+  const res = await fetchWithTimeout(fullUrl, { headers: getHeaders() })
   return handleResponse<T>(res)
 }
 
 export async function post<T>(url: string, body?: unknown): Promise<T> {
-  const res = await fetch(BASE_URL + url, {
+  const res = await fetchWithTimeout(BASE_URL + url, {
     method: 'POST',
     headers: getHeaders(),
     body: body ? JSON.stringify(body) : undefined,
@@ -144,7 +152,7 @@ export async function post<T>(url: string, body?: unknown): Promise<T> {
 }
 
 export async function put<T>(url: string, body?: unknown): Promise<T> {
-  const res = await fetch(BASE_URL + url, {
+  const res = await fetchWithTimeout(BASE_URL + url, {
     method: 'PUT',
     headers: getHeaders(),
     body: body ? JSON.stringify(body) : undefined,
@@ -153,7 +161,7 @@ export async function put<T>(url: string, body?: unknown): Promise<T> {
 }
 
 export async function del<T>(url: string): Promise<T> {
-  const res = await fetch(BASE_URL + url, {
+  const res = await fetchWithTimeout(BASE_URL + url, {
     method: 'DELETE',
     headers: getHeaders(),
   })

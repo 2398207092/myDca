@@ -11,6 +11,7 @@ import com.fundtracker.model.enums.HoldingType;
 import com.fundtracker.repository.DcaPlanRepository;
 import com.fundtracker.repository.HoldingRepository;
 import com.fundtracker.repository.ManualAssetRepository;
+import com.fundtracker.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class DcaPlanService {
     private final DcaPlanRepository dcaPlanRepository;
     private final HoldingRepository holdingRepository;
     private final TransactionService transactionService;
+    private final TransactionRepository transactionRepository;
     private final FundNavScrapeService fundNavScrapeService;
     private final TradingCalendar tradingCalendar;
     private final ManualAssetRepository manualAssetRepository;
@@ -425,6 +427,11 @@ public class DcaPlanService {
                 .orElseThrow(BusinessException::holdingNotFound);
 
         LocalDate today = LocalDate.now();
+        // 当日防重（P0-4）：同一计划同一天只允许一期，手动与定时共用此闸门；
+        // 并发穿透由 transactions.uk_dca_plan_date 唯一约束兜底（第二个事务插入失败整体回滚）
+        if (transactionRepository.existsByDcaPlanIdAndDate(id, today)) {
+            throw BusinessException.bizError("该定投计划今日已执行，请勿重复执行");
+        }
         boolean isCrypto = holding.getType() == HoldingType.crypto;
 
         BigDecimal price;      // 人民币单价（入账口径）

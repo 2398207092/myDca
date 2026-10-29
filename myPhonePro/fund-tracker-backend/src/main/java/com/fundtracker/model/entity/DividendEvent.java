@@ -55,4 +55,9 @@ public class DividendEvent {
     @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
     @Builder.Default
     private Boolean converted = false;
+
+    /** 乐观锁版本号：markDistributed 状态机并发双过时报错而非双入账（P0-3 并发窗口修复） */
+    @Version
+    @Column(nullable = false)
+    private Long version;
 }

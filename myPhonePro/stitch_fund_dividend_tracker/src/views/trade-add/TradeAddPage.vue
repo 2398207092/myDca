@@ -191,6 +191,8 @@ async function loadHoldings() {
 loadHoldings()
 
 async function handleSubmit() {
+  // 防重复提交：提交中直接忽略后续点击（配合按钮 disabled）
+  if (formState.value === 'submitting') return
   if (!selectedHoldingId.value || quantity.value <= 0) {
     error.value = '请填写完整的交易信息'
     return
@@ -219,12 +221,12 @@ async function handleSubmit() {
       fee: fee.value || 0,
     })
     success.value = true
+    // 成功后保持 submitting 态（按钮保持禁用）直至跳转，消除 1.5s 成功窗口内的重复提交
     setTimeout(() => {
       router.replace({ name: 'transaction-list', params: { id: selectedHoldingId.value } })
     }, 1500)
   } catch (e: any) {
     error.value = e.message || '提交失败'
-  } finally {
     formState.value = 'ready'
   }
 }
@@ -402,7 +404,8 @@ async function handleSubmit() {
     <div class="fixed bottom-0 w-full bg-card-bg px-gutter pb-8 pt-4 shadow-overlay z-50">
       <button
         id="submit-btn"
-        class="w-full h-[52px] bg-brand hover:bg-brand/90 active:scale-95 transition-all text-white font-body font-medium text-md rounded-xl flex items-center justify-center gap-2"
+        :disabled="formState === 'submitting'"
+        class="w-full h-[52px] bg-brand hover:bg-brand/90 active:scale-95 transition-all text-white font-body font-medium text-md rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100"
         @click="handleSubmit"
       >
         <span>确认添加</span>

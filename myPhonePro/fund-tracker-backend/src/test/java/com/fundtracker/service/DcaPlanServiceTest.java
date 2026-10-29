@@ -36,6 +36,7 @@ class DcaPlanServiceTest {
     @Mock private DcaPlanRepository dcaPlanRepository;
     @Mock private HoldingRepository holdingRepository;
     @Mock private TransactionService transactionService;
+    @Mock private com.fundtracker.repository.TransactionRepository transactionRepository;
     @Mock private FundNavScrapeService fundNavScrapeService;
     @Mock private TradingCalendar tradingCalendar;
     @Mock private com.fundtracker.repository.ManualAssetRepository manualAssetRepository;
@@ -49,7 +50,7 @@ class DcaPlanServiceTest {
     void setUp() {
         dcaPlanService = new DcaPlanService(
                 dcaPlanRepository, holdingRepository,
-                transactionService, fundNavScrapeService,
+                transactionService, transactionRepository, fundNavScrapeService,
                 tradingCalendar, manualAssetRepository, exchangeRateService, accountService,
                 cryptoPriceService
         );
@@ -534,6 +535,30 @@ class DcaPlanServiceTest {
     @Nested
     @DisplayName("executePlan 执行定投")
     class ExecutePlan {
+
+        @Test
+        @DisplayName("当日防重 → 同一计划同一天二次执行被拒绝，不创建交易")
+        void rejectDuplicateExecutionSameDay() {
+            Holding holding = Holding.builder()
+                    .id("h-1").name("测试基金").code("000001")
+                    .type(HoldingType.fund).build();
+            DcaPlan plan = DcaPlan.builder()
+                    .id("p-1").holdingId("h-1").userId("user-1")
+                    .amount(new BigDecimal("500")).frequency(DcaFrequency.monthly)
+                    .status(DcaPlanStatus.active).tradingMarket("china")
+                    .totalInvested(BigDecimal.ZERO).totalShares(BigDecimal.ZERO)
+                    .totalExecutions(0).nextExecutionDate(LocalDate.of(2026, 8, 3))
+                    .build();
+
+            when(dcaPlanRepository.findByIdAndUserId("p-1", "user-1")).thenReturn(Optional.of(plan));
+            when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "user-1")).thenReturn(Optional.of(holding));
+            // 当日已有该计划的定投交易（此前已执行过一期）
+            when(transactionRepository.existsByDcaPlanIdAndDate(eq("p-1"), any(LocalDate.class))).thenReturn(true);
+
+            assertThrows(BusinessException.class, () -> dcaPlanService.executePlan("p-1", "user-1"));
+            // 关键断言：未创建任何交易（钱未动）
+            verify(transactionService, never()).createTransaction(any(CreateTransactionReq.class), anyString());
+        }
 
         @Test
         @DisplayName("执行成功 → 创建交易并更新统计")
