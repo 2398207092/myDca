@@ -18,7 +18,10 @@ echo "=== 启动后端 ==="
 sudo systemctl start fund-tracker
 
 echo "=== 重载 Nginx ==="
-sudo aa_nginx -s reload
+# 2026-10-30：aa_nginx -s reload 依赖 /var/run/nginx.pid，该文件可能被系统清理导致部署时报错（不影响已解压的静态文件）。
+# 改为按进程号发 HUP（平滑重载，不中断连接）；nginx 未运行时跳过。
+NGINX_PID=$(pgrep -o aa_nginx || true)
+if [ -n "$NGINX_PID" ]; then sudo kill -HUP "$NGINX_PID"; echo "已平滑重载 nginx (pid=$NGINX_PID)"; else echo "(nginx 未运行，跳过重载)"; fi
 
 echo "=== 部署完成 ==="
 sudo systemctl status fund-tracker --no-pager | head -5

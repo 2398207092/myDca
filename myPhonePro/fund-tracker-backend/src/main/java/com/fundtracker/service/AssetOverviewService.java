@@ -47,10 +47,17 @@ public class AssetOverviewService {
 
     public AssetOverviewDTO getOverview(String userId) {
         // 计算各类资产金额
-        BigDecimal cashValue = manualAssetService.getTotalByType("cash", userId);
+        // 2026-10-30 用户定口径：稳定币（USDT 等锚定美元的币）视同现金，计入「现金」分类，
+        // 不再算进「加密资产」——底层数据不动（manual_assets.type 仍为 crypto），只在此聚合层换桶，
+        // 因此定投扣 USDT、账户本位币规则、手动资产 CRUD 均不受影响；
+        // 快照（asset_snapshots）与历史曲线由本方法写入，自动跟随新口径（历史快照不迁移，曲线切换日有一次性跳变）
+        BigDecimal stablecoinValue = manualAssetService.getStablecoinTotal(userId);
+        BigDecimal cashValue = manualAssetService.getTotalByType("cash", userId).add(stablecoinValue);
         // 加密资产有两个来源：手填的 manual_assets（type=crypto）与迁入 holdings 的持仓（assetCategory=crypto）
-        // 迁移期间两者可能并存，必须相加，否则总资产会漏算
+        // 迁移期间两者可能并存，必须相加，否则总资产会漏算；稳定币部分已挪去现金，此处扣除（防负数）
         BigDecimal cryptoValue = manualAssetService.getTotalByType("crypto", userId)
+                .subtract(stablecoinValue)
+                .max(BigDecimal.ZERO)
                 .add(getHoldingTotalByCategory("crypto", userId));
         BigDecimal usStockValue = getHoldingTotalByCategory("us_stock", userId);
         BigDecimal goldValue = getHoldingTotalByCategory("gold", userId);

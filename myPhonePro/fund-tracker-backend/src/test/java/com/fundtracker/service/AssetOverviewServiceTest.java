@@ -44,6 +44,10 @@ class AssetOverviewServiceTest {
     void setUp() {
         assetOverviewService = new AssetOverviewService(
                 holdingRepository, manualAssetService, assetSnapshotRepository, new ObjectMapper());
+        // 稳定币口径（2026-10-30）引入的新依赖：默认无稳定币，个别用例按需覆盖
+        org.mockito.Mockito.lenient()
+                .when(manualAssetService.getStablecoinTotal(anyString()))
+                .thenReturn(BigDecimal.ZERO);
     }
 
     @Nested
@@ -190,6 +194,44 @@ class AssetOverviewServiceTest {
             // 周变化 = 1000 - 0 = 1000，但百分比不计算（避免除零）
             assertEquals(0, new BigDecimal("1000").compareTo(result.getWeeklyChange()));
             assertEquals(BigDecimal.ZERO, result.getWeeklyChangePercent());
+        }
+    }
+
+    @Nested
+    @DisplayName("稳定币计入现金（2026-10-30 用户定口径）")
+    class StablecoinAsCash {
+
+        @Test
+        @DisplayName("USDT 从加密资产挪到现金：现金翻桶、总资产不变")
+        void stablecoinMovesToCash() {
+            // 现金 100；crypto 手动资产合计 160（其中 USDT 稳定币 60、其他 100）；无 crypto 持仓
+            when(manualAssetService.getTotalByType("cash", "u-1")).thenReturn(new BigDecimal("100.00"));
+            when(manualAssetService.getTotalByType("crypto", "u-1")).thenReturn(new BigDecimal("160.00"));
+            when(manualAssetService.getStablecoinTotal("u-1")).thenReturn(new BigDecimal("60.00"));
+            when(holdingRepository.findByUserIdAndAssetCategoryAndDeletedFalse(anyString(), anyString()))
+                    .thenReturn(List.of());
+
+            AssetOverviewDTO dto = assetOverviewService.getOverview("u-1");
+
+            // 现金 = 100 + 60(USDT) = 160；加密资产 = 160 − 60 = 100；总资产 = 260（口径切换不影响总额）
+            assertEquals(0, new BigDecimal("160.00").compareTo(dto.getCashValue()));
+            assertEquals(0, new BigDecimal("100.00").compareTo(dto.getCryptoValue()));
+            assertEquals(0, new BigDecimal("260.00").compareTo(dto.getTotalValue()));
+        }
+
+        @Test
+        @DisplayName("无稳定币时行为不变（回归）")
+        void noStablecoinUnchanged() {
+            when(manualAssetService.getTotalByType("cash", "u-1")).thenReturn(new BigDecimal("100.00"));
+            when(manualAssetService.getTotalByType("crypto", "u-1")).thenReturn(new BigDecimal("50.00"));
+            when(manualAssetService.getStablecoinTotal("u-1")).thenReturn(BigDecimal.ZERO);
+            when(holdingRepository.findByUserIdAndAssetCategoryAndDeletedFalse(anyString(), anyString()))
+                    .thenReturn(List.of());
+
+            AssetOverviewDTO dto = assetOverviewService.getOverview("u-1");
+
+            assertEquals(0, new BigDecimal("100.00").compareTo(dto.getCashValue()));
+            assertEquals(0, new BigDecimal("50.00").compareTo(dto.getCryptoValue()));
         }
     }
 }

@@ -150,4 +150,20 @@ class ManualAssetServiceTest {
         verify(manualAssetRepository).save(assetCaptor.capture());
         assertEquals(new BigDecimal("60000"), assetCaptor.getValue().getAmount());
     }
+
+    @Test
+    @DisplayName("getStablecoinTotal：只统计白名单稳定币（USDT 计入、普通加密币不计）")
+    void stablecoinTotal_onlyWhitelist() {
+        com.fundtracker.model.entity.ManualAsset usdt = com.fundtracker.model.entity.ManualAsset.builder()
+                .id("m-usdt").type("crypto").assetCode("USDT").amount(new java.math.BigDecimal("656.78")).build();
+        com.fundtracker.model.entity.ManualAsset btc = com.fundtracker.model.entity.ManualAsset.builder()
+                .id("m-btc").type("crypto").assetCode("BTC").amount(new java.math.BigDecimal("1000")).build();
+        when(manualAssetRepository.findByUserIdAndType("user-1", "crypto"))
+                .thenReturn(java.util.List.of(usdt, btc));
+
+        java.math.BigDecimal total = service.getStablecoinTotal("user-1");
+
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                new java.math.BigDecimal("656.78").compareTo(total));
+    }
 }

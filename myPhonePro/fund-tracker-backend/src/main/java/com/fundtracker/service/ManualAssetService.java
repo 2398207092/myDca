@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -190,6 +191,24 @@ public class ManualAssetService {
         List<ManualAsset> assets = manualAssetRepository.findByUserIdAndType(userId, type);
         return assets.stream()
                 .map(ManualAsset::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** 稳定币白名单：锚定法币、视同现金等价物，聚合时并入「现金」分类（2026-10-30 用户定口径）。
+     *  新增稳定币（如 USDC）只需加这里，不动数据层——manual_assets.type 仍为 crypto，不影响定投扣减与账户规则。 */
+    private static final Set<String> STABLECOINS =
+            Set.of("USDT", "USDC", "DAI", "TUSD");
+
+    /**
+     * 稳定币合计金额（人民币口径）：手填加密资产中 asset_code 属于稳定币白名单的部分。
+     * 用途：总览/快照/历史曲线的分类聚合里，这部分从「加密资产」挪到「现金」。
+     */
+    public BigDecimal getStablecoinTotal(String userId) {
+        return manualAssetRepository.findByUserIdAndType(userId, "crypto").stream()
+                .filter(a -> a.getAssetCode() != null
+                        && STABLECOINS.contains(a.getAssetCode().toUpperCase()))
+                .map(ManualAsset::getAmount)
+                .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 

@@ -67,11 +67,22 @@ const catLabels: Record<string, string> = {
   us_stock: '美股',
   gold: '黄金',
   dividend: '红利',
-  crypto: '比特币',
+  crypto: '加密资产',
   cash: '现金',
   uncategorized: '未分类',
 }
 const brandColor = '#1A6B56'
+
+// 分类展示固定顺序：后端 categoryValues 的键序取决于「按市值遍历持仓时分类首次出现的顺序」，
+// 逐日漂移（每张快照顺序都不一样），所以渲染必须按这个固定顺序，不能遍历对象键。
+const CATEGORY_ORDER = ['cash', 'dividend', 'us_stock', 'gold', 'crypto', 'uncategorized']
+
+// 选中点的分类明细行（固定顺序，供模板渲染；模板内不能直接对可能为空的对象做 filter 收窄）
+const selectedCategoryRows = computed(() => {
+  const cv = selectedPoint.value?.categoryValues
+  if (!cv) return [] as Array<{ k: string; v: number }>
+  return CATEGORY_ORDER.filter(k => cv[k] != null).map(k => ({ k, v: cv[k] as number }))
+})
 
 function holdingColor(cat?: string): string {
   return catColors[cat || ''] || '#6F6F6E'
@@ -270,8 +281,7 @@ function renderTotalChart() {
     // 收集区间内出现过的所有类别（按最新一天市值降序）
     const catSet = new Set<string>()
     series.forEach(p => Object.keys(p.categoryValues || {}).forEach(k => catSet.add(k)))
-    const latest = series[series.length - 1]?.categoryValues || {}
-    const cats = Array.from(catSet).sort((a, b) => (latest[b] || 0) - (latest[a] || 0))
+    const cats = CATEGORY_ORDER.filter(k => catSet.has(k))
     catLines = cats.map(key => ({
       key,
       data: series.map(p => p.categoryValues?.[key] ?? null),
@@ -547,12 +557,12 @@ function handleResize() { totalChart?.resize() }
             </div>
             <!-- 分类市值明细（市值 tab） -->
             <div v-if="totalTab === 'value' && selectedPoint.categoryValues" class="mt-2 pt-2 border-t border-border-light/40 grid grid-cols-2 gap-x-3 gap-y-1">
-              <div v-for="(v, k) in selectedPoint.categoryValues" :key="k" class="flex items-center justify-between">
+              <div v-for="row in selectedCategoryRows" :key="row.k" class="flex items-center justify-between">
                 <span class="flex items-center gap-1 text-[10px] text-text-tertiary">
-                  <span class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: catColors[k] || '#6F6F6E' }"></span>
-                  {{ catLabels[k] || k }}
+                  <span class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: catColors[row.k] || '#6F6F6E' }"></span>
+                  {{ catLabels[row.k] || row.k }}
                 </span>
-                <span class="text-[11px] font-medium text-text-primary font-display">{{ fmtMoney(v) }}</span>
+                <span class="text-[11px] font-medium text-text-primary font-display">{{ fmtMoney(row.v) }}</span>
               </div>
             </div>
           </div>
