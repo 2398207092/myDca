@@ -220,7 +220,7 @@ function switchRegisterSubTab(tab: 'code' | 'password') {
     <!-- Header -->
     <header class="pt-14 pb-2 px-gutter max-w-[400px] mx-auto w-full">
       <div class="flex items-center gap-2.5 mb-1">
-        <span class="material-symbols-outlined text-brand text-2xl">park</span>
+        <img src="/favicon.svg" alt="" class="w-6 h-6" />
         <h1 class="font-display text-2xl text-brand font-semibold">种树</h1>
       </div>
       <p class="font-body text-sm text-text-tertiary ml-[2px]">基金分红追踪器</p>
