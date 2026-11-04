@@ -8,6 +8,7 @@ cd "$(dirname "$0")/.." || exit 1
 
 fail=0
 BE="myPhonePro/fund-tracker-backend/src/main/java/com/fundtracker"
+FE="myPhonePro/stitch_fund_dividend_tracker/src"
 
 # ---------- 1. 死链 ----------
 echo "== 1/2 死链检查 =="
@@ -57,6 +58,11 @@ else
   check providers   "$(declared providers)"   "$(find "$BE/service/provider" -maxdepth 1 -name '*.java' | wc -l)"
   check entities    "$(declared entities)"    "$(find "$BE/model/entity" -maxdepth 1 -name '*.java' | wc -l)"
   check schedulers  "$(declared schedulers)"  "$(find "$BE/scheduler" -maxdepth 1 -name '*.java' | wc -l)"
+  # 2026-11-03 扩展：补上最容易漂移的 4 项（P1-18 这类「代码已做、文档没销账」就是从这里漏掉的）
+  check repositories "$(declared repositories)" "$(find "$BE/repository" -maxdepth 1 -name '*.java' | wc -l)"
+  check dtos         "$(declared dtos)"         "$(find "$BE/model/dto" -maxdepth 1 -name '*.java' | wc -l)"
+  check api_modules  "$(declared api_modules)"  "$(find "$FE/api" -maxdepth 1 -name '*.ts' ! -name 'request.ts' | wc -l)"
+  check views        "$(declared views)"        "$(find "$FE/views" -name '*.vue' | wc -l)"
 fi
 
 echo

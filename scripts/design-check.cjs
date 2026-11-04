@@ -196,7 +196,7 @@ function main() {
     if (baseline && error > baseline.error) {
       console.error('');
       console.error(`拒绝更新：当前 error ${error} 处，高于基线 ${baseline.error} 处。`);
-      console.error('棘轮只允许往下调。要放宽基线，必须先在 design/01-决策.md 记一条决策并说明理由。');
+      console.error('棘轮只允许往下调。要放宽基线，必须先在 docs/04-日志.md 记一条决策并说明理由（重建 design/01-决策.md 后迁入）。');
       process.exit(1);
     }
     fs.mkdirSync(path.dirname(BASELINE_FILE), { recursive: true });
@@ -227,7 +227,7 @@ function main() {
   if (delta > 0) {
     console.log('');
     console.log(`✗ 门禁失败：新增 ${delta} 处违规。`);
-    console.log('  要么改回 token，要么在 design/01-决策.md 记一条决策说明为什么必须放宽。');
+    console.log('  要么改回 token，要么在 docs/04-日志.md 记一条决策说明为什么必须放宽。');
     console.log('');
     process.exit(1);
   }

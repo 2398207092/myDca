@@ -540,9 +540,9 @@ function handleResize() { totalChart?.resize() }
                 <p class="text-sm font-bold text-text-primary font-display">{{ fmtMoney(selectedPoint.totalMarketValue) }}</p>
               </div>
               <div>
-                <p class="text-[10px] text-text-tertiary">基金总份额</p>
+                <p class="text-xs text-text-tertiary">基金总份额</p>
                 <p class="text-sm font-bold text-text-primary font-display">{{ fundSharesOf(selectedPoint).toLocaleString() }} 份</p>
-                <p v-if="cryptoSharesOf(selectedPoint) > 0" class="text-[10px] text-text-tertiary mt-0.5">
+                <p v-if="cryptoSharesOf(selectedPoint) > 0" class="text-xs text-text-tertiary mt-0.5">
                   加密币 {{ cryptoSharesOf(selectedPoint).toLocaleString() }} 枚（不计入份额）
                 </p>
               </div>
@@ -562,7 +562,7 @@ function handleResize() { totalChart?.resize() }
                   <span class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: catColors[row.k] || '#6F6F6E' }"></span>
                   {{ catLabels[row.k] || row.k }}
                 </span>
-                <span class="text-[11px] font-medium text-text-primary font-display">{{ fmtMoney(row.v) }}</span>
+                <span class="text-xs font-medium text-text-primary font-display">{{ fmtMoney(row.v) }}</span>
               </div>
             </div>
           </div>

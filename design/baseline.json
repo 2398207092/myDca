@@ -1,9 +1,9 @@
 {
-  "updatedAt": "2026-10-28",
-  "error": 250,
+  "updatedAt": "2026-11-03",
+  "error": 248,
   "warn": 131,
   "byRule": {
-    "FONT-ARBITRARY": 217,
+    "FONT-ARBITRARY": 215,
     "SPACE-ARBITRARY": 131,
     "COLOR-ARBITRARY": 23,
     "COLOR-RAW-HEX": 10

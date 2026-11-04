@@ -257,7 +257,7 @@ function goBack() { router.back() }
     </main>
 
     <!-- 新增 / 编辑弹窗 -->
-    <div v-if="showSheet" class="fixed inset-0 z-[60] flex items-end justify-center">
+    <div v-if="showSheet" class="fixed inset-0 z-modal-backdrop flex items-end justify-center">
       <div class="absolute inset-0 bg-black/40" @click="showSheet = false"></div>
       <div class="relative w-full max-w-[480px] bg-card-bg rounded-t-2xl px-gutter pt-lg pb-8">
         <div class="flex items-center justify-between mb-lg">
@@ -314,7 +314,7 @@ function goBack() { router.back() }
     </div>
 
     <!-- 删除确认 -->
-    <div v-if="deleting" class="fixed inset-0 z-[70] flex items-center justify-center px-gutter">
+    <div v-if="deleting" class="fixed inset-0 z-modal flex items-center justify-center px-gutter">
       <div class="absolute inset-0 bg-black/40" @click="deleting = null"></div>
       <div class="relative w-full max-w-[360px] bg-card-bg rounded-xl p-lg">
         <h3 class="font-body text-sm font-medium text-text-primary">删除账户「{{ deleting.name }}」？</h3>

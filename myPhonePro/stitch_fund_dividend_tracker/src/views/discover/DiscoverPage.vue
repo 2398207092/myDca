@@ -899,7 +899,7 @@ async function doDelete() {
             <span class="font-body text-xs text-text-tertiary">{{ dcaPersistenceDays }} 天</span>
           </div>
         </div>
-        <p v-if="dcaRateMissing" class="font-body text-[10px] text-error mb-md px-1">
+        <p v-if="dcaRateMissing" class="font-body text-xs text-error mb-md px-1">
           含 USDT 定投计划，汇率获取失败，人民币汇总暂不可用
         </p>
 

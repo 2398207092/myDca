@@ -309,7 +309,7 @@ async function handleSubmit() {
         <!-- 加密币持仓提示：不拉净值、不自动扣交易所余额 -->
         <div v-if="isCryptoHolding"
              class="flex items-center gap-2 px-md py-2 rounded-lg text-xs font-body bg-card-alt text-text-secondary">
-          <span class="material-symbols-outlined text-[14px]">currency_bitcoin</span>
+          <span class="material-symbols-outlined text-base">currency_bitcoin</span>
           <span>加密币交易：请手动输入 USDT 单价；不会自动扣减交易所 USDT 余额，请以交易所记录为准</span>
         </div>
 
