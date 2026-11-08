@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>帧 B · 持仓抽屉展开（结构参考）</title>
+<style>
+  :root{ --ink:#14171A; --ink-2:#2A2F35; --muted:#6B7280; --line:#E3E5E8; --surface:#FFFFFF; --fill:#F4F5F6; --fill-2:#ECEEF0; }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#FFFFFF;color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",sans-serif;-webkit-font-smoothing:antialiased}
+  .phone{position:relative;width:390px;height:844px;margin:0 auto;background:var(--fill);overflow:hidden}
+  .under{padding:12px 16px 0;display:flex;flex-direction:column;gap:10px}
+  .top{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 2px}
+  .brand{font-size:15px;font-weight:700}
+  .brand small{font-size:10px;font-weight:400;color:var(--muted);margin-left:6px}
+  .meta{font-size:10px;color:var(--muted)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .label{font-size:11px;color:var(--muted)}
+  .big{font-family:"Segoe UI",Consolas,monospace;font-size:44px;font-weight:800;line-height:1;letter-spacing:-.02em;margin-top:4px}
+  .big .cny{font-size:.5em;vertical-align:.4em;margin-right:2px;color:var(--muted)}
+  .sub{font-size:10.5px;color:var(--muted);margin-top:6px}
+  .dim{position:absolute;inset:0;background:rgba(20,23,26,.28)}
+  .sheet{position:absolute;left:0;right:0;bottom:0;height:66%;background:var(--surface);border-radius:22px 22px 0 0;box-shadow:0 -12px 30px rgba(20,23,26,.16);padding:10px 16px 16px;display:flex;flex-direction:column}
+  .grab{width:38px;height:4px;border-radius:2px;background:var(--fill-2);margin:2px auto 10px}
+  .sheet-head{display:flex;align-items:baseline;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--line)}
+  .sheet-head h2{margin:0;font-size:15px;font-weight:700}
+  .sheet-head span{font-size:10px;color:var(--muted)}
+  .list{flex:1;overflow:hidden;display:flex;flex-direction:column}
+  .item{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+  .item:last-child{border-bottom:0}
+  .l{display:flex;flex-direction:column;gap:2px}
+  .n{font-size:12.5px;font-weight:700}
+  .c{font-size:9.5px;color:var(--muted)}
+  .r{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+  .v{font-family:"Segoe UI",Consolas,monospace;font-size:13px;font-weight:700}
+  .p{font-family:"Segoe UI",Consolas,monospace;font-size:10px;color:var(--muted)}
+  .hint{font-size:9.5px;color:var(--faint);text-align:center;padding-top:8px}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="under">
+    <div class="top"><div class="brand">种树<small>资产</small></div><div class="meta">11-07 · 已同步</div></div>
+    <div class="card">
+      <div class="label">总资产</div>
+      <div class="big"><span class="cny">¥</span>128,640</div>
+      <div class="sub">持仓 ¥96,180　现金 ¥32,460　今年 +5.3%</div>
+    </div>
+  </div>
+
+  <div class="dim" aria-hidden="true"></div>
+
+  <div class="sheet">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="sheet-head"><h2>持仓 6 支</h2><span>按市值 · 下拉关闭</span></div>
+    <div class="list">
+      <div class="item"><div class="l"><span class="n">中证红利ETF</span><span class="c">515180 · 红利</span></div><div class="r"><span class="v">¥32,400</span><span class="p">+4,120　+14.6%</span></div></div>
+      <div class="item"><div class="l"><span class="n">沪深300ETF</span><span class="c">510300 · 宽基</span></div><div class="r"><span class="v">¥21,800</span><span class="p">+1,240　+6.0%</span></div></div>
+      <div class="item"><div class="l"><span class="n">标普500ETF</span><span class="c">513500 · 美股</span></div><div class="r"><span class="v">¥18,600</span><span class="p">+2,960　+18.9%</span></div></div>
+      <div class="item"><div class="l"><span class="n">纳指ETF</span><span class="c">513100 · 美股</span></div><div class="r"><span class="v">¥10,500</span><span class="p">+1,730　+19.7%</span></div></div>
+      <div class="item"><div class="l"><span class="n">黄金ETF</span><span class="c">518880 · 黄金</span></div><div class="r"><span class="v">¥8,900</span><span class="p">-320　-3.5%</span></div></div>
+      <div class="item"><div class="l"><span class="n">红利低波ETF</span><span class="c">512890 · 红利</span></div><div class="r"><span class="v">¥3,980</span><span class="p">+260　+7.0%</span></div></div>
+    </div>
+    <div class="hint">点任一行展开成本 / 年分红</div>
+  </div>
+</div>
+</body>
+</html>
