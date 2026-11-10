@@ -1,6 +1,7 @@
 package com.fundtracker.service;
 
 import com.fundtracker.exception.BusinessException;
+import com.fundtracker.model.dto.CreateEventReq;
 import com.fundtracker.model.dto.CreateTransactionReq;
 import com.fundtracker.model.entity.DividendEvent;
 import com.fundtracker.model.entity.Holding;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -192,5 +194,38 @@ class EventServiceTest {
         eventService.cancelEvent("evt-1", "user-1");
 
         assertEquals(EventStatus.cancelled, event.getStatus());
+    }
+
+    @Test
+    @DisplayName("手动创建分红事件：participated 必填、ID 交给 JPA 生成（2026-11-10 回归）")
+    void createEvent_fillsRequiredFieldsAndLeavesIdToJpa() {
+        Holding holding = Holding.builder()
+                .id("h-1")
+                .name("测试基金")
+                .userId("u-1")
+                .build();
+        when(holdingRepository.findByIdAndUserIdAndDeletedFalse("h-1", "u-1"))
+                .thenReturn(Optional.of(holding));
+        when(eventRepository.save(any(DividendEvent.class))).thenAnswer(i -> i.getArgument(0));
+
+        CreateEventReq req = new CreateEventReq();
+        req.setHoldingId("h-1");
+        req.setType("payout");
+        req.setDate("2026-11-06");
+        req.setAmount(new BigDecimal("6.28"));
+        req.setDescription("手动补录");
+
+        eventService.createEvent(req, "u-1");
+
+        ArgumentCaptor<DividendEvent> captor = ArgumentCaptor.forClass(DividendEvent.class);
+        verify(eventRepository).save(captor.capture());
+        DividendEvent saved = captor.getValue();
+
+        // ID 必须为 null：手动设置 @GeneratedValue 的 ID + @Version=null 会被 Hibernate 判为游离实体
+        assertNull(saved.getId(), "ID 应交给 @GeneratedValue，手动赋值会触发游离实体异常");
+        // participated 是 nullable=false，漏设会在 DB 插入时报 Column 'participated' cannot be null
+        assertEquals(Boolean.TRUE, saved.getParticipated(), "participated 必须显式赋值");
+        assertEquals(0, new BigDecimal("6.28").compareTo(saved.getAmount()));
+        assertEquals(EventStatus.pending, saved.getStatus());
     }
 }
