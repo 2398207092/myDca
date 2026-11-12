@@ -1,7 +1,7 @@
 // 种树 PWA Service Worker
 // 策略:应用 shell 缓存优先,API 请求走网络,离线回退到首页
 
-const CACHE_VERSION = 'v2-20261030'
+const CACHE_VERSION = 'v3-20261112'
 const APP_SHELL_CACHE = `fund-tracker-shell-${CACHE_VERSION}`
 const OFFLINE_URL = '/'
 
@@ -9,6 +9,8 @@ const OFFLINE_URL = '/'
 const APP_SHELL_URLS = [
   '/',
   '/index.html',
+  '/auros.html',
+  '/skin-boot.js',
   '/manifest.json',
   '/favicon.svg',
   '/favicon-32.png',
