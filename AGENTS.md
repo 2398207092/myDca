@@ -64,7 +64,7 @@ bash scripts/doc-check.sh
     `main` 比 `origin/main` 领先 3 个提交（含双皮肤包），**未推送**。
 - 视觉决策入口：[design/00-基准.md](design/00-基准.md)。
 - 门禁：`node scripts/design-check.cjs`（error 基线 **248**，只降不升）；`npm run build` 必须同时产出 `dist/index.html` 与 `dist/auros.html`；两套入口都要给真实渲染截图（390、0 console、0 横向溢出）。
-- 不引入新组件库；技能一次只用一家；改 UI 必须给真实渲染截图。
+- 不引入新组件库；技能一次只用一家（技能库在 `design/skills/`，清单与「适配哪些动作」见 [docs/06-技能.md](docs/06-技能.md)）；改 UI 必须给真实渲染截图。
 
 ## 4. 当前状态：P0 已清零（2026-10-29），P1/P2 按批次推进
 

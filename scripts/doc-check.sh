@@ -25,7 +25,9 @@ while IFS= read -r f; do
       *) dead="${dead}  FAIL  $f -> $link"$'\n' ;;
     esac
   done < <(grep -oE '\]\([^)]+\.md(#[^)]*)?\)' "$f" 2>/dev/null | sed -E 's/^\]\(//; s/\)$//')
-done < <(find . -name "*.md" -not -path "*/node_modules/*" -not -path "*/target/*" -not -path "*/dist/*" -not -path "./.git/*")
+# design/skills/ 是第三方技能原文（含上游自己的相对链接），不参与本项目的死链检查
+# .workbuddy/ 是本地临时工作区（已 gitignore），同样不扫
+done < <(find . -name "*.md" -not -path "*/node_modules/*" -not -path "*/target/*" -not -path "*/dist/*" -not -path "./.git/*" -not -path "./design/skills/*" -not -path "./.workbuddy/*")
 
 if [ -z "$dead" ]; then
   echo "  OK 无死链"

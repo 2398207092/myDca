@@ -4,6 +4,10 @@ target/
 *.jar
 *.war
 
+# Python（技能里的 search.py 等会生成字节码缓存）
+__pycache__/
+*.pyc
+
 # Node
 node_modules/
 dist/

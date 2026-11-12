@@ -1,31 +1,27 @@
-# design/skills · 技能资料
+# design/skills · 技能库（仓库内）
 
-> 2026-11-05 重置后：这里只保留**入库的技能**；其余技能安装在 DSH skills 目录或仓库外缓存。
+> 2026-11-12：入库 3 家第三方技能（共 16 个技能）+ 原有 `taste-skill`。
+> **唯一清单与「适配哪些动作」： [docs/06-技能.md](../../docs/06-技能.md)**（本页只做目录索引）。
+> 来源、commit、许可、更新方法：[SOURCES.md](SOURCES.md)。
 
-## 已入库
+## 目录
 
-- `taste-skill/` — https://github.com/Leonxlnx/taste-skill （v2，MIT，含 references/library/scripts/assets）
-
-## 已安装到 DSH（不在仓库）
-
-| 技能 | 来源 | 用途 |
+| 目录 | 来源 | 说明 |
 |---|---|---|
-| `frontend-design` | anthropics/skills | 定方向 / 去 AI 味 |
-| `huashu-design` | alchaincyf/huashu-design | 三方向初稿 / 风格库 / 设计体检 |
-| `transitions-dev` | Jakubantalik/transitions.dev | 动效 |
-| `web-design-guidelines` | vercel-labs/agent-skills | 体验 / a11y 审计 |
-| `theme-factory` / `canvas-design` | anthropics/skills | 只做展示物/海报 |
-| `brand-guidelines` | anthropics/skills | 不使用 |
-
-## 仓库外缓存（未入库）
-
-- `D:\mySpace\backups\skills-cache\Nutlope__hallmark`（含 sloplint 门禁）
-- `D:\mySpace\backups\skills-cache\pbakaus__impeccable`
-- `D:\mySpace\backups\skills-cache\jakubkrehel__skills`
+| `taste-skill/` | Leonxlnx/taste-skill（MIT） | 2026-11-05 起就在仓库内 |
+| `ui-ux-pro-max-skill/` | nextlevelbuilder/ui-ux-pro-max-skill（MIT） | 6 个技能：设计智能检索 / 设计系统 / 品牌 / 横幅 / 幻灯片 |
+| `impeccable/` | pbakaus/impeccable（Apache-2.0） | 24 个命令：评审 / 审计 / 打磨 / 加固 / 动效 |
+| `vercel-agent-skills/` | vercel-labs/agent-skills（上游无 LICENSE） | 9 个技能，本项目只推荐 `web-design-guidelines` / `writing-guidelines` |
 
 ## 使用约定
 
-1. **一次只用一家**，不同时加载多个设计技能。
-2. 技能是顾问，冲突时以「三秒三问 + 完成度」裁决，并记录采纳/拒绝。
-3. 不引用旧设计产物（已归档 `D:\mySpace\backups\design-archive-20261105\`）。
-4. 必须真实截图自检；320/390、0 console。
+1. **技能是顾问，不是依赖**：不改 `package.json`、不加组件库、不引入新依赖。
+2. **一次只用一家**：同一任务不叠加两个技能（评审用 impeccable，规范审计用 web-design-guidelines，不同时跑）。
+3. **产物先给用户**：不把 `PRODUCT.md` / `DESIGN.md` / `.impeccable/` / `design-system/` 写进仓库；临时产物放 `.workbuddy/tmp/`。
+4. **不引用旧设计产物**（AGENTS §3.5）；技能建议与 `design/00-基准.md` 冲突时，以项目规则为准。
+5. 改 UI 必须给真实渲染截图（390px、0 console、0 横向溢出）。
+
+## 仓库外（不重复入库）
+
+- DSH 全局已装（`~/.dsh/skills/`）：`impeccable`（旧版，引擎 0.1.18）、`web-design-guidelines`、`frontend-design`、`huashu-design`、`transitions-dev`、`spt-project-interaction-design`、`hallmark`、`theme-factory`、`canvas-design`、`brand-guidelines`（后两个不用于 App UI）。
+- 仓库外缓存：`D:\mySpace\backups\skills-cache\`（hallmark、impeccable 旧版、jakubkrehel/skills 等）。
