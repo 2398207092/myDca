@@ -16,6 +16,7 @@ import { getMonitorDates, getMonitorContent } from '@/api/monitor'
 import type { MonitorContent } from '@/api/monitor'
 import ToastNotification from '@/components/shared/ToastNotification.vue'
 import AppHeader from '@/components/shared/AppHeader.vue'
+import UiSkinPicker from '@/components/shared/UiSkinPicker.vue'
 
 const router = useRouter()
 const pageState = ref<PageState>('loading')
@@ -340,6 +341,11 @@ onActivated(() => {
             chevron_right
           </span>
         </div>
+      </section>
+
+      <!-- ==================== 界面皮肤（整套前端切换） ==================== -->
+      <section>
+        <UiSkinPicker />
       </section>
 
       <!-- ==================== Exchange Rates ==================== -->

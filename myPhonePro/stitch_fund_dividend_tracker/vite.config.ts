@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
+import { resolve } from 'node:path'
 
 export default defineConfig({
   plugins: [vue()],
@@ -9,10 +10,33 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  // 皮肤包：两个入口共用同一工程/同一后端
+  //   index.html → 原版界面（src/main.ts）
+  //   auros.html → Auros 卡片版（src/auros-skin/main.ts）
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        auros: resolve(__dirname, 'auros.html'),
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
     allowedHosts: ['padlock-hypnoses-disburse.ngrok-free.dev'],
+    // Windows 下编辑器/AI 的原子写会留下 *~RF*.TMP / .xxx.tmpdir 临时目录，
+    // 原生文件监听（chokidar）一旦 watch 到这类被锁文件就直接 EBUSY 崩掉 dev server。
+    // 处理：忽略临时文件 + 改用轮询（不创建原生 watcher，从根上避开锁）。
+    watch: {
+      ignored: (p: string) =>
+        p.includes('node_modules') ||
+        p.includes('.git') ||
+        p.includes('dist') ||
+        /(^|[\\/])\.?[^\\/]*(\.tmpdir|~RF[^\\/]*\.TMP|\.tmp$|~$)/.test(p),
+      usePolling: true,
+      interval: 400,
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

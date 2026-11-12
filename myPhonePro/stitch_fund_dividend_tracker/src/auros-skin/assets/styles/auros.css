@@ -1,0 +1,210 @@
+/* ============================================================================
+ * Auros — 首页设计层（2026-11-08）
+ * 唯一依据：design/参考/Auros/DESIGN.md + tokens.json + theme.css
+ * 独立于项目原有 token，前缀一律 --au- / .au-
+ * 规则：零阴影（阴影只允许"光"）、零描边卡；圆角只有 16 / 6；字重只有 400 / 500；
+ *      字号只有 10/12/13/16/20/26/40/56/96；极光渐变全页只出现一次（主按钮）。
+ * ========================================================================== */
+
+@font-face {
+  font-family: 'InterAuros';
+  src: url('/fonts/inter-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'InterAuros';
+  src: url('/fonts/inter-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Surfaces — liquid stack */
+  --au-abyss: #012624;
+  --au-deep: #011d1c;
+  --au-kelp: #003734;
+  --au-slate: #707777;
+
+  /* Text */
+  --au-white: #ffffff;
+  --au-mist: #edfffe;
+  --au-silver: #bbc7c6;
+
+  /* Accent — rationed */
+  --au-pink: #fde9ff;
+  --au-pink-deep: #fad1ff;
+  --au-lit: #cbfffc;
+  --au-glow: #8ff5e8;
+  --au-ink: #16211f;
+  --au-kelp-lit: #00433f;
+
+  /* 遮罩用色（只用于 mask-image，不参与配色） */
+  --au-mask: #000000;
+
+  /* Signature gradient（全页只给主按钮） */
+  --au-aurora: linear-gradient(90deg, #cbfffc 0%, #edfffe 26.25%, #fffdfa 47.57%, #fad1ff 88.96%);
+
+  /* Lines */
+  --au-hair: rgba(237, 255, 254, 0.08);
+  --au-hair-strong: rgba(237, 255, 254, 0.16);
+
+  /* Cards — 抬升面（Liquid Kelp）/ 下沉井（Liquid Deep）
+   * Auros：卡片高度只靠水色层阶，无阴影、无描边、圆角只有 16。
+   * 约定：一张卡 = 一个"章"；卡内不再套卡；卡内分组只靠发丝线。 */
+  --au-card: var(--au-kelp);
+  --au-card-sunken: var(--au-deep);
+  --au-card-pad: 18px 16px;
+  --au-card-gap: 12px;
+  --au-card-line: rgba(237, 255, 254, 0.1);
+
+  /* Motion */
+  --au-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --au-ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+  --au-dur-1: 120ms; /* 按压 */
+  --au-dur-2: 240ms; /* 切换 */
+  --au-dur-3: 320ms; /* 揭示 */
+  --au-dur-4: 640ms; /* 编排 */
+  --au-dur-5: 900ms; /* 读数 */
+  --au-stagger: 34ms; /* 列表步进 */
+}
+
+.auros {
+  font-family: 'InterAuros', 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC',
+    'Microsoft YaHei', system-ui, sans-serif;
+  color: var(--au-mist);
+  background-color: var(--au-abyss);
+  font-weight: 400;
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 首页路由：把深海底色写到 html/body，避免下拉回弹与首帧闪白 */
+html.auros-route,
+html.auros-route body,
+.is-auros-home {
+  background-color: var(--au-abyss);
+}
+html.auros-route body {
+  color: var(--au-mist);
+}
+
+/* 数字：等宽数位 */
+.au-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.02em;
+}
+.au-num-xl {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.04em;
+  font-weight: 500;
+  line-height: 1;
+}
+
+@keyframes au-breathe {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 全站统一的"揭示"：淡入 + 上浮 10px */
+@keyframes au-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 全站统一的"生长"：从左展开（条/线/进度） */
+@keyframes au-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* 数字/图形的"落定"：轻微放大回正 */
+@keyframes au-settle {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ---- 卡片：全站唯一的分组容器 ----
+ * 抬升面（默认）/ 下沉井（次要、操作、收起内容）。
+ * 卡与卡之间的距离只有 12px；卡片之间不允许再出现通栏发丝线。 */
+.au-card {
+  position: relative;
+  background: var(--au-card);
+  border: 0;
+  border-radius: 16px;
+  box-shadow: none;
+  padding: var(--au-card-pad);
+}
+.au-card--soft {
+  background: rgba(0, 55, 52, 0.82);
+}
+.au-card--flush {
+  padding: 0;
+  overflow: hidden;
+}
+.au-card + .au-card {
+  margin-top: var(--au-card-gap);
+}
+
+/* 揭示工具类：元素进入视口后由组件加上 .is-in */
+.au-reveal {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.au-reveal.is-in {
+  animation: au-reveal var(--au-dur-3) var(--au-ease) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .au-reveal {
+    opacity: 1;
+    transform: none;
+  }
+  .au-reveal.is-in {
+    animation: none;
+  }
+}
+
+/* 打印/导出时不能有隐藏内容（揭示动画只服务滚动） */
+@media print {
+  .au-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
