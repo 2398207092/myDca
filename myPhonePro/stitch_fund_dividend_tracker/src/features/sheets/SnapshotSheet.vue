@@ -16,6 +16,7 @@ import SkeletonRows from '@/shared/components/SkeletonRows.vue'
 import ErrorState from '@/shared/components/ErrorState.vue'
 import EmptyState from '@/shared/components/EmptyState.vue'
 import { fmtMoney, fmtPercent, toNumber } from '@/shared/money'
+import { categoryColor } from '@/shared/composition'
 import { formatShortDate, todayStr } from '@/shared/date'
 import { closeSheet, refreshData, toast } from '@/shared/ui'
 
@@ -101,7 +102,7 @@ async function confirmSnapshot(): Promise<void> {
           v-for="category in overview.categories"
           :key="category.type"
           :label="category.name"
-          :dot-color="category.color"
+          :dot-color="categoryColor(category.type)"
           :meta="fmtPercent(category.percentage, 1)"
           :value="fmtMoney(category.value)"
         />
