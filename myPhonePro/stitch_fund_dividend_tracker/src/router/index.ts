@@ -1,140 +1,52 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { getToken } from '@/api/request'
+import { authState, bootstrapAuth } from '@/shared/auth'
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
+    { path: '/', redirect: '/now' },
+    {
+      path: '/now',
+      name: 'now',
+      component: () => import('@/features/now/NowView.vue'),
+      meta: { chrome: true, face: '现在', title: '现在' },
+    },
+    {
+      path: '/past',
+      name: 'past',
+      component: () => import('@/features/past/PastView.vue'),
+      meta: { chrome: true, face: '过去', title: '过去' },
+    },
+    {
+      path: '/future',
+      name: 'future',
+      component: () => import('@/features/future/FutureView.vue'),
+      meta: { chrome: true, face: '未来', title: '未来' },
+    },
     {
       path: '/login',
       name: 'login',
-      component: () => import('@/views/login/LoginPage.vue'),
-      meta: { level: 0, noAuth: true },
+      component: () => import('@/features/auth/LoginView.vue'),
+      meta: { chrome: false, title: '登录' },
     },
-    {
-      path: '/',
-      name: 'home',
-      component: () => import('@/views/home/HomePage.vue'),
-      meta: { level: 1 },
-    },
-    {
-      path: '/calendar',
-      name: 'calendar',
-      component: () => import('@/views/calendar/CalendarPage.vue'),
-      meta: { level: 1 },
-    },
-    {
-      path: '/discover',
-      name: 'discover',
-      component: () => import('@/views/discover/DiscoverPage.vue'),
-      meta: { level: 1 },
-    },
-    {
-      path: '/profile',
-      name: 'profile',
-      component: () => import('@/views/profile/ProfilePage.vue'),
-      meta: { level: 1 },
-    },
-    {
-      path: '/holding/:id',
-      name: 'holding-detail',
-      component: () => import('@/views/holding-detail/HoldingDetailPage.vue'),
-      props: true,
-      meta: { level: 2 },
-    },
-    {
-      path: '/trade/add',
-      name: 'trade-add',
-      component: () => import('@/views/trade-add/TradeAddPage.vue'),
-      meta: { level: 2 },
-    },
-    {
-      path: '/holding/add',
-      name: 'holding-add',
-      component: () => import('@/views/holding-add/HoldingAddPage.vue'),
-      meta: { level: 2 },
-    },
-    {
-      path: '/coverage',
-      name: 'coverage',
-      component: () => import('@/views/coverage/CoveragePage.vue'),
-      meta: { level: 2 },
-    },
-    {
-      path: '/accounts',
-      name: 'accounts',
-      component: () => import('@/views/accounts/AccountsPage.vue'),
-      meta: { level: 2 },
-    },
-    {
-      path: '/coverage/settings',
-      name: 'coverage-settings',
-      component: () => import('@/views/coverage/SettingsPage.vue'),
-      meta: { level: 2 },
-    },
-    // 合并到"我的"页面
-    {
-      path: '/metrics/settings',
-      name: 'metric-settings',
-      component: () => import('@/views/metrics/MetricSettings.vue'),
-      meta: { level: 2 },
-    },
-    {
-      path: '/holding/:id/transactions',
-      name: 'transaction-list',
-      component: () => import('@/views/transactions/TransactionListPage.vue'),
-      meta: { level: 2 },
-    },
-    {
-      path: '/holding/:id/dividends',
-      name: 'dividend-history',
-      component: () => import('@/views/dividends/DividendHistoryPage.vue'),
-      meta: { level: 2 },
-    },
-    {
-      path: '/dca-plans/:id',
-      name: 'dca-plan-detail',
-      component: () => import('@/views/dca/DcaPlanDetailPage.vue'),
-      meta: { level: 2 },
-    },
-    {
-      path: '/asset-history',
-      name: 'asset-history',
-      component: () => import('@/views/asset-history/AssetHistoryPage.vue'),
-      meta: { level: 2 },
-    },
-    {
-      path: '/asset-history/holding/:id',
-      name: 'holding-history',
-      component: () => import('@/views/asset-history/HoldingHistoryPage.vue'),
-      meta: { level: 2 },
-    },
-    {
-      path: '/scheduler',
-      name: 'scheduler',
-      component: () => import('@/views/scheduler/SchedulerPage.vue'),
-      meta: { level: 2 },
-    },
-    {
-      path: '/:pathMatch(.*)*',
-      name: 'not-found',
-      component: () => import('@/views/home/HomePage.vue'),
-      meta: { level: 1 },
-    },
+    { path: '/:pathMatch(.*)*', redirect: '/now' },
   ],
 })
 
-// 导航守卫：未登录时重定向到登录页
-router.beforeEach((to, _from, next) => {
-  if (to.meta.noAuth) {
-    next() // 登录页不需要认证
-    return
+router.beforeEach(async (to) => {
+  await bootstrapAuth()
+  if (to.name === 'login') {
+    return authState.authed ? { name: 'now' } : true
   }
-  const token = getToken()
-  if (!token) {
-    next({ name: 'login' })
-    return
+  if (!authState.authed) {
+    return { name: 'login', query: { redirect: to.fullPath } }
   }
-  next()
+  return true
+})
+
+router.afterEach((to) => {
+  const title = (to.meta.title as string | undefined) ?? 'myDca'
+  document.title = `${title} · myDca`
 })
 
 export default router

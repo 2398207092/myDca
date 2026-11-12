@@ -1,37 +1,23 @@
 <script setup lang="ts">
+/**
+ * myDca 新前端根组件。
+ * 只有「现在 / 过去 / 未来」三面带壳（顶栏 + 底坞）；登录页不戴壳。
+ */
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import BottomNav from '@/components/shared/BottomNav.vue'
+import AppShell from '@/shared/components/AppShell.vue'
+import SheetHost from '@/features/sheets/SheetHost.vue'
+import ToastHost from '@/shared/components/ToastHost.vue'
 
 const route = useRoute()
-
-const showBottomNav = computed(() => {
-  return route.meta.level === 1
-})
-
-// 登录页隐藏导航
-const showAppNav = computed(() => {
-  return String(route.name) !== 'login'
-})
-
-// 二级详情页排除 KeepAlive 缓存，使用组件名（PascalCase）而非路由名
-const excludePages = ['HoldingDetailPage', 'DividendHistoryPage', 'TransactionListPage']
+const withChrome = computed(() => route.meta.chrome === true)
 </script>
 
 <template>
-  <div class="min-h-screen bg-page-bg">
-    <!-- 背景氛围层：晨光渐变（fixed 置于内容之下） -->
-    <div class="bg-ambient fixed inset-0 -z-10 pointer-events-none" aria-hidden="true"></div>
-    <template v-if="showAppNav">
-      <router-view v-slot="{ Component }">
-        <KeepAlive :exclude="excludePages">
-          <component :is="Component" />
-        </KeepAlive>
-      </router-view>
-      <BottomNav v-if="showBottomNav" />
-    </template>
-    <template v-else>
-      <router-view />
-    </template>
-  </div>
+  <AppShell v-if="withChrome">
+    <router-view />
+  </AppShell>
+  <router-view v-else />
+  <SheetHost />
+  <ToastHost />
 </template>

@@ -1,0 +1,87 @@
+/**
+ * myDca 新前端设计 token（设计规格 v1）。
+ * 规则：颜色只有三级墨色 + 一个强调色 + 涨跌语义色；
+ * 材质（凸起/凹陷）只用于「可按 / 可调」，数据层永远是平面。
+ */
+:root {
+  /* ---------- 材质色 ---------- */
+  --canvas: #e8eaee;
+  --surface-1: #eceef2;
+  --surface-inset: #e2e5ea;
+  --highlight: #ffffff;
+  --shade: #c3c7d1;
+  --hairline: rgba(31, 35, 41, 0.12);
+  --edge: rgba(31, 35, 41, 0.18);
+
+  /* ---------- 文字与语义色 ---------- */
+  --ink: #1f2329;
+  --ink-2: #565e6a;
+  --ink-3: #626a77;
+  --accent: #2e4bc6;
+  --accent-strong: #1e40af;
+  --accent-soft: #e4e8f8;
+  --up: #b3261e;
+  --down: #146c43;
+  --warn: #8a5a00;
+  --danger: #a61b1b;
+  --on-accent: #ffffff;
+
+  /* ---------- 材质阴影：光固定左上 ---------- */
+  --el-key: -3px -3px 7px var(--highlight), 3px 3px 7px var(--shade);
+  --el-panel: -6px -6px 14px var(--highlight), 6px 6px 14px var(--shade);
+  --in-slot: inset 2px 2px 5px var(--shade), inset -2px -2px 5px var(--highlight);
+  --in-well: inset 4px 4px 9px var(--shade), inset -4px -4px 9px var(--highlight);
+  --press: inset 3px 3px 7px var(--shade), inset -3px -3px 7px var(--highlight);
+
+  /* ---------- 间距（4px 基准） ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---------- 圆角 ---------- */
+  --radius-well: 10px;
+  --radius-key: 14px;
+  --radius-sheet: 20px;
+  --radius-pill: 999px;
+
+  /* ---------- 字体与字号 ---------- */
+  --font-sans: "IBM Plex Sans", "PingFang SC", "HarmonyOS Sans SC", "MiSans",
+    "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --text-readout-xl: 44px;
+  --text-readout-lg: 34px;
+  --text-readout-md: 22px;
+  --text-title: 22px;
+  --text-heading: 18px;
+  --text-body: 16px;
+  --text-body-sm: 14px;
+  --text-label: 13px;
+  --text-micro: 12px;
+  --text-num-sm: 15px;
+
+  /* ---------- 布局 ---------- */
+  --gutter: 20px;
+  --topbar-h: 44px;
+  --dock-h: 64px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* ---------- 层级 ---------- */
+  --z-topbar: 100;
+  --z-dock: 120;
+  --z-scrim: 280;
+  --z-sheet: 300;
+  --z-toast: 400;
+}
+
+@media (min-width: 430px) {
+  :root {
+    --gutter: 24px;
+  }
+}

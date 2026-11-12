@@ -1,54 +1,20 @@
 /**
- * ============================================================
- * 弹窗层级（z-index）回归测试
- * ============================================================
- *
- * 背景：曾出现「弹窗被 AppHeader/BottomNav（z-header=250）遮挡」的层级问题。
- * 修复将弹窗浮层统一为语义化 z 类（z-modal-backdrop=300 / z-modal=400），
- * 并禁止再使用低于导航层级的硬编码值（z-[100]/z-[110]/z-[60] 等）。
- *
- * jsdom 不计算真实层叠上下文，无法断言「弹窗是否盖住导航栏」，
- * 因此本测试采用「源码契约扫描」：直接断言 SFC 源码与 tailwind 配置中的
- * 层级契约，任何后续改动破坏该契约（如把弹窗降回 z-50、重排层级）即失败。
- *
- * 覆盖范围：
- *   1. tailwind.config.js 的 zIndex 语义化分层必须严格递增
- *   2. 全项目全屏浮层（fixed inset-0）必须使用 z-modal / z-modal-backdrop
- *   3. 全项目禁止残留硬编码弹窗 z 值（z-[100]/z-[110]/z-[60]/z-[200]）
- *   4. 本次 7 个修复页面的回归锚点
- *   5. 共享组件（AppHeader/BottomNav/Toast）层级契约
+ * 浮层契约回归测试（新前端版）
+ * ------------------------------------------------------------
+ * 旧前端用 Tailwind 语义类 z-header/z-modal，源码扫描目标是 src/views|components。
+ * 破坏性重构后这些目录已删除，改为「CSS 变量 + SheetFrame」契约：
+ *   1. src/styles/tokens.css 的层级必须严格递增，sheet 高于 dock、toast 高于 sheet
+ *   2. 全局唯一浮层骨架 SheetFrame 必须 Teleport 到 body、role=dialog、aria-modal、
+ *      支持 Escape 关闭、锁定 body 滚动
+ *   3. 所有 Sheet 必须使用 SheetFrame，且不得在组件里写死 z-index
+ *   4. 触摸目标契约：BtnKey/IconKey 最小 44；底部坞动作键 56
  */
-
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-// vitest 运行时 cwd 即前端项目根目录（vite.config.ts 所在目录）
 const ROOT = process.cwd()
 const SRC = join(ROOT, 'src')
-
-/** 本次修复涉及的 7 个页面（含弹窗） */
-const FIXED_PAGES = [
-  'src/views/dca/DcaPlanDetailPage.vue',
-  'src/views/discover/DiscoverPage.vue',
-  'src/views/dividends/DividendHistoryPage.vue',
-  'src/views/holding-detail/HoldingDetailPage.vue',
-  'src/views/home/HomePage.vue',
-  'src/views/profile/ProfilePage.vue',
-  'src/views/transactions/TransactionListPage.vue',
-]
-
-/** 语义化层级顺序（必须严格递增，禁止重排） */
-const Z_ORDER = [
-  'base',
-  'dropdown',
-  'sticky',
-  'header',
-  'modal-backdrop',
-  'modal',
-  'toast',
-  'tooltip',
-]
 
 function read(rel: string): string {
   return readFileSync(join(ROOT, rel), 'utf-8')
@@ -64,135 +30,117 @@ function walkVueFiles(dir: string): string[] {
   return out
 }
 
-/** 项目内全部 .vue 源码（views + components），相对 ROOT 的路径 */
-const ALL_VUE = [
-  ...walkVueFiles(join(SRC, 'views')),
-  ...walkVueFiles(join(SRC, 'components')),
-].map((p) => p.replace(/\\/g, '/').replace(ROOT.replace(/\\/g, '/'), ''))
-
-/** 提取 SFC 中静态 class="..." 字符串 */
-function extractStaticClasses(source: string): string[] {
-  const out: string[] = []
-  const re = /class="([^"]*)"/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(source)) !== null) out.push(m[1])
-  return out
+function rel(p: string): string {
+  return p.replace(/\\/g, '/').replace(ROOT.replace(/\\/g, '/') + '/', '')
 }
 
-/** 解析 tailwind.config.js 的 zIndex 对象为 { key: number } */
-function parseZIndex(): Record<string, number> {
-  const config = read('tailwind.config.js')
-  const block = config.match(/zIndex\s*:\s*\{([\s\S]*?)\}/)
-  expect(block, 'tailwind.config.js 必须包含 zIndex 语义化配置').not.toBeNull()
-  const map: Record<string, number> = {}
-  const re = /'?([a-z-]+)'?\s*:\s*'?(\d+)'?/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(block![1])) !== null) {
-    map[m[1]] = parseInt(m[2], 10)
-  }
-  return map
+const ALL_VUE = [...walkVueFiles(join(SRC, 'shared')), ...walkVueFiles(join(SRC, 'features'))].map(rel)
+const SHEET_VUE = [...walkVueFiles(join(SRC, 'features/sheets')), ...walkVueFiles(join(SRC, 'features/now'))].map(rel)
+
+function zValue(source: string, name: string): number {
+  const m = source.match(new RegExp(`--${name}:\\s*(\\d+)`))
+  expect(m, `tokens.css 缺少 --${name}`).not.toBeNull()
+  return parseInt(m![1], 10)
 }
 
-// ============================================================
-// 1. tailwind zIndex 语义化分层契约
-// ============================================================
+const tokens = read('src/styles/tokens.css')
 
-describe('z-index 语义化层级契约', () => {
-  it('分层必须严格递增：base < dropdown < sticky < header < modal-backdrop < modal < toast < tooltip', () => {
-    const map = parseZIndex()
-    for (const key of Z_ORDER) {
-      expect(map[key], `zIndex 缺少语义层级 "${key}"`).toBeDefined()
+describe('层级契约（CSS 变量）', () => {
+  it('topbar < dock < sheet < toast 严格递增', () => {
+    const topbar = zValue(tokens, 'z-topbar')
+    const dock = zValue(tokens, 'z-dock')
+    const sheet = zValue(tokens, 'z-sheet')
+    const toast = zValue(tokens, 'z-toast')
+    expect(dock).toBeGreaterThan(topbar)
+    expect(sheet).toBeGreaterThan(dock)
+    expect(toast).toBeGreaterThan(sheet)
+  })
+
+  it('Sheet 必须高于底坞（底坞不能盖住 Sheet）', () => {
+    expect(zValue(tokens, 'z-sheet')).toBeGreaterThan(zValue(tokens, 'z-dock'))
+  })
+})
+
+describe('SheetFrame 浮层骨架契约', () => {
+  const sf = read('src/shared/components/SheetFrame.vue')
+
+  it('Teleport 到 body（不受页面 transform/层级影响）', () => {
+    expect(sf).toMatch(/<Teleport\s+to="body"/)
+  })
+
+  it('对话框语义：role=dialog + aria-modal + aria-label', () => {
+    expect(sf).toMatch(/role="dialog"/)
+    expect(sf).toMatch(/aria-modal="true"/)
+    expect(sf).toMatch(/:aria-label="props\.title"/)
+  })
+
+  it('Escape 关闭 + 遮罩可点关闭', () => {
+    expect(sf).toMatch(/Escape/)
+    expect(sf).toMatch(/class="scrim"/)
+  })
+
+  it('打开时锁定 body 滚动，关闭时恢复', () => {
+    expect(sf).toMatch(/document\.body\.style\.overflow\s*=\s*'hidden'/)
+    expect(sf).toMatch(/document\.body\.style\.overflow\s*=\s*''/)
+  })
+
+  it('关闭后把焦点还给触发元素', () => {
+    expect(sf).toMatch(/lastActive/)
+  })
+})
+
+describe('Sheet 组件不得写死 z-index', () => {
+  for (const file of SHEET_VUE) {
+    it(`${file} 不含硬编码 z-index`, () => {
+      const source = read(file)
+      expect(source).not.toMatch(/z-index\s*:\s*\d{2,}/)
+    })
+  }
+})
+
+describe('所有 Sheet 使用统一骨架', () => {
+  const sheets = [
+    'src/features/sheets/ActionSheet.vue',
+    'src/features/sheets/TransactionSheet.vue',
+    'src/features/sheets/DividendSheet.vue',
+    'src/features/sheets/SnapshotSheet.vue',
+    'src/features/sheets/SettingsSheet.vue',
+    'src/features/sheets/DcaSheet.vue',
+    'src/features/sheets/ExpenseSheet.vue',
+    'src/features/sheets/HoldingSheet.vue',
+    'src/features/now/CompositionSheet.vue',
+    'src/features/past/EventSheet.vue',
+  ]
+  for (const file of sheets) {
+    it(`${file} 使用 SheetFrame`, () => {
+      expect(read(file)).toMatch(/SheetFrame/)
+    })
+  }
+})
+
+describe('触摸目标契约', () => {
+  it('BtnKey 最小高度 44', () => {
+    expect(read('src/shared/components/BtnKey.vue')).toMatch(/min-height:\s*44px/)
+  })
+
+  it('IconKey 默认 44×44', () => {
+    const src = read('src/shared/components/IconKey.vue')
+    expect(src).toMatch(/size\?\s*:\s*number/)
+    expect(src).toMatch(/:\s*44\b/)
+  })
+
+  it('底部坞动作键 56×56', () => {
+    const src = read('src/shared/components/FaceDock.vue')
+    expect(src).toMatch(/width:\s*56px/)
+    expect(src).toMatch(/height:\s*56px/)
+  })
+})
+
+describe('没有残留旧设计类名', () => {
+  it('新前端源码不出现 z-modal / z-header / font-body-md 等旧 Tailwind 契约', () => {
+    for (const file of ALL_VUE) {
+      const source = read(file)
+      expect(source, `${file} 残留旧类名`).not.toMatch(/\bz-modal\b|\bz-header\b|\bfont-body-md\b/)
     }
-    for (let i = 1; i < Z_ORDER.length; i++) {
-      expect(
-        map[Z_ORDER[i]],
-        `${Z_ORDER[i]}(${map[Z_ORDER[i]]}) 必须大于 ${Z_ORDER[i - 1]}(${map[Z_ORDER[i - 1]]})`,
-      ).toBeGreaterThan(map[Z_ORDER[i - 1]])
-    }
-  })
-
-  it('弹窗层级必须高于导航/头部层级（本次回归的核心）', () => {
-    const map = parseZIndex()
-    expect(map['modal']).toBeGreaterThan(map['header'])
-    expect(map['modal-backdrop']).toBeGreaterThan(map['header'])
-  })
-})
-
-// ============================================================
-// 2. 全屏浮层必须使用语义化 z-modal / z-modal-backdrop
-// ============================================================
-
-describe('全屏浮层层级', () => {
-  for (const rel of ALL_VUE) {
-    it(`${rel} 的全屏浮层（fixed inset-0）使用 z-modal / z-modal-backdrop`, () => {
-      const source = read(rel)
-      const overlays = extractStaticClasses(source).filter((c) => c.includes('fixed inset-0'))
-      for (const cls of overlays) {
-        expect(
-          cls,
-          `${rel} 全屏浮层缺少语义化层级（z-modal / z-modal-backdrop）: "${cls}"`,
-        ).toMatch(/\bz-modal-backdrop\b|\bz-modal\b/)
-      }
-    })
-  }
-})
-
-// ============================================================
-// 3. 禁止残留硬编码弹窗 z 值
-// ============================================================
-
-describe('禁止硬编码弹窗 z 值', () => {
-  for (const rel of ALL_VUE) {
-    it(`${rel} 不含 z-[100]/z-[110]/z-[60]/z-[200] 硬编码值`, () => {
-      const source = read(rel)
-      expect(source).not.toMatch(/z-\[(?:100|110|60|200)\]/)
-    })
-  }
-})
-
-// ============================================================
-// 4. 本次 7 个修复页面的回归锚点
-// ============================================================
-
-describe('7 个修复页面回归锚点', () => {
-  for (const rel of FIXED_PAGES) {
-    it(`${rel} 使用语义化弹窗层级（z-modal / z-modal-backdrop）`, () => {
-      const source = read(rel)
-      expect(source).toMatch(/z-modal-backdrop|z-modal/)
-    })
-  }
-})
-
-// ============================================================
-// 5. 共享组件层级契约
-// ============================================================
-
-describe('共享组件层级契约', () => {
-  it('AppHeader 使用 z-header（250，低于弹窗 400），不得使用 z-modal', () => {
-    const src = read('src/components/shared/AppHeader.vue')
-    expect(src).toMatch(/z-header/)
-    expect(src).not.toMatch(/z-modal/)
-  })
-
-  it('BottomNav 使用 z-header（250，低于弹窗 400），不得使用 z-modal', () => {
-    const src = read('src/components/shared/BottomNav.vue')
-    expect(src).toMatch(/z-header/)
-    expect(src).not.toMatch(/z-modal/)
-  })
-
-  it('ToastNotification 使用 z-toast（500，高于弹窗 400）', () => {
-    const src = read('src/components/shared/ToastNotification.vue')
-    expect(src).toMatch(/z-toast/)
-    expect(src).not.toMatch(/z-\[200\]/)
-  })
-
-  it('日历页「月度分红明细」弹窗使用 z-modal', () => {
-    const src = read('src/views/calendar/CalendarPage.vue')
-    expect(src).toMatch(/z-modal/)
-  })
-
-  it('添加支出弹窗（AddExpenseModal）使用 z-modal', () => {
-    const src = read('src/views/coverage/AddExpenseModal.vue')
-    expect(src).toMatch(/z-modal/)
   })
 })
