@@ -56,10 +56,12 @@ bash scripts/doc-check.sh
 - **2026-11-07 全量重置**：此前所有设计方向 / 原型 / 参考板被用户判定跑偏并全量归档（`D:\mySpace\backups\design-reset-20261107\`）。**禁止引用任何旧设计产物、旧参考板、旧 worktree、旧截图；禁止把「账本 / 纸张 / 刊物 / 表格」当作默认视觉隐喻（用户已明确否决）。** 旧 worktree `refactor-frontend-v2` / `frontend-redesign` 已移除。
 - **2026-11-12：保留原前端，Auros 版作为「整套 UI 皮肤」**（用户决定：不做配色皮肤，把 2026-11-11 的 Auros 卡片化前端本身当成一个皮肤）。同一 Vite 工程双入口，共用同一后端 / 接口 / 登录态：
   - `classic` 原版（默认）：入口 `index.html`，代码 `src/`（`src/main.ts`），保持原样；
-  - `auros` Auros 卡片版：入口 `auros.html`，代码全部在 `src/auros-skin/`（`src/auros-skin/main.ts`），从归档分支 `auros-home` 原样还原（只改写 import 前缀）；
+  - `auros` Auros 卡片版：入口 `auros.html`，代码全部在 `src/auros-skin/`（`src/auros-skin/main.ts`），从当时的 Auros 版本原样还原（只改写 import 前缀）；
   - 切换：两套的「我的 → 界面皮肤」点选后整页跳到另一入口（保留 hash 路径）；偏好存 `localStorage.mydca.ui_skin`，`public/skin-boot.js` 首帧前纠正入口；
   - 规则：**改原版只动 `src/` 非 `auros-skin` 文件；改 Auros 皮肤只动 `src/auros-skin/`，两边互不污染；不要再新增第三/第四套配色皮肤（用户已否决）。**
-  - 归档：分支 `auros-home`（commit `7730c89`、tag `archive/auros-cards-20261112`，未推送）是历史快照，不要在其上继续开发；试做的四套配色皮肤留档在分支 `try-color-skins`。
+  - **仓库收口（2026-11-12）**：本地只剩 `main` 一条分支、**没有 tag**；旧版本（Auros 卡片化、四套配色试做、旧设计/旧重构）已打包为 bundle 备份
+    `D:\mySpace\backups\myDca-旧版本归档-20261112.bundle`（需要时 `git fetch <bundle>` 可恢复）。
+    `main` 比 `origin/main` 领先 3 个提交（含双皮肤包），**未推送**。
 - 视觉决策入口：[design/00-基准.md](design/00-基准.md)。
 - 门禁：`node scripts/design-check.cjs`（error 基线 **248**，只降不升）；`npm run build` 必须同时产出 `dist/index.html` 与 `dist/auros.html`；两套入口都要给真实渲染截图（390、0 console、0 横向溢出）。
 - 不引入新组件库；技能一次只用一家；改 UI 必须给真实渲染截图。
