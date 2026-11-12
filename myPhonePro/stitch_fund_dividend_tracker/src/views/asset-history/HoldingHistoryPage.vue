@@ -169,11 +169,18 @@ function buildOption(data: number[], xLabels: string[], color: string, min: numb
   }
 }
 
+// ECharts 按需加载（2026-11-10 性能优化）：不再由 index.html 同步引 CDN
+let echarts: any = null
+async function ensureECharts() {
+  if (!echarts) echarts = await import('echarts')
+  return echarts
+}
+
 function renderChart() {
   if (!chartRef.value) { chart?.dispose(); chart = null; return }
-  if (!(window as any).echarts) return
+  if (!echarts) return
   if (chart && chart.getDom() !== chartRef.value) { chart.dispose(); chart = null }
-  if (!chart) chart = (window as any).echarts.init(chartRef.value)
+  if (!chart) chart = echarts.init(chartRef.value)
 
   const s = holdingSeries.value?.series
   if (!s || s.length === 0) { chart.dispose(); chart = null; return }
@@ -301,7 +308,10 @@ function getChangeClass(v: number): string {
   return v >= 0 ? 'text-pos' : 'text-neg'
 }
 
-onMounted(() => loadData())
+onMounted(async () => {
+  await ensureECharts()
+  await loadData()
+})
 onUnmounted(() => {
   document.removeEventListener('click', onDocClick)
   chart?.dispose()

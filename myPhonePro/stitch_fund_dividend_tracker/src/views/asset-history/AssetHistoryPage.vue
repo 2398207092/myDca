@@ -260,11 +260,20 @@ function buildOption(data: number[], xLabels: string[], color: string, catLines:
   }
 }
 
+// ECharts 按需加载（2026-11-10 性能优化）：
+// 原先 index.html 用同步 <script> 引 CDN 的 1MB echarts，所有页面首屏都要等它下载。
+// 改成进本页时动态 import，由 vite 拆成独立 chunk；index.html 不再引 CDN。
+let echarts: any = null
+async function ensureECharts() {
+  if (!echarts) echarts = await import('echarts')
+  return echarts
+}
+
 function ensureTotalChart() {
   if (!totalChartRef.value) { totalChart?.dispose(); totalChart = null; return }
-  if (!(window as any).echarts) return
+  if (!echarts) return
   if (totalChart && totalChart.getDom() !== totalChartRef.value) { totalChart.dispose(); totalChart = null }
-  if (!totalChart) totalChart = (window as any).echarts.init(totalChartRef.value)
+  if (!totalChart) totalChart = echarts.init(totalChartRef.value)
 }
 
 function renderTotalChart() {
@@ -438,6 +447,8 @@ function getChangeClass(v: number): string {
 // ========== 生命周期 ==========
 onMounted(async () => {
   window.addEventListener('resize', handleResize)
+  // 先确保 echarts chunk 就位，再渲染图表；数据加载与之并行会更慢，这里串行更稳
+  await ensureECharts()
   await loadAll()
 })
 

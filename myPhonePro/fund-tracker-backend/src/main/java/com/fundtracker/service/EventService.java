@@ -19,7 +19,6 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -83,8 +82,9 @@ public class EventService {
         Holding holding = holdingRepository.findByIdAndUserIdAndDeletedFalse(req.getHoldingId(), userId)
                 .orElseThrow(BusinessException::holdingNotFound);
 
+        // 不要手动设置 ID：@Id 为 @GeneratedValue，手动赋值 + @Version 为 null 会被
+        // Hibernate 6 判为游离实体并抛异常（同 DividendEventSyncService 的新建路径）。
         DividendEvent event = DividendEvent.builder()
-                .id(UUID.randomUUID().toString())
                 .holdingId(req.getHoldingId())
                 .userId(userId)
                 .holdingName(holding.getName())
@@ -93,6 +93,9 @@ public class EventService {
                 .amount(req.getAmount() != null ? req.getAmount() : BigDecimal.ZERO)
                 .status(EventStatus.pending)
                 .description(req.getDescription() != null ? req.getDescription() : "")
+                // participated 是 nullable=false 的必填列，手动创建视为「本人参与的这笔分红」
+                // （此前漏设导致该接口 100% 报 Column 'participated' cannot be null）
+                .participated(true)
                 .build();
 
         event = eventRepository.save(event);

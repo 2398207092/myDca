@@ -273,7 +273,16 @@ class HoldingServiceTest {
 
         when(holdingRepository.existsByCodeAndUserIdAndDeletedFalse("000001", "user-1")).thenReturn(false);
         when(accountService.matchesAssetTypeForUser("user-1", "acc-1", false)).thenReturn(true);
-        when(holdingRepository.save(any(Holding.class))).thenAnswer(i -> i.getArgument(0));
+        // 模拟真实 JPA 行为：@GeneratedValue 在 save 时回填 id。
+        // 生产代码已不再手动设 ID（手动设 ID + @Version 会让 Hibernate 判为游离实体），
+        // 若此处只回显参数不补 id，holding.getId() 会是 null，与真实运行不符。
+        when(holdingRepository.save(any(Holding.class))).thenAnswer(i -> {
+            Holding saved = i.getArgument(0);
+            if (saved.getId() == null) {
+                saved.setId("holding-test-id");
+            }
+            return saved;
+        });
         doThrow(com.fundtracker.exception.BusinessException.bizError("该账户下没有现金资产"))
                 .when(manualAssetService).adjustCash(anyString(), any(BigDecimal.class), anyString());
 
@@ -384,7 +393,16 @@ class HoldingServiceTest {
 
         when(holdingRepository.existsByCodeAndUserIdAndDeletedFalse("000001", "user-1")).thenReturn(false);
         when(accountService.matchesAssetTypeForUser("user-1", "acc-1", false)).thenReturn(true);
-        when(holdingRepository.save(any(Holding.class))).thenAnswer(i -> i.getArgument(0));
+        // 模拟真实 JPA 行为：@GeneratedValue 在 save 时回填 id。
+        // 生产代码已不再手动设 ID（手动设 ID + @Version 会让 Hibernate 判为游离实体），
+        // 若此处只回显参数不补 id，holding.getId() 会是 null，与真实运行不符。
+        when(holdingRepository.save(any(Holding.class))).thenAnswer(i -> {
+            Holding saved = i.getArgument(0);
+            if (saved.getId() == null) {
+                saved.setId("holding-test-id");
+            }
+            return saved;
+        });
 
         // 捕获伪造的初始买入交易，供 recalculateHoldingMetrics 查询
         List<Transaction> savedTx = new java.util.ArrayList<>();

@@ -71,6 +71,8 @@ public class FundDividendScrapeService {
             int saved = 0;
             int page = 1;
             boolean hasMore = true;
+            // 已见过的除权日：用于识别「分页参数无效」的空转（实测 fhsp 页 ?page=N 返回同一页）
+            java.util.Set<LocalDate> seenExDates = new java.util.HashSet<>();
 
             while (hasMore && page <= 10) {
                 String url = String.format(FHSP_URL, fundCode) + (page > 1 ? "?page=" + page : "");
@@ -84,6 +86,19 @@ public class FundDividendScrapeService {
                     // 当前页无数据 → 全部抓完
                     break;
                 }
+
+                // 分页参数无效时，第 2..10 页返回与第 1 页完全相同的内容：
+                // 若本页除权日全部已出现过，说明在空转，直接停止（省 9 次请求/基金）。
+                boolean allSeen = pageRecords.stream()
+                        .allMatch(r -> r.getExDate() == null || seenExDates.contains(r.getExDate()));
+                if (allSeen) {
+                    log.info("{} 第{}页内容与前页重复（分页参数无效），停止翻页", fundCode, page);
+                    break;
+                }
+                pageRecords.stream()
+                        .map(FundDividendRecord::getExDate)
+                        .filter(java.util.Objects::nonNull)
+                        .forEach(seenExDates::add);
 
                 // 增量保存
                 for (FundDividendRecord record : pageRecords) {

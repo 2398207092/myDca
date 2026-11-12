@@ -193,8 +193,10 @@ public class HoldingService {
         String[] colors = {"#FF7A45", "#4CAF50", "#2196F3", "#9C27B0", "#FF9800", "#E91E63", "#00BCD4"};
         String color = colors[(int)(Math.random() * colors.length)];
 
+        // 不要手动设置 ID：@Id 为 @GeneratedValue，手动赋值 + @Version 为 null 会被
+        // Hibernate 6 判为游离实体并抛异常（新建持仓直接 500）。id 由 save() 后回填，
+        // 后续 Transaction/现金联动均在 save 之后引用 holding.getId()，顺序安全。
         Holding holding = Holding.builder()
-                .id(UUID.randomUUID().toString())
                 .name(req.getName())
                 .code(req.getCode())
                 .type(HoldingType.valueOf(req.getType()))
@@ -709,6 +711,35 @@ public class HoldingService {
             }
         }
         log.info("全量刷新完成: 成功 {}/{}", success, holdings.size());
+    }
+
+    /**
+     * 仅重算分红相关指标（预测分红 / 已收分红 / 衍生指标），<b>不抓净值</b>。
+     * 供 FundDividendScheduler 使用：分红记录变化不影响净值，无需再打一轮外部 API。
+     * <p>
+     * 2026-11-10 性能优化：此前分红刷新后会调 {@link #refreshAllHoldings()}，
+     * 把每只持仓的净值重抓一遍（N 只持仓 = N 次 HTTP + N×500ms sleep），
+     * 与分红毫无关系，占「点更新等半分钟」的大头。
+     */
+    public void refreshAllDividendMetrics() {
+        List<Holding> holdings = holdingRepository.findByDeletedFalseOrderByMarketValueDesc();
+        if (holdings.isEmpty()) {
+            log.info("无持仓，跳过分红指标重算");
+            return;
+        }
+        int success = 0;
+        for (Holding holding : holdings) {
+            try {
+                calculatePredictedDividend(holding);
+                calculateTotalDividendReceived(holding);
+                recalculateHoldingMetrics(holding, holding.isCostEstimated());
+                holdingRepository.save(holding);
+                success++;
+            } catch (Exception e) {
+                log.error("重算持仓 {}({}) 分红指标失败: {}", holding.getName(), holding.getCode(), e.getMessage());
+            }
+        }
+        log.info("分红指标重算完成: 成功 {}/{}", success, holdings.size());
     }
 
     /**

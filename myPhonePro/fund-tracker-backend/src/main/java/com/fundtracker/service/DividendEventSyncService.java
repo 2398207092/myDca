@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -232,8 +231,11 @@ public class DividendEventSyncService {
             return 0;
         }
 
+        // 不要手动设置 ID：@Id 为 @GeneratedValue，手动赋值 + @Version 为 null 会被
+        // Hibernate 6 判为游离实体（Detached entity with generated id ... uninitialized
+        // version value 'null'）并抛异常，导致新分红事件整批建不出来。
+        // 2026-11-10 修复：008163「11-05 分红收不到」的根因即此。
         DividendEvent event = DividendEvent.builder()
-                .id(UUID.randomUUID().toString())
                 .holdingId(holding.getId())
                 .userId(userId)
                 .holdingName(holding.getName())
