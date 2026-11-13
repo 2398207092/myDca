@@ -14,6 +14,7 @@ import PageStateComp from '@/components/shared/PageState.vue'
 import { changelog } from '@/data/changelog'
 import { formatMoney } from '@/utils/format'
 import { animateNumber } from '@/utils/animate'
+import { computeCoverageNeed } from '@/utils/coverage'
 
 // ---- count-up 动画状态 ----
 const heroDividend = ref(0)                      // Hero 预测分红（动画值）
@@ -211,7 +212,9 @@ function scrollCoverageToFocus() {
 
 /**
  * 底部 CTA 文案：找到第一个未覆盖类目，生成"再攒 ¥X 就能点亮 Y"激励语。
- * 全部覆盖时返回成就语。X = 该类目年度金额 - 剩余分红额度。
+ * 全部覆盖时返回成就语。
+ * X 用「该类目年度金额 − 真实剩余分红」算，真实剩余 = 预测年度分红 − 已覆盖类目合计；
+ * 不能直接用接口的 remainingDividend（后端会把「奋斗中」类目额度记为已分配，恒为 0）。
  */
 const coverageCta = computed(() => {
   const c = coverageSummary.value
@@ -223,10 +226,8 @@ const coverageCta = computed(() => {
   // 找第一个未覆盖项（inProgress 优先，否则 pending）
   const target = c.expenses.find((e) => e.inProgress && !e.covered) || c.expenses.find((e) => !e.covered)
   if (!target) return null
-  // 剩余可分配分红
-  const remaining = c.remainingDividend || 0
-  // 还需攒多少 = 该类目年金额 - 剩余分红（clamped ≥0）
-  const need = Math.max(0, target.annualAmount - remaining)
+  // 还需攒多少 = 该类目年金额 − 真实剩余分红（clamped ≥0，见 utils/coverage.ts）
+  const need = computeCoverageNeed(target, c.expenses, c.predictedAnnualDividend)
   return {
     type: 'progress' as const,
     need,
@@ -338,24 +339,6 @@ onBeforeUnmount(() => {
               </span>
             </div>
           </div>
-        </div>
-
-        <!-- ============================================================ -->
-        <!-- 更新公告 — 品牌色横幅                                          -->
-        <!-- ============================================================ -->
-        <div
-          class="stagger-item bg-brand-light/60 rounded-xl px-lg py-sm card-shadow border border-brand/10 flex items-center justify-between cursor-pointer interactive-card"
-          style="animation-delay: 0ms"
-          @click="showChangelog = true"
-        >
-          <div class="flex items-center gap-lg">
-            <span class="material-symbols-outlined text-brand text-lg">newsmode</span>
-            <div>
-              <p class="font-body text-sm text-text-primary font-medium">查看更新日志</p>
-              <p class="font-body text-[11px] text-brand/70 mt-[1px]">{{ changelog[0].version }} · {{ changelog[0].title }} · {{ formatRelativeDate(changelog[0].date) }}</p>
-            </div>
-          </div>
-          <span class="material-symbols-outlined text-brand/50 text-lg">chevron_right</span>
         </div>
 
         <!-- Hero 卡片 -->
@@ -623,6 +606,24 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </section>
+
+        <!-- ============================================================ -->
+        <!-- 更新公告 — 品牌色横幅（放页面底部，避免抢首屏"我有多少钱"）    -->
+        <!-- ============================================================ -->
+        <div
+          class="stagger-item bg-brand-light/60 rounded-xl px-lg py-sm !mb-16 card-shadow border border-brand/10 flex items-center justify-between cursor-pointer interactive-card"
+          :style="{ animationDelay: (140 + holdings.length * 40) + 'ms' }"
+          @click="showChangelog = true"
+        >
+          <div class="flex items-center gap-lg">
+            <span class="material-symbols-outlined text-brand text-lg">newsmode</span>
+            <div>
+              <p class="font-body text-sm text-text-primary font-medium">查看更新日志</p>
+              <p class="font-body text-[11px] text-brand/70 mt-[1px]">{{ changelog[0].version }} · {{ changelog[0].title }} · {{ formatRelativeDate(changelog[0].date) }}</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-brand/50 text-lg">chevron_right</span>
+        </div>
       </template>
 
       <!-- FAB -->
