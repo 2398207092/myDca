@@ -10,14 +10,16 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  // 皮肤包：两个入口共用同一工程/同一后端
-  //   index.html → 原版界面（src/main.ts）
+  // 皮肤包：三套完整前端共用同一工程 / 同一后端 / 同一登录态
+  //   index.html → 原版（src/main.ts）
   //   auros.html → Auros 卡片版（src/auros-skin/main.ts）
+  //   next.html  → 三面版（src/next/main.ts）
   build: {
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
         auros: resolve(__dirname, 'auros.html'),
+        next: resolve(__dirname, 'next.html'),
       },
     },
   },

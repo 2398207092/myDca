@@ -5,7 +5,7 @@
 > **职责边界**：本文件是**跨工具全集**——规则、红线、关键坑、当前状态。Trae / Cursor / Claude Code 只读这一份，
 > 所以「别的 AI 不知道会出事」的内容必须写在这里；WorkBuddy 专属内容见 `.workbuddy/memory/MEMORY.md`。
 > 详细事实见 `docs/00-INDEX.md`。
-> 最后核实：2026-11-12（双皮肤包）
+> 最后核实：2026-11-13（三皮肤包）
 
 ## 0. 一句话背景
 
@@ -35,7 +35,7 @@ mvn test -DexcludedGroups=probe     # probe 组会打真实外部接口
 cd myPhonePro/stitch_fund_dividend_tracker
 npm install && npm run dev          # http://localhost:5173
 npm run build                       # vue-tsc + vite
-npm test                            # vitest（162 例，镜像实现为主，见 §5）
+npm test                            # vitest（249 例，镜像实现为主，见 §5）
 
 # 文档自检
 bash scripts/doc-check.sh
@@ -54,28 +54,27 @@ bash scripts/doc-check.sh
 ## 3.5 设计约束（改 UI 前必读）
 
 - **2026-11-07 全量重置**：此前所有设计方向 / 原型 / 参考板被用户判定跑偏并全量归档（`D:\mySpace\backups\design-reset-20261107\`）。**禁止引用任何旧设计产物、旧参考板、旧 worktree、旧截图；禁止把「账本 / 纸张 / 刊物 / 表格」当作默认视觉隐喻（用户已明确否决）。** 旧 worktree `refactor-frontend-v2` / `frontend-redesign` 已移除。
-- **2026-11-12：保留原前端，Auros 版作为「整套 UI 皮肤」**（用户决定：不做配色皮肤，把 2026-11-11 的 Auros 卡片化前端本身当成一个皮肤）。同一 Vite 工程双入口，共用同一后端 / 接口 / 登录态：
+- **2026-11-12 / 2026-11-13：三套完整 UI 皮肤包**（用户决定：不做配色皮肤，把整套前端本身当成皮肤）。同一 Vite 工程三入口，共用同一后端 / 接口 / 登录态：
   - `classic` 原版（默认）：入口 `index.html`，代码 `src/`（`src/main.ts`），保持原样；
   - `auros` Auros 卡片版：入口 `auros.html`，代码全部在 `src/auros-skin/`（`src/auros-skin/main.ts`），从当时的 Auros 版本原样还原（只改写 import 前缀）；
-  - 切换：两套的「我的 → 界面皮肤」点选后整页跳到另一入口（保留 hash 路径）；偏好存 `localStorage.mydca.ui_skin`，`public/skin-boot.js` 首帧前纠正入口；
-  - 规则：**改原版只动 `src/` 非 `auros-skin` 文件；改 Auros 皮肤只动 `src/auros-skin/`，两边互不污染；不要再新增第三/第四套配色皮肤（用户已否决）。**
-  - **仓库收口（2026-11-12）**：本地只剩 `main` 一条分支、**没有 tag**；旧版本（Auros 卡片化、四套配色试做、旧设计/旧重构）已打包为 bundle 备份
-    `D:\mySpace\backups\myDca-旧版本归档-20261112.bundle`（需要时 `git fetch <bundle>` 可恢复）。
-    `main` 比 `origin/main` 领先 3 个提交（含双皮肤包），**未推送**。
+  - `next` 三面版（2026-11-13）：入口 `next.html`，代码全部在 `src/next/`（`src/next/main.ts`），现在是 / 过去 / 未来三面 + Sheet；路由独立（`#/now` `#/past` `#/future`）；
+  - 切换：三套的「我的 / 设置 → 界面皮肤」点选后整页跳到对应入口；classic ⇄ Auros 保留 hash，三面版路由不互通、进出回各自首页；偏好存 `localStorage.mydca.ui_skin`，`public/skin-boot.js` 首帧前纠正入口；
+  - 规则：**改原版只动 `src/` 非 `auros-skin` / `next` 文件；改 Auros 只动 `src/auros-skin/`；改三面版只动 `src/next/`；三边互不污染。不要再新增配色皮肤；新增整包皮肤需用户批准。**
+  - **仓库现状（2026-11-13）**：`main` = `origin/main`（f760d32，已含双皮肤包上线）；三面版在 `new-frontend` 分支，领先 `main` 11 个提交，**未推送**。旧版本 bundle 备份见 `D:\mySpace\backups\myDca-旧版本归档-20261112.bundle`。
 - 视觉决策入口：[design/00-基准.md](design/00-基准.md)。
-- 门禁：`node scripts/design-check.cjs`（error 基线 **248**，只降不升）；`npm run build` 必须同时产出 `dist/index.html` 与 `dist/auros.html`；两套入口都要给真实渲染截图（390、0 console、0 横向溢出）。
+- 门禁：`node scripts/design-check.cjs`（error 基线 **248**，只降不升）；`npm run build` 必须产出 `dist/index.html` / `dist/auros.html` / `dist/next.html`；三套入口都要给真实渲染截图（390/320、0 console、0 横向溢出）。
 - 不引入新组件库；技能一次只用一家（技能库在 `design/skills/`，清单与「适配哪些动作」见 [docs/06-技能.md](docs/06-技能.md)）；改 UI 必须给真实渲染截图。
 
 ## 4. 当前状态：P0 已清零（2026-10-29），P1/P2 按批次推进
 
 `docs/03-问题.md` 的 **P0 已全部清零**（原 6 条 + 挖漏新增 1 条，经 Batch 1/2/3 三批修复上线并冒烟验证）。
-**P1 当天修复 15 条、P2 修复 4 条**，剩 **P1 ×23 / P2 ×34**（2026-11-03 接手审计后按 03 实数）按批次推进，计划见 `docs/03-问题.md` 末尾「§批次计划」；问题清单见 03。
+**P1 当天修复 15 条、P2 修复 4 条**，剩 **P1 ×24 / P2 ×35**（2026-11-13 三面版评审新开 P1-41 / P2-41）按批次推进，计划见 `docs/03-问题.md` 末尾「§批次计划」；问题清单见 03。
 红线 3 仍然有效：改钱路径必须先加测试。
 
 ## 5. 别被绿色测试骗了
 
 - 后端 194 个用例大部分是 Mockito 单测；**认证鉴权无系统覆盖**（`AuthServiceTest` 只覆盖登录/验证码 4 例）。
-- 前端 162 个用例：`tests/ui/modal-layering.test.ts` 直接扫源码文本（真正能防回归），其余是镜像实现、**对 `src/` 的 import 数为 0**。测试通过不代表真实行为正确。
+- 前端 249 个用例：`tests/ui/modal-layering.test.ts` / `next-sheet-layering.test.ts` / `material-grammar.test.ts` / `skin-contract.test.ts` 直接扫源码文本（真正能防回归）；`tests/money.test.ts` / `composition-cash.test.ts` 直接 import `src/next`。其余旧测试仍是镜像实现、**对 `src/` 的 import 数为 0**。测试通过不代表真实行为正确。
 - 最近三个真实 bug（堆叠图溢出、分红复投重复、定投频率不重算）全部落在测试盲区。
 
 ## 6. 任务收尾（每次必做）

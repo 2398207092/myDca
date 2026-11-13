@@ -28,13 +28,16 @@ import AurosChapter from '@/auros-skin/components/auros/AurosChapter.vue'
 import AurosGroup from '@/auros-skin/components/auros/AurosGroup.vue'
 import AurosRow from '@/auros-skin/components/auros/AurosRow.vue'
 import AurosSheet from '@/auros-skin/components/auros/AurosSheet.vue'
-import { switchUiSkin } from '@/skins/packs'
+import { UI_SKIN_PACKS, getUiSkin, switchUiSkin } from '@/skins/packs'
 import AurosField from '@/auros-skin/components/auros/AurosField.vue'
 import AurosButton from '@/auros-skin/components/auros/AurosButton.vue'
 import { formatPrice } from '@/auros-skin/utils/format'
 
 const router = useRouter()
 const pageState = ref<PageState>('loading')
+/** 当前皮肤：由 localStorage 决定（与 skin-boot.js 同一份偏好） */
+const currentSkin = getUiSkin()
+const currentSkinName = computed(() => UI_SKIN_PACKS.find((p) => p.id === currentSkin)?.name ?? '原版')
 
 // ── User profile ──
 const profile = ref<UserProfile | null>(null)
@@ -451,20 +454,18 @@ onActivated(() => {
           </AurosGroup>
         </AurosChapter>
 
-        <!-- 界面皮肤：整套前端换肤（原版 ⇄ Auros 卡片版），切换会重新载入当前页 -->
-        <AurosChapter label="SKIN" title="界面皮肤" :meta="'当前 · Auros'">
+        <!-- 界面皮肤：整套前端换肤（原版 / Auros / 三面版），切换会重新载入当前页 -->
+        <AurosChapter label="SKIN" title="界面皮肤" :meta="`当前 · ${currentSkinName}`">
           <AurosRow
-            label="原版界面"
-            sub="暖白底 · 卡片列表"
-            clickable
-            chevron
-            @click="switchUiSkin('classic')"
-          />
-          <AurosRow
-            label="Auros 卡片版"
-            sub="深海暗色 · 卡片式信息架构"
-            mark="lit"
-            value="使用中"
+            v-for="pack in UI_SKIN_PACKS"
+            :key="pack.id"
+            :label="pack.name"
+            :sub="pack.desc"
+            :clickable="pack.id !== currentSkin"
+            :chevron="pack.id !== currentSkin"
+            :mark="pack.id === currentSkin ? 'lit' : 'none'"
+            :value="pack.id === currentSkin ? '使用中' : ''"
+            @click="pack.id !== currentSkin && switchUiSkin(pack.id)"
           />
         </AurosChapter>
 

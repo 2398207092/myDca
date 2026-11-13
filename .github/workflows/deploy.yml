@@ -56,18 +56,23 @@ jobs:
             echo "owner: $OWNER"
             [ "$OWNER" = "admin" ] || { echo "FAIL: 属主为 $OWNER，应为 admin（sudo chown -R admin:admin $W）"; exit 1; }
 
-            # 关键产物存在（含双皮肤包的两个入口 / 引导脚本 / Auros 字体）
-            for f in index.html auros.html skin-boot.js manifest.json sw.js icon-192.png icon-512.png favicon.svg fonts/inter-400.woff2; do
+            # 关键产物存在（含三皮肤包的三个入口 / 引导脚本 / Auros 字体）
+            for f in index.html auros.html next.html skin-boot.js manifest.json sw.js icon-192.png icon-512.png favicon.svg fonts/inter-400.woff2; do
               [ -f "$W/$f" ] || { echo "FAIL: 缺少 $f"; exit 1; }
             done
 
-            # 两个入口必须真的是两套页面，而不是 SPA 兜底把 index.html 复制过去
+            # 三个入口必须真的是三套页面，而不是 SPA 兜底把 index.html 复制过去
             cmp -s "$W/auros.html" "$W/index.html" && { echo "FAIL: auros.html 与 index.html 相同（疑似兜底）"; exit 1; }
+            cmp -s "$W/next.html" "$W/index.html" && { echo "FAIL: next.html 与 index.html 相同（疑似兜底）"; exit 1; }
             grep -q 'data-entry="auros"' "$W/auros.html" || { echo "FAIL: auros.html 缺少 auros 入口标记"; exit 1; }
             grep -q '/assets/auros-' "$W/auros.html" || { echo "FAIL: auros.html 没有指向 Auros 构建产物"; exit 1; }
+            grep -q 'data-entry="next"' "$W/next.html" || { echo "FAIL: next.html 缺少 next 入口标记"; exit 1; }
+            grep -q '/assets/next-' "$W/next.html" || { echo "FAIL: next.html 没有指向三面版构建产物"; exit 1; }
             grep -q 'skin-boot.js' "$W/index.html" || { echo "FAIL: index.html 缺少皮肤引导脚本"; exit 1; }
+            grep -q "next: '/next.html'" "$W/skin-boot.js" || { echo "FAIL: skin-boot.js 缺少 next 入口"; exit 1; }
+            grep -q '/next.html' "$W/sw.js" || { echo "FAIL: sw.js 未预缓存 next.html"; exit 1; }
 
             # manifest 已指向新图标
             grep -q 'icon-192.png' "$W/manifest.json" || { echo "FAIL: manifest 未更新"; exit 1; }
 
-            echo "OK: 部署校验通过（属主 admin、6 个关键文件齐全、manifest 已更新）"
+            echo "OK: 部署校验通过（属主 admin、关键文件齐全、三入口均为独立构建、manifest 已更新）"
