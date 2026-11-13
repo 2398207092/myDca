@@ -1,11 +1,14 @@
 <script setup lang="ts">
 /**
  * 新建持仓：代码可先用「查询」从后端基金库带出名称/类型，也可以完全手填。
- * 注意后端口径：cost 传的是「每份成本」，创建后会按「份额 × 每份成本 + 买入费率」从账户现金扣款。
+ * 注意后端口径：
+ * - 基金/ETF：cost 传「每份成本」，创建后按「份额 × 每份成本 + 买入费率」从账户现金扣款；
+ * - 加密币：cost 传「每枚成本（USDT）」按当日汇率折算成人民币，后端不建初始交易、不扣人民币现金。
  */
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { createHolding, searchHoldings, type HoldingSearchResult } from '@/api/holding'
 import { getAccounts, type AccountItem } from '@/api/account'
+import { listExchangeRates } from '@/api/exchangeRate'
 import SheetFrame from '@/next/shared/components/SheetFrame.vue'
 import TextField from '@/next/shared/components/TextField.vue'
 import SelectField from '@/next/shared/components/SelectField.vue'
@@ -39,6 +42,8 @@ const CURRENCIES = [
 
 const accounts = ref<AccountItem[]>([])
 const accountsError = ref('')
+const usdCny = ref<number | null>(null)
+const ratesError = ref('')
 const searching = ref(false)
 const searchError = ref('')
 const searchResults = ref<HoldingSearchResult[]>([])
@@ -57,17 +62,41 @@ const form = reactive({
   quoteCurrency: 'CNY',
 })
 
+const isCrypto = computed(() => form.type === 'crypto')
+
+/** 加密币只能挂 USDT 账户，人民币资产只能挂 CNY 账户（与后端校验同一条规则） */
+const eligibleAccounts = computed(() =>
+  accounts.value.filter((a) => (isCrypto.value ? a.baseCurrency === 'USDT' : a.baseCurrency !== 'USDT')),
+)
 const accountOptions = computed(() =>
-  accounts.value.map((a) => ({ value: a.id, label: `${a.name}（${a.baseCurrency}）` })),
+  eligibleAccounts.value.map((a) => ({ value: a.id, label: `${a.name}（${a.baseCurrency}）` })),
 )
 
+function pickAccount(): void {
+  if (eligibleAccounts.value.some((a) => a.id === form.accountId)) return
+  const preferred = eligibleAccounts.value.find((a) => a.isDefault) ?? eligibleAccounts.value[0]
+  form.accountId = preferred?.id ?? ''
+}
+
+watch(isCrypto, (crypto) => {
+  form.quoteCurrency = crypto ? 'USDT' : 'CNY'
+  pickAccount()
+  errors.accountId = ''
+})
+
 onMounted(async () => {
-  try {
-    accounts.value = await getAccounts()
-    const def = accounts.value.find((a) => a.isDefault) ?? accounts.value[0]
-    if (def) form.accountId = def.id
-  } catch (e) {
-    accountsError.value = errorText(e)
+  const [accountResult, rateResult] = await Promise.allSettled([getAccounts(), listExchangeRates()])
+  if (accountResult.status === 'fulfilled') {
+    accounts.value = accountResult.value
+    pickAccount()
+  } else {
+    accountsError.value = errorText(accountResult.reason)
+  }
+  if (rateResult.status === 'fulfilled') {
+    usdCny.value = rateResult.value.find((r) => r.pair === 'USD/CNY')?.rate ?? null
+    if (!usdCny.value) ratesError.value = '未找到 USD/CNY 汇率，加密币成本无法折算'
+  } else {
+    ratesError.value = '汇率加载失败，加密币成本无法折算'
   }
 })
 
@@ -103,11 +132,20 @@ function validate(): boolean {
   for (const key of Object.keys(errors)) delete errors[key]
   if (!form.code.trim()) errors.code = '基金代码不能为空'
   if (!form.name.trim()) errors.name = '名称不能为空'
-  if (!(toNumber(form.shares) > 0)) errors.shares = '持有份额必须大于 0'
-  if (!(toNumber(form.cost) > 0)) errors.cost = '每份成本必须大于 0'
+  if (!(toNumber(form.shares) > 0)) errors.shares = isCrypto.value ? '持有数量必须大于 0' : '持有份额必须大于 0'
+  if (!(toNumber(form.cost) > 0)) errors.cost = isCrypto.value ? '每枚成本必须大于 0' : '每份成本必须大于 0'
+  if (isCrypto.value && !usdCny.value) errors.cost = 'USD/CNY 汇率不可用，暂时不能创建加密币持仓'
   if (!form.accountId) errors.accountId = '请选择归属账户'
   return Object.keys(errors).length === 0
 }
+
+/** 加密币成本按录入时汇率折算成人民币；后端只存人民币成本 */
+const costCny = computed(() => {
+  const shares = toNumber(form.shares)
+  const cost = toNumber(form.cost)
+  if (isCrypto.value) return usdCny.value ? shares * cost * usdCny.value : 0
+  return shares * cost
+})
 
 async function submit(): Promise<void> {
   if (submitting.value || !validate()) return
@@ -119,12 +157,18 @@ async function submit(): Promise<void> {
       code: form.code.trim(),
       type: form.type,
       shares: toNumber(form.shares),
-      cost: toNumber(form.cost),
+      cost: Math.round(costCny.value * 100) / 100,
       assetCategory: form.assetCategory || undefined,
-      quoteCurrency: form.quoteCurrency,
+      quoteCurrency: isCrypto.value ? 'USDT' : form.quoteCurrency,
+      // 加密币没有初始买入交易，必须标估算成本；否则夜间净值刷新会把成本重算成 0
+      costEstimated: isCrypto.value ? true : undefined,
       accountId: form.accountId,
     })
-    toast('持仓已创建，已按成本从账户现金扣减')
+    toast(
+      isCrypto.value
+        ? `已创建加密持仓，成本 ${fmtMoney(costCny.value)}（按 1 USDT≈${usdCny.value?.toFixed(4)} CNY 折算）`
+        : '持仓已创建，已按成本从账户现金扣减',
+    )
     refreshData()
     closeSheet()
   } catch (e) {
@@ -134,13 +178,19 @@ async function submit(): Promise<void> {
   }
 }
 
-const costPreview = computed(() => toNumber(form.shares) * toNumber(form.cost))
+const costLabel = computed(() => (isCrypto.value ? '每枚成本（USDT）' : '每份成本'))
+const costSuffix = computed(() => (isCrypto.value ? 'USDT/枚' : '元/份'))
+const costHint = computed(() =>
+  isCrypto.value
+    ? '按 1 USDT 的汇率折算成人民币保存；加密币不生成初始买入交易，也不扣人民币现金'
+    : '不是总成本；总成本 = 份额 × 每份成本',
+)
 </script>
 
 <template>
   <SheetFrame
     title="新建持仓"
-    subtitle="成本填「每份成本」；创建后后端会按成本 + 买入费率从账户现金扣款"
+    :subtitle="isCrypto ? '加密币按 USDT 成本录入，折算人民币保存；不扣现金' : '成本填「每份成本」；创建后后端会按成本 + 买入费率从账户现金扣款'"
     @close="closeSheet"
   >
     <TextField
@@ -173,20 +223,20 @@ const costPreview = computed(() => toNumber(form.shares) * toNumber(form.cost))
     <SelectField v-model="form.type" label="类型" :options="HOLDING_TYPES" placeholder="选择类型" />
     <TextField
       v-model="form.shares"
-      label="当前份额"
+      :label="isCrypto ? '当前数量' : '当前份额'"
       inputmode="decimal"
-      placeholder="例如 10000"
-      suffix="份"
+      :placeholder="isCrypto ? '例如 0.01139738' : '例如 10000'"
+      :suffix="isCrypto ? '枚' : '份'"
       :error="errors.shares"
     />
     <TextField
       v-model="form.cost"
-      label="每份成本"
+      :label="costLabel"
       inputmode="decimal"
-      placeholder="例如 1.08"
-      suffix="元/份"
+      :placeholder="isCrypto ? '例如 80000' : '例如 1.08'"
+      :suffix="costSuffix"
       :error="errors.cost"
-      hint="不是总成本；总成本 = 份额 × 每份成本"
+      :hint="costHint"
     />
     <SelectField v-model="form.assetCategory" label="资产分类" :options="CATEGORIES" placeholder="未分类" />
     <SelectField
@@ -197,10 +247,26 @@ const costPreview = computed(() => toNumber(form.shares) * toNumber(form.cost))
       :error="errors.accountId"
     />
     <p v-if="accountsError" class="search-error micro">账户加载失败：{{ accountsError }}</p>
-    <SelectField v-model="form.quoteCurrency" label="报价币种" :options="CURRENCIES" placeholder="CNY" />
-    <p class="note micro">
+    <p v-if="isCrypto && !eligibleAccounts.length" class="search-error micro">
+      还没有 USDT 本位币账户；加密币只能挂在交易所等 USDT 账户下，请先在「新建账户」创建。
+    </p>
+    <SelectField
+      v-model="form.quoteCurrency"
+      label="报价币种"
+      :options="CURRENCIES"
+      placeholder="CNY"
+      :disabled="isCrypto"
+    />
+    <p v-if="ratesError && isCrypto" class="search-error micro">{{ ratesError }}</p>
+    <p v-if="isCrypto" class="note micro">
+      加密币按「数量 × 每枚成本（USDT）」记录，保存时按 1 USDT ≈
+      <b class="num">{{ usdCny?.toFixed(4) ?? '—' }}</b>
+      CNY 折算为 <b class="num">{{ fmtMoney(costCny) }}</b> 人民币成本；
+      <b>不生成初始买入交易，也不扣人民币现金</b>，价格由行情任务刷新。
+    </p>
+    <p v-else class="note micro">
       创建后会以「当前份额 + 每份成本」建仓，并从归属账户现金扣减
-      <b class="num">{{ fmtMoney(costPreview) }}</b>
+      <b class="num">{{ fmtMoney(costCny) }}</b>
       （另加买入费率）；现金不足会创建失败。
     </p>
     <p v-if="submitError" class="submit-error" role="alert">{{ submitError }}</p>

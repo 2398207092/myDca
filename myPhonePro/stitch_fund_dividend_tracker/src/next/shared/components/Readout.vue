@@ -21,9 +21,11 @@ const props = withDefaults(
 
 const amountClass = computed(() => {
   if (props.size !== 'xl') return `amount--${props.size}`
-  const len = props.amount.replace(/[^\d]/g, '').length
+  // 按整串字符数降档（含 ¥、千分位、小数点），不能只数数字：
+  // 320 宽下 ¥1,234,567.89（13 字符）在 44px 会横向溢出。
+  const len = props.amount.length
   if (len > 12) return 'amount--sm'
-  if (len > 10) return 'amount--md'
+  if (len > 11) return 'amount--md'
   return 'amount--xl'
 })
 </script>

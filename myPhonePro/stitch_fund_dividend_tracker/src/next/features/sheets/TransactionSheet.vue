@@ -25,7 +25,7 @@ import ErrorState from '@/next/shared/components/ErrorState.vue'
 import SkeletonRows from '@/next/shared/components/SkeletonRows.vue'
 import { useAsyncData } from '@/next/shared/useAsync'
 import { closeSheet, refreshData, toast } from '@/next/shared/ui'
-import { fmtMoney, fmtNav, fmtShares, toNumber } from '@/next/shared/money'
+import { fmtHoldingQuantity, fmtMoney, fmtNav, toNumber } from '@/next/shared/money'
 import { parseDate, todayStr, weekdayZH } from '@/next/shared/date'
 import { TX_TYPE_LABEL } from '@/next/shared/dict'
 
@@ -107,6 +107,8 @@ const fundingAccount = computed(
   () => accounts.value.find((a) => a.id === selectedHolding.value?.accountId) ?? null,
 )
 const isCryptoHolding = computed(() => selectedHolding.value?.type === 'crypto')
+const quantityLabel = computed(() => (isCryptoHolding.value ? '数量' : '份额'))
+const quantitySuffix = computed(() => (isCryptoHolding.value ? '枚' : '份'))
 const accountLabel = computed(() => {
   if (isCryptoHolding.value) return fundingAccount.value?.name ?? '加密资产账户'
   return fundingAccount.value?.name ?? '主现金账户（持仓未归属账户，按后端规则退回主现金）'
@@ -140,8 +142,8 @@ const cashLabel = computed(() => {
 
 const quantityHint = computed(() => {
   if (effectiveType.value === 'sell') {
-    if (availableShares.value === null) return '卖出数量不能超过当前持有份额'
-    return `当前可卖 ${fmtShares(availableShares.value)}`
+    if (availableShares.value === null) return '卖出数量不能超过当前持有数量'
+    return `当前可卖 ${fmtHoldingQuantity(availableShares.value, selectedHolding.value?.type)}`
   }
   return ''
 })
@@ -181,13 +183,13 @@ function validate(): boolean {
 
   const quantity = Number(form.value.quantity)
   if (!Number.isFinite(quantity) || quantity <= 0) {
-    next.quantity = '份额必须大于 0'
+    next.quantity = `${quantityLabel.value}必须大于 0`
   } else if (
     effectiveType.value === 'sell' &&
     availableShares.value !== null &&
     quantity > availableShares.value + 1e-9
   ) {
-    next.quantity = `超过可卖份额（当前可卖 ${fmtShares(availableShares.value)}）`
+    next.quantity = `超过可卖数量（当前可卖 ${fmtHoldingQuantity(availableShares.value, selectedHolding.value?.type)}）`
   }
 
   const price = Number(form.value.price)
@@ -263,7 +265,7 @@ async function submit(): Promise<void> {
         price,
         fee,
       })
-      toast(`已记录${typeLabel.value} ${fmtShares(created.quantity)}，后端金额 ${fmtMoney(created.total)}`)
+      toast(`已记录${typeLabel.value} ${fmtHoldingQuantity(created.quantity, selectedHolding.value?.type)}，后端金额 ${fmtMoney(created.total)}`)
     }
     refreshData()
     closeSheet()
@@ -350,7 +352,7 @@ const noHoldings = computed(
           />
 
           <p v-if="selectedHolding" class="field-note micro" :class="{ 'field-note--tight': !isEdit }">
-            当前持有 {{ fmtShares(selectedHolding.shares) }} · 最新净值 {{ fmtNav(selectedHolding.latestPrice) }}（{{
+            当前持有 {{ fmtHoldingQuantity(selectedHolding.shares, selectedHolding.type) }} · 最新净值 {{ fmtNav(selectedHolding.latestPrice) }}（{{
               selectedHolding.priceDate || '—'
             }}）
           </p>
@@ -366,10 +368,10 @@ const noHoldings = computed(
           />
           <TextField
             v-model="form.quantity"
-            label="份额"
+            :label="quantityLabel"
             inputmode="decimal"
             placeholder="0.00"
-            suffix="份"
+            :suffix="quantitySuffix"
             :maxlength="20"
             :error="errors.quantity"
             :hint="quantityHint"
@@ -417,7 +419,7 @@ const noHoldings = computed(
         <DataRow label="交易类型" :value="typeLabel" />
         <DataRow label="持仓" :value="holdingDisplay" :meta="holdingMeta" />
         <DataRow label="日期（净值日期）" :value="dateText(form.date)" />
-        <DataRow label="份额" :value="fmtShares(preview.quantity)" />
+        <DataRow :label="quantityLabel" :value="fmtHoldingQuantity(preview.quantity, selectedHolding?.type)" />
         <DataRow label="净值" :value="fmtNav(preview.price)" />
         <DataRow label="手续费" :value="fmtMoney(preview.fee)" />
         <DataRow label="成交金额" :value="fmtMoney(preview.gross)" />
@@ -441,7 +443,7 @@ const noHoldings = computed(
           <DataRow label="交易类型" :value="typeLabel" />
           <DataRow label="持仓" :value="holdingDisplay" :meta="holdingMeta" />
           <DataRow label="日期" :value="dateText(originalTx.date)" />
-          <DataRow label="份额" :value="fmtShares(originalTx.quantity)" />
+          <DataRow :label="quantityLabel" :value="fmtHoldingQuantity(originalTx.quantity, selectedHolding?.type)" />
           <DataRow label="净值" :value="fmtNav(originalTx.price)" />
           <DataRow label="手续费" :value="fmtMoney(originalTx.fee)" />
           <DataRow label="记录金额" :value="fmtMoney(originalTx.total)" />

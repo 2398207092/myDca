@@ -17,14 +17,16 @@ const submitting = ref(false)
 const submitError = ref('')
 
 const form = reactive({ name: '现金', amount: '', accountId: '', note: '' })
+/** 现金是 CNY 资产，只能挂 CNY 账户；USDT 账户只接加密币（与后端校验一致） */
+const cnyAccounts = computed(() => accounts.value.filter((a) => a.baseCurrency !== 'USDT'))
 const accountOptions = computed(() =>
-  accounts.value.map((a) => ({ value: a.id, label: `${a.name}（${a.baseCurrency}）` })),
+  cnyAccounts.value.map((a) => ({ value: a.id, label: `${a.name}（${a.baseCurrency}）` })),
 )
 
 onMounted(async () => {
   try {
     accounts.value = await getAccounts()
-    const def = accounts.value.find((a) => a.isDefault) ?? accounts.value[0]
+    const def = cnyAccounts.value.find((a) => a.isDefault) ?? cnyAccounts.value[0]
     if (def) form.accountId = def.id
   } catch (e) {
     accountsError.value = errorText(e)

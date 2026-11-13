@@ -619,7 +619,7 @@ onBeforeUnmount(() => {
             <span class="material-symbols-outlined text-brand text-lg">newsmode</span>
             <div>
               <p class="font-body text-sm text-text-primary font-medium">查看更新日志</p>
-              <p class="font-body text-[11px] text-brand/70 mt-[1px]">{{ changelog[0].version }} · {{ changelog[0].title }} · {{ formatRelativeDate(changelog[0].date) }}</p>
+              <p class="font-body text-xs text-brand/70 mt-[1px]">{{ changelog[0].version }} · {{ changelog[0].title }} · {{ formatRelativeDate(changelog[0].date) }}</p>
             </div>
           </div>
           <span class="material-symbols-outlined text-brand/50 text-lg">chevron_right</span>
@@ -663,7 +663,7 @@ onBeforeUnmount(() => {
             <!-- 版本标题 -->
             <div class="flex items-baseline gap-sm mb-1">
               <span class="font-display text-sm font-semibold text-text-primary">{{ entry.version }}</span>
-              <span class="font-body text-[11px] text-text-tertiary">{{ entry.date }}</span>
+              <span class="font-body text-xs text-text-tertiary">{{ entry.date }}</span>
             </div>
             <p class="font-body text-xs text-text-secondary mb-2">{{ entry.title }}</p>
             <ul class="space-y-1">

@@ -17,7 +17,7 @@ import DataRow from '@/next/shared/components/DataRow.vue'
 import StatusPill from '@/next/shared/components/StatusPill.vue'
 import BtnKey from '@/next/shared/components/BtnKey.vue'
 import { closeSheet, openSheet, refreshData, toast } from '@/next/shared/ui'
-import { fmtMoney, fmtNav, fmtShares, fmtSignedMoney, toNumber } from '@/next/shared/money'
+import { fmtHoldingQuantity, fmtMoney, fmtNav, fmtSignedMoney, toNumber } from '@/next/shared/money'
 import { formatShortDate } from '@/next/shared/date'
 import { EVENT_STATUS_LABEL, EVENT_TYPE_LABEL, TX_TYPE_LABEL, labelOf } from '@/next/shared/dict'
 import { cancelEvent, convertEventToReinvest, markDistributed } from '@/api/event'
@@ -42,6 +42,8 @@ const isDca = computed(() => {
   if (!t) return false
   return Boolean(t.dcaPlanId) || t.source === 'dca' || t.source === 'scheduler'
 })
+/** 后端编辑交易暂不回退定投计划累计计数器（03 P1-41），先禁用编辑避免累计失真 */
+const canEditTx = computed(() => Boolean(tx.value) && !isDca.value)
 
 const txTypeText = computed(() => {
   const t = tx.value
@@ -224,7 +226,7 @@ const confirmConfig = computed<ConfirmConfig | null>(() => {
     if (!t) return null
     return {
       title: '删除这笔交易？',
-      body: `将删除「${txTypeText.value}」${props.event.holdingName || '未知持仓'} · ${fmtShares(t.quantity)} · 净值 ${fmtNav(t.price)} · ${txHeroAmount.value}（${formatShortDate(t.date)}）。删除后持仓份额、成本与现金会按剩余流水重算，且不可恢复。`,
+      body: `将删除「${txTypeText.value}」${props.event.holdingName || '未知持仓'} · ${fmtHoldingQuantity(t.quantity, props.event.holdingType)} · 净值 ${fmtNav(t.price)} · ${txHeroAmount.value}（${formatShortDate(t.date)}）。删除后持仓份额、成本与现金会按剩余流水重算，且不可恢复。`,
       ok: '确认删除',
       danger: true,
     }
@@ -266,7 +268,7 @@ function failText(e: unknown): string {
 
 function editTx(): void {
   const t = tx.value
-  if (!t) return
+  if (!t || !canEditTx.value) return
   openSheet('transaction', { mode: 'edit', transaction: t })
 }
 
@@ -339,7 +341,7 @@ async function cancelDividend(): Promise<void> {
       <div class="rows">
         <DataRow label="类型" :value="txTypeText" />
         <DataRow label="日期" :value="formatShortDate(tx.date)" />
-        <DataRow label="份额" :value="fmtShares(tx.quantity)" />
+        <DataRow :label="props.event.holdingType === 'crypto' ? '数量' : '份额'" :value="fmtHoldingQuantity(tx.quantity, props.event.holdingType)" />
         <DataRow label="净值" :value="fmtNav(tx.price)" />
         <DataRow label="金额（数量×净值）" :value="fmtMoney(gross)" />
         <DataRow label="手续费" :value="fmtMoney(fee)" />
@@ -400,9 +402,12 @@ async function cancelDividend(): Promise<void> {
     <div v-else-if="hasActions" class="actions">
       <template v-if="tx">
         <div class="actions-pair">
-          <BtnKey variant="secondary" block @click="editTx">编辑</BtnKey>
+          <BtnKey v-if="canEditTx" variant="secondary" block @click="editTx">编辑</BtnKey>
           <BtnKey variant="danger" block @click="confirming = 'deleteTx'">删除</BtnKey>
         </div>
+        <p v-if="isDca" class="action-hint micro">
+          定投执行交易暂不支持编辑（避免计划累计失真）；删除会同步回退计划累计期数与投入。
+        </p>
       </template>
       <template v-else>
         <BtnKey v-if="showMark" variant="primary" block @click="confirming = 'distribute'">

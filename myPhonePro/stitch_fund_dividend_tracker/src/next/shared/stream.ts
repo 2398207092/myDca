@@ -8,7 +8,7 @@
 import type { HoldingItem } from '@/api/holding'
 import type { DividendEventItem } from '@/api/event'
 import type { TransactionItem } from '@/api/transaction'
-import { fmtNav, fmtSignedMoney, fmtShares, toNumber } from './money'
+import { fmtHoldingQuantity, fmtNav, fmtSignedMoney, toNumber } from './money'
 import { EVENT_STATUS_LABEL, EVENT_TYPE_LABEL, TX_TYPE_LABEL } from './dict'
 
 export type EventDirection = 'in' | 'out' | 'none'
@@ -22,6 +22,8 @@ export interface MoneyEvent {
   title: string
   holdingId?: string
   holdingName: string
+  /** 持仓类型：crypto 用 8 位小数 + 枚展示数量 */
+  holdingType?: string
   /** 现金方向：in = 流入，out = 流出，none = 不动现金 */
   direction: EventDirection
   /** 带符号的金额文本（不带颜色语义） */
@@ -58,9 +60,9 @@ function txCashAmount(t: TransactionItem): number {
   return Math.abs(toNumber(t.total))
 }
 
-function txMeta(t: TransactionItem): string {
+function txMeta(t: TransactionItem, holdingType?: string): string {
   const parts: string[] = []
-  if (toNumber(t.quantity) !== 0) parts.push(fmtShares(t.quantity))
+  if (toNumber(t.quantity) !== 0) parts.push(fmtHoldingQuantity(t.quantity, holdingType))
   if (toNumber(t.price) !== 0) parts.push(`净值 ${fmtNav(t.price)}`)
   return parts.join(' · ')
 }
@@ -78,7 +80,7 @@ function dividendTitle(e: DividendEventItem): string {
   return base
 }
 
-function unifyTx(t: TransactionItem, holdingName: (id: string) => string): MoneyEvent {
+function unifyTx(t: TransactionItem, holding: HoldingItem | undefined): MoneyEvent {
   const direction = txDirection(t.type)
   const amount = txCashAmount(t)
   const amountText =
@@ -89,16 +91,17 @@ function unifyTx(t: TransactionItem, holdingName: (id: string) => string): Money
     date: t.date,
     title: txTitle(t),
     holdingId: t.holdingId,
-    holdingName: holdingName(t.holdingId),
+    holdingName: holding?.name ?? '',
+    holdingType: holding?.type,
     direction,
     amountText,
-    meta: txMeta(t),
+    meta: txMeta(t, holding?.type),
     statusText: '',
     tx: t,
   }
 }
 
-function unifyDividend(e: DividendEventItem): MoneyEvent {
+function unifyDividend(e: DividendEventItem, holding?: HoldingItem): MoneyEvent {
   const isPayout = e.type === 'payout'
   const status = STATUS_BY_EVENT[e.status] ?? ''
   const amount = toNumber(e.amount)
@@ -121,7 +124,8 @@ function unifyDividend(e: DividendEventItem): MoneyEvent {
     date: e.date,
     title: dividendTitle(e),
     holdingId: e.holdingId,
-    holdingName: e.holdingName || '',
+    holdingName: e.holdingName || holding?.name || '',
+    holdingType: holding?.type,
     direction,
     amountText,
     meta: metaParts.join(' · '),
@@ -135,11 +139,10 @@ export function unifyEvents(
   dividends: DividendEventItem[],
   holdings: HoldingItem[],
 ): MoneyEvent[] {
-  const nameById = new Map(holdings.map((h) => [h.id, h.name]))
-  const holdingName = (id: string) => nameById.get(id) ?? ''
+  const holdingById = new Map(holdings.map((h) => [h.id, h]))
   const list: MoneyEvent[] = [
-    ...transactions.map((t) => unifyTx(t, holdingName)),
-    ...dividends.map(unifyDividend),
+    ...transactions.map((t) => unifyTx(t, holdingById.get(t.holdingId))),
+    ...dividends.map((e) => unifyDividend(e, holdingById.get(e.holdingId))),
   ]
   return list.sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? 1 : -1

@@ -3,6 +3,7 @@
  * 颜色刻意避开红绿（红绿只用于盈亏），用冷灰/靛蓝/琥珀三色系。
  */
 import type { AssetOverview } from '@/api/assetOverview'
+import type { AccountItem } from '@/api/account'
 import type { HoldingItem } from '@/api/holding'
 import { toNumber } from './money'
 
@@ -10,6 +11,8 @@ export interface CompositionItem {
   id: string
   label: string
   value: number
+  /** 只有真正的持仓才有 holdingId；现金/手动资产（如 USDT 余额）为 undefined */
+  holdingId?: string
 }
 
 export interface CompositionGroup {
@@ -36,6 +39,26 @@ export function categoryColor(type: string): string {
   return CATEGORY_COLOR[type] ?? CATEGORY_FALLBACK_COLOR
 }
 
+/**
+ * 首页「现金」口径：优先用 /asset-overview 的 cashValue（后端已把 USDT 等稳定币
+ * 从 crypto 挪进 cash）；概览缺失时才退回账户里 type=cash 的资产合计。
+ * 2026-11-13 修复：此前只累加账户 cash，导致同一屏「现金」比构成少掉稳定币。
+ */
+export function resolveCashValue(overview: AssetOverview | null, accounts: AccountItem[]): number {
+  if (overview && Number.isFinite(Number(overview.cashValue))) return toNumber(overview.cashValue)
+
+  const cashCategory = overview?.categories?.find((cat) => cat.type === 'cash')
+  if (cashCategory) return toNumber(cashCategory.value)
+
+  let sum = 0
+  for (const account of accounts) {
+    for (const asset of account.assets ?? []) {
+      if (asset.type === 'cash') sum += toNumber(asset.amount)
+    }
+  }
+  return sum
+}
+
 export function buildComposition(
   overview: AssetOverview | null,
   holdings: HoldingItem[],
@@ -43,6 +66,7 @@ export function buildComposition(
 ): CompositionGroup[] {
   const groups: CompositionGroup[] = []
   const seen = new Set<string>()
+  const holdingIds = new Set(holdings.map((h) => h.id))
 
   for (const cat of overview?.categories ?? []) {
     const value = toNumber(cat.value)
@@ -54,7 +78,12 @@ export function buildComposition(
       color: categoryColor(cat.type),
       value,
       percentage: totalValue > 0 ? (value / totalValue) * 100 : 0,
-      items: (cat.items ?? []).map((it) => ({ id: it.id, label: it.name, value: toNumber(it.value) })),
+      items: (cat.items ?? []).map((it) => ({
+        id: it.id,
+        label: it.name,
+        value: toNumber(it.value),
+        holdingId: holdingIds.has(it.id) ? it.id : undefined,
+      })),
     })
   }
 
@@ -68,7 +97,12 @@ export function buildComposition(
       color: categoryColor('uncategorized'),
       value: rest,
       percentage: totalValue > 0 ? (rest / totalValue) * 100 : 0,
-      items: uncategorized.map((h) => ({ id: h.id, label: h.name, value: toNumber(h.marketValue) })),
+      items: uncategorized.map((h) => ({
+        id: h.id,
+        label: h.name,
+        value: toNumber(h.marketValue),
+        holdingId: h.id,
+      })),
     })
   }
 

@@ -20,8 +20,10 @@
   --accent: #2e4bc6;
   --accent-strong: #1e40af;
   --accent-soft: #e4e8f8;
-  --up: #b3261e;
-  --down: #146c43;
+  /* 与 classic 的 pos/neg 保持一致：绿涨红跌（2026-10-28 决策）；
+     三面版早期是红涨绿跌，会让皮肤切换时同一数字的涨跌语义反转。 */
+  --up: #1a6b56;
+  --down: #ba1a1a;
   --warn: #8a5a00;
   --danger: #a61b1b;
   --on-accent: #ffffff;

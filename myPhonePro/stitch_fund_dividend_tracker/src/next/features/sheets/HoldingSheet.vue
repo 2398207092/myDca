@@ -11,7 +11,7 @@ import SkeletonRows from '@/next/shared/components/SkeletonRows.vue'
 import ErrorState from '@/next/shared/components/ErrorState.vue'
 import { useAsyncData } from '@/next/shared/useAsync'
 import { closeSheet, openSheet, refreshData, toast } from '@/next/shared/ui'
-import { deltaTone, fmtMoney, fmtNav, fmtPercent, fmtSignedMoney, fmtShares, toNumber } from '@/next/shared/money'
+import { deltaTone, fmtHoldingQuantity, fmtMoney, fmtNav, fmtPercent, fmtSignedMoney, toNumber } from '@/next/shared/money'
 
 const props = defineProps<{
   holdingId: string
@@ -40,14 +40,28 @@ const profit = computed(() => {
 
 const profitTone = computed(() => deltaTone(profit.value))
 
+/** 后端 annualizedReturn 是年化百分比；irr 是持有期原始值（未年化），两者不能混用 */
 const annualizedText = computed(() => {
   const a = annualized.value
   if (!a) return '—'
   if (a.status === 'insufficient') return '数据不足'
   if (a.status === 'abnormal') return '异常'
-  if (a.irr !== null && a.irr !== undefined) return fmtPercent(a.irr * 100)
   if (a.annualizedReturn !== null && a.annualizedReturn !== undefined) return fmtPercent(a.annualizedReturn)
   return '—'
+})
+
+const periodIrrText = computed(() => {
+  const a = annualized.value
+  if (!a || a.status !== 'ok' || a.irr === null || a.irr === undefined) return '—'
+  return fmtPercent(a.irr * 100)
+})
+
+/** 后端无分红时用 999 当哨兵，界面显示为 — 而不是「999 年」 */
+const recoveryText = computed(() => {
+  const years = holding.value?.estimatedRecoveryYears
+  if (years === null || years === undefined) return '—'
+  if (Number(years) >= 999) return '—'
+  return `${years} 年`
 })
 
 async function toggleReinvest(value: boolean): Promise<void> {
@@ -85,7 +99,7 @@ function trade(type: 'buy' | 'sell'): void {
           <span class="micro">{{ holding.code }} · {{ holding.type }}</span>
         </div>
         <div class="value num">{{ fmtMoney(holding.marketValue) }}</div>
-        <p class="micro">持有 {{ fmtShares(holding.shares) }} · 净值 {{ fmtNav(holding.latestPrice) }}（{{ holding.priceDate || '—' }}）</p>
+        <p class="micro">持有 {{ fmtHoldingQuantity(holding.shares, holding.type) }} · 净值 {{ fmtNav(holding.latestPrice) }}（{{ holding.priceDate || '—' }}）</p>
       </div>
 
       <div class="rows">
@@ -97,8 +111,9 @@ function trade(type: 'buy' | 'sell'): void {
         <DataRow label="市值息率" :value="fmtPercent(holding.priceDividendRate)" />
         <DataRow label="累计已收分红" :value="fmtMoney(holding.totalDividendReceived)" />
         <DataRow label="分红回收率" :value="fmtPercent(holding.dividendRecoveryRate)" />
-        <DataRow label="预估回本" :value="`${holding.estimatedRecoveryYears ?? '—'} 年`" />
-        <DataRow label="年化收益（IRR）" :value="annualizedText" />
+        <DataRow label="预估回本" :value="recoveryText" />
+        <DataRow label="年化收益" :value="annualizedText" />
+        <DataRow v-if="periodIrrText !== '—'" label="持有期 IRR" :value="periodIrrText" />
         <div class="switch-row">
           <span class="label-text">分红再投</span>
           <SwitchKey
@@ -114,7 +129,8 @@ function trade(type: 'buy' | 'sell'): void {
         <BtnKey variant="secondary" block @click="trade('sell')">卖出</BtnKey>
       </div>
       <p class="note micro">
-        盈亏 = 市值 − 成本（展示口径）；成本算法：{{ holding.costAlgorithm || 'diluted' }}。分红再投只影响后续事件处理，不改历史。
+        盈亏 = 市值 − 成本（展示口径）；成本算法：{{ holding.costAlgorithm || 'diluted' }}。
+        年化收益为年化口径；持有期 IRR 是未年化的持有期收益率。分红再投只影响后续事件处理，不改历史。
       </p>
     </template>
   </SheetFrame>

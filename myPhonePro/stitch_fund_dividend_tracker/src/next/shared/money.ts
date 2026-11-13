@@ -51,6 +51,20 @@ export function fmtShares(v: Numeric, fallback = '—'): string {
   return `${groupFixed(toNumber(v), 2)} 份`
 }
 
+/**
+ * 持仓数量：加密币用 8 位小数 + 枚（BTC 0.01139738 不能显示成 0.01 份），
+ * 基金/ETF 等沿用 2 位小数 + 份。所有展示份额/数量的地方必须走这里。
+ */
+export function fmtHoldingQuantity(
+  v: Numeric,
+  holdingType?: string | null,
+  fallback = '—',
+): string {
+  if (!hasNumber(v)) return fallback
+  if (holdingType === 'crypto') return `${groupFixed(toNumber(v), 8)} 枚`
+  return fmtShares(v, fallback)
+}
+
 /** 净值：4 位小数（带千分位） */
 export function fmtNav(v: Numeric, fallback = '—'): string {
   if (!hasNumber(v)) return fallback

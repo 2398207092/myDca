@@ -3,7 +3,7 @@
 import SheetFrame from '@/next/shared/components/SheetFrame.vue'
 import DataRow from '@/next/shared/components/DataRow.vue'
 import { fmtMoney, fmtPercent } from '@/next/shared/money'
-import { closeSheet } from '@/next/shared/ui'
+import { closeSheet, openSheet } from '@/next/shared/ui'
 import type { CompositionGroup } from '@/next/shared/composition'
 
 defineProps<{
@@ -15,6 +15,11 @@ defineProps<{
 function childrenOf(group: CompositionGroup): CompositionGroup['items'] {
   if (group.items.length === 1 && group.items[0].label === group.label) return []
   return group.items
+}
+
+/** 分类 → 持仓明细行是详情入口：打开单支持仓（份额/成本/IRR/再投开关） */
+function openHolding(holdingId: string): void {
+  openSheet('holding', { holdingId })
 }
 </script>
 
@@ -33,6 +38,8 @@ function childrenOf(group: CompositionGroup): CompositionGroup['items'] {
         :label="item.label"
         class="child"
         :value="fmtMoney(item.value)"
+        :tap="Boolean(item.holdingId)"
+        @click="item.holdingId && openHolding(item.holdingId)"
       />
     </div>
     <p class="note micro">百分比按总资产口径计算；「其他持仓」是尚未归类的持仓市值。</p>

@@ -10,7 +10,7 @@ import { useAsyncData } from '@/next/shared/useAsync'
 import { todayStr, formatTimeHM } from '@/next/shared/date'
 import { unifyEvents, type MoneyEvent } from '@/next/shared/stream'
 import { toNumber } from '@/next/shared/money'
-import { buildComposition, toSegments, type CompositionGroup } from '@/next/shared/composition'
+import { buildComposition, resolveCashValue, toSegments, type CompositionGroup } from '@/next/shared/composition'
 
 interface PeriodChangeLike {
   change: number
@@ -62,15 +62,10 @@ export function useNowData() {
     (data.value?.holdings ?? []).reduce((sum, h) => sum + toNumber(h.marketValue), 0),
   )
 
-  const cashValue = computed(() => {
-    let sum = 0
-    for (const account of data.value?.accounts ?? []) {
-      for (const asset of account.assets ?? []) {
-        if (asset.type === 'cash') sum += toNumber(asset.amount)
-      }
-    }
-    return sum
-  })
+  /** 与构成/总资产同一口径：概览 cash 分类（含稳定币），概览缺失才退回账户现金 */
+  const cashValue = computed(() =>
+    resolveCashValue(data.value?.overview ?? null, data.value?.accounts ?? []),
+  )
 
   const costValue = computed(() =>
     (data.value?.holdings ?? []).reduce((sum, h) => sum + toNumber(h.cost), 0),

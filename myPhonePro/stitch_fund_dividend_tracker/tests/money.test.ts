@@ -3,6 +3,7 @@ import {
   deltaArrow,
   deltaTone,
   fmtDelta,
+  fmtHoldingQuantity,
   fmtMoney,
   fmtNav,
   fmtPercent,
@@ -45,6 +46,14 @@ describe('money', () => {
     expect(fmtShares(10000)).toBe('10,000.00 份')
     expect(fmtNav(1.242)).toBe('1.2420')
     expect(fmtNav(12.3)).toBe('12.3000')
+  })
+
+  it('持仓数量按类型格式化：加密币 8 位 + 枚，基金 2 位 + 份', () => {
+    expect(fmtHoldingQuantity(0.01139738, 'crypto')).toBe('0.01139738 枚')
+    expect(fmtHoldingQuantity(0.00008631, 'crypto')).toBe('0.00008631 枚')
+    expect(fmtHoldingQuantity(10000, 'fund')).toBe('10,000.00 份')
+    expect(fmtHoldingQuantity(1068.2558, 'ETF')).toBe('1,068.26 份')
+    expect(fmtHoldingQuantity(null, 'crypto')).toBe('—')
   })
 
   it('涨跌方向', () => {
