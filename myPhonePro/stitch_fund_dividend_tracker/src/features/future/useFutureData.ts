@@ -53,6 +53,9 @@ export function useFutureData() {
   const predictedAnnual = computed(() => toNumber(data.value?.dashboard.predictedAnnualDividend))
   const monthlyPredicted = computed(() => toNumber(data.value?.dashboard.monthlyPredictedDividend))
   const overallDividendRate = computed(() => toNumber(data.value?.dashboard.overallDividendRate))
+  /** 已收（非预测）与持仓数量：从「现在面」挪到未来面做对账用 */
+  const totalReceived = computed(() => toNumber(data.value?.dashboard.totalDividendReceived))
+  const holdingCount = computed(() => toNumber(data.value?.dashboard.totalHoldings))
 
   const totalAnnualExpense = computed(() => toNumber(data.value?.coverage.totalAnnualExpense))
   const coveredExpenseCount = computed(() => data.value?.coverage.coveredExpenses ?? 0)
@@ -96,6 +99,8 @@ export function useFutureData() {
     predictedAnnual,
     monthlyPredicted,
     overallDividendRate,
+    totalReceived,
+    holdingCount,
     totalAnnualExpense,
     coveredExpenseCount,
     totalExpenseCount,

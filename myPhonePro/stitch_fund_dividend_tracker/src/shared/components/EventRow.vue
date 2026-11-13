@@ -45,6 +45,7 @@ function toneOf(status: string): 'accent' | 'muted' | 'warn' | 'danger' {
       <b class="ev-amount num">{{ event.amountText || '—' }}</b>
       <StatusPill v-if="event.statusText" :tone="toneOf(event.statusText)">{{ event.statusText }}</StatusPill>
     </div>
+    <span v-if="tap" class="ev-chev" aria-hidden="true">›</span>
   </div>
 </template>
 
@@ -66,8 +67,17 @@ function toneOf(status: string): 'accent' | 'muted' | 'warn' | 'danger' {
 .event--tap {
   cursor: pointer;
 }
+.event--tap {
+  grid-template-columns: 10px minmax(0, 1fr) auto 10px;
+}
 .event--tap:active {
   background: rgba(31, 35, 41, 0.03);
+}
+.ev-chev {
+  color: var(--ink-3);
+  font-size: 18px;
+  line-height: 1;
+  align-self: center;
 }
 .mark {
   margin-top: 6px;

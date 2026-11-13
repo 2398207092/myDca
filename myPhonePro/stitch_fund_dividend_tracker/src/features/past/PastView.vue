@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /**
  * 过去面：一条统一的「钱的痕迹」。
- * 月份切换 → 月汇总（买入/卖出/分红到账）→ 近 30 天走势 → 筛选 chips → 按日分组事件流。
- * 数据全部来自真实接口；交易、分红、定投执行统一成同一条时间轴。
+ * 深度语法：本月汇总 + 走势放在第一个台阶（-1）；流水放到第二个台阶；
+ * 筛选 chips 是操作键（+1），留在海平面，作为两个台阶之间的工具行。
  */
 import { computed, ref } from 'vue'
 import SectionLabel from '@/shared/components/SectionLabel.vue'
+import SeamDivider from '@/shared/components/SeamDivider.vue'
+import TerraceSection from '@/shared/components/TerraceSection.vue'
 import EventRow from '@/shared/components/EventRow.vue'
 import TrendLine from '@/shared/components/TrendLine.vue'
 import EmptyState from '@/shared/components/EmptyState.vue'
@@ -80,84 +82,88 @@ const trendFootRight = computed(() => {
     </template>
     <ErrorState v-else-if="error && !ready" :message="error" @retry="load()" />
     <template v-else-if="ready">
-      <MonthSummary :stats="stats" :month-text="monthText" :is-current="isCurrentMonth" />
+      <!-- 台阶 1：本月汇总 + 近 30 天走势 -->
+      <TerraceSection>
+        <MonthSummary :stats="stats" :month-text="monthText" :is-current="isCurrentMonth" />
 
-      <div class="divider" />
+        <SeamDivider tight />
 
-      <SectionLabel text="近 30 天资产走势">
-        <template #action>
-          <span class="micro">快照口径</span>
+        <SectionLabel text="近 30 天资产走势">
+          <template #action>
+            <span class="micro">快照口径</span>
+          </template>
+        </SectionLabel>
+        <template v-if="trendLoading && !trendData">
+          <SkeletonRows :rows="2" />
         </template>
-      </SectionLabel>
-      <template v-if="trendLoading && !trendData">
-        <SkeletonRows :rows="2" />
-      </template>
-      <template v-else-if="trendHasData">
-        <TrendLine :points="trendPoints" :height="72" aria-label="近 30 天总资产走势" />
-        <div class="trend-foot">
-          <span class="micro">{{ trendFirst?.label ?? '' }}</span>
-          <span class="micro">{{ trendFootRight }}</span>
-        </div>
-      </template>
-      <EmptyState
-        v-else-if="trendError && !trendData"
-        compact
-        title="走势加载失败"
-        :description="trendError"
-      >
-        <button class="text-key" type="button" @click="trendLoad()">重新加载</button>
-      </EmptyState>
-      <EmptyState
-        v-else
-        compact
-        title="暂无走势数据"
-        description="资产快照生成后，这里会显示近 30 天的总资产变化。"
-      />
+        <template v-else-if="trendHasData">
+          <TrendLine :points="trendPoints" :height="72" aria-label="近 30 天总资产走势" />
+          <div class="trend-foot">
+            <span class="micro">{{ trendFirst?.label ?? '' }}</span>
+            <span class="micro">{{ trendFootRight }}</span>
+          </div>
+        </template>
+        <EmptyState
+          v-else-if="trendError && !trendData"
+          compact
+          title="走势加载失败"
+          :description="trendError"
+        >
+          <button class="text-key" type="button" @click="trendLoad()">重新加载</button>
+        </EmptyState>
+        <EmptyState
+          v-else
+          compact
+          title="暂无走势数据"
+          description="资产快照生成后，这里会显示近 30 天的总资产变化。"
+        />
+      </TerraceSection>
 
-      <div class="divider" />
+      <!-- 工具行：筛选 chips（+1 按键，留在海平面） -->
+      <div class="toolbar">
+        <FilterChips
+          :model-value="filter"
+          :options="PAST_FILTERS"
+          :counts="filterCounts"
+          @update:model-value="filter = $event"
+        />
+      </div>
 
-      <FilterChips
-        :model-value="filter"
-        :options="PAST_FILTERS"
-        :counts="filterCounts"
-        @update:model-value="filter = $event"
-      />
-
-      <SectionLabel :text="`${monthText} 流水`">
+      <!-- 台阶 2：当月流水 -->
+      <TerraceSection :label="`${monthText} 流水`">
         <template #action>
           <span class="micro">{{ flowCountText }}</span>
         </template>
-      </SectionLabel>
-
-      <template v-if="groups.length">
-        <section v-for="group in groups" :key="group.date" class="day">
-          <h3 class="day-label micro">
-            <span>{{ dateGroupLabel(group.date) }}</span>
-            <span class="day-count">{{ group.items.length }} 条</span>
-          </h3>
-          <EventRow
-            v-for="event in group.items"
-            :key="event.id"
-            :event="event"
-            tap
-            @click="openEvent(event)"
-          />
-        </section>
-      </template>
-      <EmptyState
-        v-else-if="emptyMonth"
-        compact
-        title="这个月没有记录"
-        description="用底部「＋」记一笔买入 / 分红，或切换月份查看历史。"
-      >
-        <button class="text-key" type="button" @click="openSheet('action')">记一笔 ›</button>
-      </EmptyState>
-      <EmptyState
-        v-else
-        compact
-        title="当前筛选没有记录"
-        description="切换到「全部」查看本月全部流水。"
-      />
+        <template v-if="groups.length">
+          <section v-for="group in groups" :key="group.date" class="day">
+            <h3 class="day-label micro">
+              <span>{{ dateGroupLabel(group.date) }}</span>
+              <span class="day-count">{{ group.items.length }} 条</span>
+            </h3>
+            <EventRow
+              v-for="event in group.items"
+              :key="event.id"
+              :event="event"
+              tap
+              @click="openEvent(event)"
+            />
+          </section>
+        </template>
+        <EmptyState
+          v-else-if="emptyMonth"
+          compact
+          title="这个月没有记录"
+          description="用底部「＋」记一笔买入 / 分红，或切换月份查看历史。"
+        >
+          <button class="text-key" type="button" @click="openSheet('action')">记一笔 ›</button>
+        </EmptyState>
+        <EmptyState
+          v-else
+          compact
+          title="当前筛选没有记录"
+          description="切换到「全部」查看本月全部流水。"
+        />
+      </TerraceSection>
 
       <p v-if="error && ready" class="inline-error" role="alert">
         <span>{{ error }}</span>
@@ -172,10 +178,8 @@ const trendFootRight = computed(() => {
   padding-top: var(--space-1);
   padding-bottom: var(--space-8);
 }
-.divider {
-  height: 1px;
-  background: var(--hairline);
-  margin: var(--space-5) 0 var(--space-4);
+.toolbar {
+  margin-top: var(--space-4);
 }
 .trend-foot {
   display: flex;
