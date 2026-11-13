@@ -16,6 +16,9 @@ const HoldingSheet = defineAsyncComponent(() => import('./HoldingSheet.vue'))
 const SettingsSheet = defineAsyncComponent(() => import('./SettingsSheet.vue'))
 const CompositionSheet = defineAsyncComponent(() => import('@/features/now/CompositionSheet.vue'))
 const EventSheet = defineAsyncComponent(() => import('@/features/past/EventSheet.vue'))
+const HoldingCreateSheet = defineAsyncComponent(() => import('./HoldingCreateSheet.vue'))
+const AccountCreateSheet = defineAsyncComponent(() => import('./AccountCreateSheet.vue'))
+const CashCreateSheet = defineAsyncComponent(() => import('./CashCreateSheet.vue'))
 
 const registry: Record<SheetName, unknown> = {
   action: ActionSheet,
@@ -28,6 +31,9 @@ const registry: Record<SheetName, unknown> = {
   settings: SettingsSheet,
   composition: CompositionSheet,
   event: EventSheet,
+  'holding-create': HoldingCreateSheet,
+  'account-create': AccountCreateSheet,
+  'cash-create': CashCreateSheet,
 }
 
 const current = computed(() => (ui.sheet ? registry[ui.sheet.name] : null))

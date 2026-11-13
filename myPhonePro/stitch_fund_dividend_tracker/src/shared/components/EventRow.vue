@@ -64,18 +64,26 @@ function toneOf(status: string): 'accent' | 'muted' | 'warn' | 'danger' {
 .event:last-child {
   border-bottom: 0;
 }
-.event--tap {
+/* 台阶内的可点事件行：抬回一级（+1），按下回弹；chevron 强调色 */
+.event.event--tap {
   cursor: pointer;
-}
-.event--tap {
   grid-template-columns: 10px minmax(0, 1fr) auto 10px;
+  margin: var(--space-2) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--edge);
+  border-bottom: 1px solid var(--edge);
+  border-radius: var(--radius-key);
+  background: var(--canvas);
+  box-shadow: var(--el-key);
+  transition: box-shadow 90ms ease, transform 90ms ease;
 }
-.event--tap:active {
-  background: rgba(31, 35, 41, 0.03);
+.event.event--tap:active {
+  box-shadow: var(--press);
+  transform: translateY(1px);
 }
 .ev-chev {
-  color: var(--ink-3);
-  font-size: 18px;
+  color: var(--accent);
+  font-size: 20px;
   line-height: 1;
   align-self: center;
 }

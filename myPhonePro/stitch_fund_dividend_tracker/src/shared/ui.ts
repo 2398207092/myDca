@@ -15,6 +15,9 @@ export type SheetName =
   | 'settings'
   | 'composition'
   | 'event'
+  | 'holding-create'
+  | 'account-create'
+  | 'cash-create'
 
 export interface SheetState {
   name: SheetName

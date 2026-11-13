@@ -60,12 +60,50 @@ describe('接缝（结构记号）', () => {
   })
 })
 
-describe('阅读层保持平面', () => {
-  for (const file of ['DataRow', 'Readout', 'TrendLine', 'EventRow', 'CompositionBar']) {
+describe('阅读层保持平面（只有可点态才允许凸起）', () => {
+  for (const file of ['Readout', 'TrendLine', 'CompositionBar']) {
     it(`${file} 不使用凸起阴影`, () => {
       expect(read(`src/shared/components/${file}.vue`)).not.toMatch(/var\(--el-key\)/)
     })
   }
+})
+
+describe('台阶内的可导航行：抬回一级 + 按压回弹 + 强调色 chevron', () => {
+  it('DataRow 只在 .row.row--tap 上使用凸起/按压', () => {
+    const src = read('src/shared/components/DataRow.vue')
+    const index = src.indexOf('.row.row--tap')
+    expect(index).toBeGreaterThan(-1)
+    const tapBlock = src.slice(index)
+    expect(tapBlock).toMatch(/var\(--el-key\)/)
+    expect(tapBlock).toMatch(/var\(--press\)/)
+    expect(tapBlock).toMatch(/color:\s*var\(--accent\)/)
+  })
+
+  it('EventRow 只在 .event.event--tap 上使用凸起/按压', () => {
+    const src = read('src/shared/components/EventRow.vue')
+    const index = src.indexOf('.event.event--tap')
+    expect(index).toBeGreaterThan(-1)
+    const tapBlock = src.slice(index)
+    expect(tapBlock).toMatch(/var\(--el-key\)/)
+    expect(tapBlock).toMatch(/var\(--press\)/)
+    expect(tapBlock).toMatch(/color:\s*var\(--accent\)/)
+  })
+})
+
+describe('账户搭建入口（新建持仓 / 账户 / 现金）', () => {
+  it('操作面板包含三个入口', () => {
+    const actions = read('src/features/sheets/ActionSheet.vue')
+    expect(actions).toMatch(/新建持仓/)
+    expect(actions).toMatch(/新建账户/)
+    expect(actions).toMatch(/加一笔现金/)
+  })
+
+  it('SheetHost 注册三个新 Sheet', () => {
+    const host = read('src/features/sheets/SheetHost.vue')
+    expect(host).toMatch(/HoldingCreateSheet/)
+    expect(host).toMatch(/AccountCreateSheet/)
+    expect(host).toMatch(/CashCreateSheet/)
+  })
 })
 
 describe('交互层保持凸起 + 按压回弹', () => {

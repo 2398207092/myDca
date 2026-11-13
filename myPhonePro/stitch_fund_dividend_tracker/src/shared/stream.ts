@@ -114,7 +114,7 @@ function unifyDividend(e: DividendEventItem): MoneyEvent {
   else if (status === '待确认' && amount > 0) amountText = `预计 ${fmtSignedMoney(amount)}`
   const metaParts: string[] = []
   if (e.description) metaParts.push(e.description)
-  if (isPayout && status) metaParts.push(status)
+  // 状态由 StatusPill 单独展示，这里不再重复拼「待确认/已到账」，避免窄屏换行
   return {
     id: `ev:${e.id}`,
     source: 'dividend',

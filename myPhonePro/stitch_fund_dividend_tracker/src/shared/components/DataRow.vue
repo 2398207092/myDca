@@ -52,12 +52,25 @@ defineEmits<{ (e: 'click'): void }>()
 .row--tall {
   min-height: 64px;
 }
-.row--tap {
+/* 「谷底里的按钮」：台阶内可导航行抬回一级（+1），按下回弹；chevron 用强调色补足可点线索 */
+.row.row--tap {
   cursor: pointer;
-  border-radius: 6px;
+  margin: var(--space-2) 0;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--edge);
+  border-bottom: 1px solid var(--edge);
+  border-radius: var(--radius-key);
+  background: var(--canvas);
+  box-shadow: var(--el-key);
+  transition: box-shadow 90ms ease, transform 90ms ease;
 }
-.row--tap:active {
-  background: rgba(31, 35, 41, 0.03);
+.row.row--tap:active {
+  box-shadow: var(--press);
+  transform: translateY(1px);
+}
+.row.row--tap .chev {
+  color: var(--accent);
+  font-size: 20px;
 }
 .label {
   display: flex;
