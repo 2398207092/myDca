@@ -1,24 +1,12 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
-import { resolve } from 'node:path'
 
 export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-    },
-  },
-  // 皮肤包：两个入口共用同一工程/同一后端
-  //   index.html → 原版界面（src/main.ts）
-  //   auros.html → Auros 卡片版（src/auros-skin/main.ts）
-  build: {
-    rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'index.html'),
-        auros: resolve(__dirname, 'auros.html'),
-      },
     },
   },
   server: {
