@@ -1,0 +1,548 @@
+<script setup lang="ts">
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { searchHoldings, createHolding, getDividendInfo } from '@/api/holding'
+import type { HoldingSearchResult, DividendInfo } from '@/api/holding'
+import { listExchangeRates } from '@/api/exchangeRate'
+import { getAccounts, type AccountItem } from '@/api/account'
+
+const router = useRouter()
+
+// Market type filter
+const selectedType = ref('A股')
+
+// Step 1: Search
+const keyword = ref('')
+const searchResults = ref<HoldingSearchResult[]>([])
+const isSearching = ref(false)
+const selectedHolding = ref<HoldingSearchResult | null>(null)
+const showResults = ref(false)
+
+// 本地时区日期串（toISOString 走 UTC，北京时间 0-8 点会错标为昨天，参考 CalendarPage 的正确写法）
+function localToday(): string {
+  const n = new Date()
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+}
+
+// Step 2: Holding Info
+const shares = ref<number | null>(null)
+const buyDate = ref(localToday())
+const buyFeeRate = ref(0.15)
+const sellFeeRate = ref(0)
+const costAlgorithm = ref<'diluted' | 'diluted_only' | 'weighted_avg'>('diluted')
+const costInput = ref<number | null>(null)
+const isNegativeCost = ref(false)
+
+// === 加密币：基金搜索接口不覆盖，提供手动入口 ===
+const CRYPTO_PRESETS = [
+  { code: 'BTC', name: '比特币' },
+  { code: 'ETH', name: '以太坊' },
+]
+const isCryptoSelected = computed(() => selectedHolding.value?.type === 'crypto')
+const usdCny = ref<number | null>(null)
+const accountsList = ref<AccountItem[]>([])
+const selectedAccountId = ref('')
+
+/** 账户按本位币过滤：加密资产只能挂 USDT 账户，与后端校验同一条规则 */
+const availableAccounts = computed(() =>
+  accountsList.value.filter((a) =>
+    isCryptoSelected.value ? a.baseCurrency === 'USDT' : a.baseCurrency !== 'USDT'
+  )
+)
+
+// 资产必须归属账户：账户列表到达后默认选中第一个匹配项
+watch(availableAccounts, (list) => {
+  if (!selectedAccountId.value && list.length) selectedAccountId.value = list[0].id
+}, { immediate: true })
+
+onMounted(async () => {
+  try {
+    const rates = await listExchangeRates()
+    const usd = rates.find((r) => r.pair === 'USD/CNY')
+    usdCny.value = usd?.rate ?? null
+  } catch {
+    // 拿不到汇率就不折算（不编一个默认值，避免成本算错）
+    usdCny.value = null
+  }
+  try {
+    accountsList.value = await getAccounts()
+  } catch {
+    /* 账户拉取失败不阻断创建 */
+  }
+})
+
+function addCrypto(preset: { code: string; name: string }) {
+  selectedHolding.value = { code: preset.code, name: preset.name, type: 'crypto' } as unknown as HoldingSearchResult
+  shares.value = null
+  costInput.value = null
+  showResults.value = false
+}
+
+/** 加密币按 USDT 输入成本，提交前折算成人民币（后端只认 CNY；没有汇率则不折算并在提交处拦截） */
+const costInCny = computed(() => {
+  if (costInput.value == null) return null
+  if (!isCryptoSelected.value) return costInput.value
+  if (!usdCny.value) return null
+  return Math.round(costInput.value * usdCny.value * 100) / 100
+})
+
+// Step 3: Forecast Horizon
+const forecastMethod = ref<'ex_date' | 'report_period' | 'custom'>('ex_date')
+const forecastYears = ref<'1y' | '3y' | '5y'>('3y')
+
+// Dividend info (fetched after holding selection)
+const dividendInfo = ref<DividendInfo | null>(null)
+const isFetchingDividend = ref(false)
+
+// Submit state
+const isSubmitting = ref(false)
+const error = ref('')
+
+// 算法说明气泡
+const showAlgorithmHelp = ref(false)
+function handleClickOutside(e: MouseEvent) {
+  if (showAlgorithmHelp.value) showAlgorithmHelp.value = false
+}
+onMounted(() => document.addEventListener('click', handleClickOutside))
+onUnmounted(() => document.removeEventListener('click', handleClickOutside))
+
+// Step availability
+const step2Active = computed(() => selectedHolding.value !== null)
+const step3Active = computed(() => step2Active.value && (shares.value ?? 0) > 0 && (costInput.value ?? 0) > 0)
+const canSubmit = computed(() => {
+  if (!step3Active.value) return false
+  // 加密币拿不到汇率就无法折算成本，必须拦住（否则 cost 为空，后端会 400）
+  if (isCryptoSelected.value && costInCny.value == null) return false
+  return true
+})
+
+// 是否有分红数据（用于 Step 3 简化展示）
+const hasDividendData = computed(() => {
+  return dividendInfo.value != null && dividendInfo.value.annualDividendPerShare > 0
+})
+
+// Search logic
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+let isSelecting = false
+
+watch(keyword, (val) => {
+  if (isSelecting) return
+  if (selectedHolding.value) {
+    selectedHolding.value = null
+    searchResults.value = []
+  }
+  if (searchTimer) clearTimeout(searchTimer)
+  if (!val || val.trim().length < 1) {
+    searchResults.value = []
+    showResults.value = false
+    return
+  }
+  isSearching.value = true
+  searchTimer = setTimeout(async () => {
+    try {
+      const res = await searchHoldings(val.trim())
+      searchResults.value = res
+      showResults.value = true
+    } catch (e) {
+      console.error('Search failed:', e)
+      searchResults.value = []
+    } finally {
+      isSearching.value = false
+    }
+  }, 300)
+})
+
+function selectHolding(item: HoldingSearchResult) {
+  selectedHolding.value = item
+  showResults.value = false
+  searchResults.value = []
+  isSelecting = true
+  keyword.value = item.name
+  nextTick(() => { isSelecting = false })
+
+  // Fetch dividend info with current method/horizon
+  fetchDividendInfo(item.code, item.type, forecastMethod.value, forecastYears.value)
+}
+
+async function fetchDividendInfo(code: string, type: string, method?: string, horizon?: string) {
+  isFetchingDividend.value = true
+  try {
+    const info = await getDividendInfo(code, type, method ?? 'ex_date', horizon ?? '3y')
+    dividendInfo.value = info
+  } catch (e) {
+    console.error('获取分红信息失败:', e)
+    dividendInfo.value = null
+  } finally {
+    isFetchingDividend.value = false
+  }
+}
+
+// 当分红方法或年限变化时，如果有选中标的则重新获取分红数据
+watch(forecastMethod, (newMethod) => {
+  if (selectedHolding.value) {
+    if (newMethod === 'custom') {
+      // 自定义模式，清除 API 数据
+      dividendInfo.value = null
+    } else {
+      fetchDividendInfo(selectedHolding.value.code, selectedHolding.value.type, newMethod, forecastYears.value)
+    }
+  }
+})
+
+watch(forecastYears, (newYears) => {
+  if (selectedHolding.value && forecastMethod.value !== 'custom') {
+    fetchDividendInfo(selectedHolding.value.code, selectedHolding.value.type, forecastMethod.value, newYears)
+  }
+})
+
+function clearSelection() {
+  selectedHolding.value = null
+  keyword.value = ''
+  searchResults.value = []
+  showResults.value = false
+  dividendInfo.value = null
+}
+
+function handleSearchClick() {
+  if (selectedHolding.value) {
+    clearSelection()
+  }
+}
+
+function goBack() {
+  router.push('/')
+}
+
+async function handleSubmit() {
+  if (!canSubmit.value) return
+  isSubmitting.value = true
+  error.value = ''
+  try {
+    await createHolding({
+      name: selectedHolding.value!.name,
+      code: selectedHolding.value!.code,
+      type: selectedHolding.value!.type,
+      costAlgorithm: costAlgorithm.value,
+      shares: shares.value!,
+      cost: costInCny.value!,
+      buyFeeRate: buyFeeRate.value,
+      sellFeeRate: sellFeeRate.value,
+      quoteCurrency: isCryptoSelected.value ? 'USDT' : undefined,
+      costEstimated: isCryptoSelected.value ? true : undefined,
+      accountId: selectedAccountId.value || undefined,
+    })
+    router.push('/')
+  } catch (e: any) {
+    error.value = e.message || '添加失败'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+// Estimated impact calculation
+const estimatedAnnualDividend = computed(() => {
+  if (!shares.value || !costInput.value) return '--'
+  // Rough estimate based on 3% dividend rate
+  const estDividend = costInput.value * 0.03
+  return estDividend.toFixed(2)
+})
+</script>
+
+<template>
+  <div class="min-h-screen bg-page-bg flex flex-col">
+
+    <!-- Header — 统一 -->
+    <header class="flex items-center justify-between px-gutter h-14 sticky top-0 z-50 bg-card-bg border-b border-border-light/40">
+      <button @click="goBack" class="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-80">
+        <span class="material-symbols-outlined text-text-secondary">arrow_back</span>
+      </button>
+      <div class="flex-1 text-center">
+        <h1 class="font-body text-md font-medium text-text-primary">添加标的</h1>
+      </div>
+      <button @click="router.push('/')" class="w-10 h-10 flex items-center justify-center active:opacity-80 transition-opacity">
+        <span class="material-symbols-outlined text-text-secondary">home</span>
+      </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 px-gutter pt-3 pb-32 overflow-y-auto space-y-md">
+
+      <!-- ==================== Step 1: 选择标的 ==================== -->
+      <section class="bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40">
+        <!-- Step number + title -->
+        <div class="flex items-center gap-3 mb-lg">
+          <span class="flex items-center justify-center w-7 h-7 rounded-full bg-brand text-white text-xs font-display font-semibold">1</span>
+          <h2 class="font-display text-xl text-text-primary">选择标的</h2>
+        </div>
+
+        <!-- Search input -->
+        <div class="relative">
+          <div class="flex items-center border border-border-light rounded-lg px-3 py-[10px] bg-card-bg focus-within:border-brand transition-colors">
+            <span class="material-symbols-outlined text-text-tertiary mr-2 text-[18px]">search</span>
+            <input
+              v-model="keyword"
+              type="text"
+              placeholder="搜索基金，或用下方入口添加加密币"
+              class="flex-1 bg-transparent border-none outline-none font-body text-sm text-text-primary placeholder:text-text-tertiary"
+              @click="handleSearchClick"
+            />
+            <span v-if="isSearching" class="material-symbols-outlined text-text-tertiary animate-spin text-[18px]">refresh</span>
+          </div>
+        </div>
+
+        <!-- 加密币快捷入口：基金搜索覆盖不到，单独给入口 -->
+        <div v-if="!selectedHolding" class="mt-3 flex items-center gap-2 flex-wrap">
+          <span class="font-body text-[11px] text-text-tertiary">或手动添加：</span>
+          <button v-for="p in CRYPTO_PRESETS" :key="p.code"
+                  class="px-2.5 py-1 rounded-lg border border-border-light/60 bg-card-alt font-body text-[11px] text-text-secondary active:scale-[0.98] transition-transform"
+                  @click="addCrypto(p)">
+            {{ p.name }} {{ p.code }}
+          </button>
+        </div>
+
+        <!-- 已选中的加密币 -->
+        <div v-if="selectedHolding && isCryptoSelected" class="mt-3 flex items-center gap-2">
+          <span class="material-symbols-outlined text-[15px] text-[#f7931a]">currency_bitcoin</span>
+          <span class="font-body text-xs text-text-primary">{{ selectedHolding.name }}（{{ selectedHolding.code }}）</span>
+          <span class="font-body text-[10px] text-[#f7931a] bg-[#f7931a]/10 px-1.5 py-0.5 rounded">USDT 计价</span>
+          <button class="ml-auto font-body text-[11px] text-text-tertiary active:opacity-70" @click="clearSelection()">更换</button>
+        </div>
+        <div v-if="showResults && searchResults.length > 0" class="mt-md border border-border-light rounded-lg max-h-48 overflow-y-auto">
+          <div
+            v-for="item in searchResults"
+            :key="item.code"
+            @click="selectHolding(item)"
+            class="flex items-center justify-between px-md py-3 border-b border-border-light last:border-b-0 hover:bg-card-alt cursor-pointer active:scale-[0.99] transition-all"
+          >
+            <div>
+              <div class="font-body text-sm font-medium text-text-primary">{{ item.name }}</div>
+              <div class="font-body text-xs text-text-tertiary">{{ item.code }} · {{ item.type }}</div>
+            </div>
+            <span class="material-symbols-outlined text-text-tertiary text-[18px]">chevron_right</span>
+          </div>
+        </div>
+
+        <!-- No results -->
+        <div v-if="showResults && !isSearching && searchResults.length === 0 && keyword.trim().length >= 1" class="mt-md text-center py-lg">
+          <span class="text-2xl block mb-1">🔍</span>
+          <p class="font-body text-sm text-text-tertiary">未找到匹配的标的</p>
+        </div>
+
+        <!-- Selected holding display -->
+        <div v-if="selectedHolding" class="mt-md flex items-center justify-between p-md bg-brand-light/60 rounded-lg border border-brand/20">
+          <div>
+            <div class="font-body text-sm font-medium text-text-primary">{{ selectedHolding.name }}</div>
+            <div class="font-body text-xs text-text-tertiary">{{ selectedHolding.code }} · {{ selectedHolding.type }}</div>
+          </div>
+          <span class="material-symbols-outlined text-brand" style="font-variation-settings:'FILL' 1">check_circle</span>
+        </div>
+      </section>
+
+      <!-- ==================== Step 2: 持仓信息 ==================== -->
+      <section
+        :class="['bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40', !step2Active ? 'opacity-40 pointer-events-none' : '']"
+      >
+        <div class="flex items-center justify-between mb-lg">
+          <div class="flex items-center gap-3">
+            <span :class="['flex items-center justify-center w-7 h-7 rounded-full text-white text-xs font-display font-semibold', step2Active ? 'bg-brand' : 'bg-text-tertiary']">2</span>
+            <h2 :class="['font-display text-xl', step2Active ? 'text-text-primary' : 'text-text-secondary']">持仓信息</h2>
+          </div>
+          <span class="font-body text-xs text-text-tertiary" v-if="!step2Active">选股后自动展开</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-lg mb-lg">
+          <div class="space-y-1">
+            <label class="font-body text-xs font-medium text-error">*持仓数量</label>
+            <input v-model.number="shares" type="number" :placeholder="isCryptoSelected ? '数量（枚，最多 8 位小数）' : '股数/份数'" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
+          </div>
+          <div class="space-y-1">
+            <label class="font-body text-xs font-medium text-error">*买入日期</label>
+            <div class="flex items-center border-b border-border-light py-2">
+              <input v-model="buyDate" type="date" :disabled="!step2Active" class="flex-1 bg-transparent border-none outline-none font-body text-sm text-text-primary" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 归属账户（可选）：加密资产只能挂 USDT 本位币账户 -->
+        <div v-if="accountsList.length > 0" class="mb-lg">
+          <label class="font-body text-xs font-medium text-text-secondary block mb-1">归属账户</label>
+          <div class="flex gap-2 overflow-x-auto no-scrollbar">
+            <button v-for="acc in availableAccounts" :key="acc.id" type="button"
+                    :disabled="!step2Active"
+                    class="px-3 py-2 rounded-lg border font-body text-xs whitespace-nowrap transition-colors disabled:opacity-40"
+                    :class="selectedAccountId === acc.id
+                      ? 'border-brand bg-brand-light/40 text-brand'
+                      : 'border-border-light/40 bg-card-alt text-text-secondary'"
+                    @click="selectedAccountId = selectedAccountId === acc.id ? '' : acc.id">
+              {{ acc.name }}{{ acc.isDefault ? ' ·默认' : '' }}
+            </button>
+          </div>
+          <p class="font-body text-[11px] text-text-tertiary mt-1">
+            {{ isCryptoSelected ? '只显示 USDT 本位币账户（如交易所）' : '人民币资产挂在 CNY 本位币账户下' }}；资产必须归属账户，否则现金账会失真
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-lg mb-lg">
+          <div class="space-y-1">
+            <label class="font-body text-xs font-medium text-text-secondary block">买入费率 (%)</label>
+            <input v-model.number="buyFeeRate" type="number" step="0.01" min="0" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
+          </div>
+          <div class="space-y-1">
+            <label class="font-body text-xs font-medium text-text-secondary block">卖出费率 (%)</label>
+            <input v-model.number="sellFeeRate" type="number" step="0.01" min="0" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
+          </div>
+        </div>
+
+        <div class="space-y-lg">
+          <!-- 当前成本算法选择器 -->
+          <div class="flex items-center gap-2">
+            <label class="font-body text-xs font-medium text-error whitespace-nowrap">*当前成本</label>
+            <span v-if="isCryptoSelected" class="font-body text-[11px] text-text-tertiary">加密币无分红，不需要选成本算法</span>
+            <div v-if="!isCryptoSelected" class="flex-1 flex bg-card-alt rounded-lg p-[3px] max-w-[280px]">
+              <button @click="costAlgorithm='diluted'" :class="costAlgorithm==='diluted' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[5px] rounded font-body font-medium text-xs transition-all">分红摊薄</button>
+              <button @click="costAlgorithm='diluted_only'" :class="costAlgorithm==='diluted_only' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[5px] rounded font-body font-medium text-xs transition-all">摊薄成本</button>
+              <button @click="costAlgorithm='weighted_avg'" :class="costAlgorithm==='weighted_avg' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[5px] rounded font-body font-medium text-xs transition-all">加权平均</button>
+            </div>
+            <!-- 帮助图标 + 气泡 -->
+            <div v-if="!isCryptoSelected" class="relative" @click.stop="showAlgorithmHelp = !showAlgorithmHelp">
+              <span class="material-symbols-outlined text-text-tertiary text-[18px] cursor-pointer hover:text-brand transition-colors">help</span>
+              <Transition name="fade">
+                <div v-if="showAlgorithmHelp"
+                     class="absolute right-0 top-8 w-64 bg-card-bg rounded-xl p-md card-shadow border border-border-light z-dropdown"
+                     @click.stop>
+                  <div class="space-y-3">
+                    <div>
+                      <p class="font-body text-xs font-medium text-text-primary mb-1">分红摊薄</p>
+                      <p class="font-body text-[11px] text-text-tertiary leading-relaxed">收到的分红会冲减持仓成本，成本越来越低，息率越来越高。适合长期收息视角。</p>
+                    </div>
+                    <div>
+                      <p class="font-body text-xs font-medium text-text-primary mb-1">摊薄成本</p>
+                      <p class="font-body text-[11px] text-text-tertiary leading-relaxed">只看买入卖出净额，分红不参与成本计算。折中方案，息率相对保守。</p>
+                    </div>
+                    <div>
+                      <p class="font-body text-xs font-medium text-text-primary mb-1">加权平均</p>
+                      <p class="font-body text-[11px] text-text-tertiary leading-relaxed">只看买入总金额和总份额，不考虑卖出和分红。最保守，成本永远为正。</p>
+                    </div>
+                  </div>
+                  <div class="mt-2 pt-2 border-t border-border-light">
+                    <p class="font-body text-[10px] text-text-tertiary">默认使用「分红摊薄」，可在持仓详情页随时切换</p>
+                  </div>
+                </div>
+              </Transition>
+            </div>
+          </div>
+          <!-- 成本输入 -->
+          <div>
+            <input v-model.number="costInput" type="number" :placeholder="isCryptoSelected ? '每枚成本（USDT）' : '可输入正数、零、或者负数（人民币）'" :disabled="!step2Active" class="w-full bg-transparent border-b border-border-light py-2 font-body text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-brand transition-colors" />
+            <p v-if="isCryptoSelected && costInCny && usdCny" class="font-body text-[11px] text-text-tertiary mt-1">
+              ≈ ¥{{ costInCny.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) }}/枚（1 USDT ≈ {{ usdCny.toFixed(4) }} CNY，保存后按此折算）
+            </p>
+            <p v-else-if="isCryptoSelected && !usdCny" class="font-body text-[11px] text-error mt-1">
+              汇率获取失败，无法折算成本，请稍后重试
+            </p>
+          </div>
+          <!-- 负成本勾选（加密币首次录入不涉及"卖出收回成本"，隐藏） -->
+          <div v-if="!isCryptoSelected" class="flex items-center gap-2">
+            <div
+              @click="isNegativeCost = !isNegativeCost"
+              :class="['w-4 h-4 rounded border transition-all flex items-center justify-center', isNegativeCost ? 'bg-brand border-brand' : 'border-border-light bg-card-bg']"
+            >
+              <span v-if="isNegativeCost" class="text-white text-[10px] font-bold">✓</span>
+            </div>
+            <span class="font-body text-xs text-text-secondary">标记为负成本（成本已通过卖出全部收回）</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== Step 3: 分红预测口径（加密币无分红，直接跳过） ==================== -->
+      <section
+        v-if="!isCryptoSelected"
+        :class="['bg-card-bg rounded-xl p-lg card-shadow border border-border-light/40', !step3Active ? 'opacity-40 pointer-events-none' : '']"
+      >
+        <div class="flex items-center justify-between mb-lg">
+          <div class="flex items-center gap-3">
+            <span :class="['flex items-center justify-center w-7 h-7 rounded-full text-white text-xs font-display font-semibold', step3Active ? 'bg-brand' : 'bg-text-tertiary']">3</span>
+            <h2 :class="['font-display text-xl flex items-center gap-1', step3Active ? 'text-text-primary' : 'text-text-secondary']">
+              分红预测口径
+              <span class="material-symbols-outlined text-text-tertiary text-[18px]">help</span>
+            </h2>
+          </div>
+          <span class="font-body text-xs text-text-tertiary" v-if="!step3Active">选股后自动展开</span>
+        </div>
+
+        <!-- 加载中 -->
+        <div v-if="isFetchingDividend" class="text-center py-lg">
+          <span class="text-xl block mb-1">🔄</span>
+          <p class="font-body text-sm text-text-tertiary">查询分红数据中...</p>
+        </div>
+
+        <!-- 无分红数据 -->
+        <div v-else-if="dividendInfo && !hasDividendData" class="text-center py-lg">
+          <span class="text-2xl block mb-1">📋</span>
+          <p class="font-body text-sm text-text-tertiary">该基金暂无分红记录，已跳过分红预测</p>
+        </div>
+
+        <!-- 有分红数据：完整预测 UI -->
+        <template v-else-if="hasDividendData">
+          <!-- 预测方法切换 -->
+          <div class="flex bg-card-alt rounded-lg p-[3px] mb-lg">
+            <button @click="forecastMethod='ex_date'" :class="forecastMethod==='ex_date' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[7px] rounded font-body font-medium text-sm transition-all">按除权日</button>
+            <button @click="forecastMethod='report_period'" :class="forecastMethod==='report_period' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[7px] rounded font-body font-medium text-sm transition-all">按报告期</button>
+            <button @click="forecastMethod='custom'" :class="forecastMethod==='custom' ? 'bg-card-bg text-text-primary shadow-sm' : 'text-text-secondary'" class="flex-1 py-[7px] rounded font-body font-medium text-sm transition-all">自定义</button>
+          </div>
+
+          <!-- 年限选择 -->
+          <div class="grid grid-cols-3 gap-2 mb-lg">
+            <button @click="forecastYears='1y'" :class="forecastYears==='1y' ? 'border-brand bg-brand-light text-brand font-medium' : 'border-border-light text-text-secondary'" class="py-2 border rounded-lg font-body text-sm transition-all">近1年</button>
+            <button @click="forecastYears='3y'" :class="forecastYears==='3y' ? 'border-brand bg-brand-light text-brand font-medium' : 'border-border-light text-text-secondary'" class="py-2 border rounded-lg font-body text-sm transition-all">近3年</button>
+            <button @click="forecastYears='5y'" :class="forecastYears==='5y' ? 'border-brand bg-brand-light text-brand font-medium' : 'border-border-light text-text-secondary'" class="py-2 border rounded-lg font-body text-sm transition-all">近5年</button>
+          </div>
+
+          <!-- 分红结果 -->
+          <div class="flex items-center justify-between border-t border-border-light pt-lg">
+            <span class="font-body text-xs text-text-secondary">
+              年均每份分红
+              <span v-if="dividendInfo" class="text-text-tertiary">（{{ dividendInfo.unitText }}）</span>
+            </span>
+            <span class="font-display text-xl font-semibold text-text-primary">
+              ¥{{ dividendInfo!.annualDividendPerShare.toFixed(4) }}
+            </span>
+          </div>
+
+          <!-- 提示信息 -->
+          <div class="mt-lg p-sm bg-brand-light/60 rounded-lg flex gap-2 items-start">
+            <span class="text-brand text-[16px] mt-[2px]">💡</span>
+            <p class="font-body text-xs text-text-secondary">
+              取最近{{ { '1y': '1', '3y': '3', '5y': '5' }[forecastYears] || '3' }}年{{ forecastMethod === 'ex_date' ? '内除权除息日对应的分红记录' : '的报告期净值增长' }}，计算年均{{ dividendInfo?.unitText || '每份' }}收益
+            </p>
+          </div>
+        </template>
+
+        <!-- 初始状态 -->
+        <div v-else class="text-center py-lg">
+          <span class="text-2xl block mb-1">📊</span>
+          <p class="font-body text-sm text-text-tertiary">选择标的后将自动查询分红数据</p>
+        </div>
+      </section>
+
+      <!-- ==================== 提交按钮 ==================== -->
+      <div class="pt-sm">
+        <button
+          @click="handleSubmit"
+          :disabled="!canSubmit || isSubmitting"
+          :class="[canSubmit ? 'bg-brand text-white shadow-card' : 'bg-card-alt text-text-tertiary cursor-not-allowed', 'w-full h-[52px] rounded-xl font-body font-medium text-md transition-all active:scale-[0.98]']"
+        >
+          {{ isSubmitting ? '添加中...' : '确认添加' }}
+        </button>
+        <p v-if="error" class="text-center font-body text-xs text-error mt-md">{{ error }}</p>
+      </div>
+    </main>
+  </div>
+</template>
+
+<style scoped>
+.fade-enter-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.fade-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
+.fade-enter-from,
+.fade-leave-to { opacity: 0; transform: translateY(-4px); }
+</style>

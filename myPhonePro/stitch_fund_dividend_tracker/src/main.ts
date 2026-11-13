@@ -1,31 +1,31 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
-import './styles/tokens.css'
-import './styles/base.css'
+import { initAuth } from './api/request'
+import './assets/styles/main.css'
 
-/**
- * 旧版 PWA / 双皮肤体系的收尾清理：
- * 新前端是唯一入口，不再区分皮肤，也不再使用缓存优先的 Service Worker。
- * 这里顺手注销旧 SW、清掉旧的 shell 缓存，避免浏览器继续展示旧入口。
- */
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker
-    .getRegistrations()
-    .then((registrations) => registrations.forEach((registration) => void registration.unregister()))
-    .catch(() => {})
-}
-if ('caches' in window) {
-  caches
-    .keys()
-    .then((keys) =>
-      keys
-        .filter((key) => key.startsWith('fund-tracker-shell-'))
-        .forEach((key) => void caches.delete(key)),
-    )
-    .catch(() => {})
+// 启动时检查 Token 有效性
+async function initApp() {
+  // 先挂载 App，让路由系统就绪
+  const app = createApp(App)
+  app.use(router)
+  app.mount('#app')
+
+  // 再检查 Token，未登录则跳转
+  const loggedIn = await initAuth()
+  if (!loggedIn) {
+    router.push({ name: 'login' })
+  }
 }
 
-const app = createApp(App)
-app.use(router)
-app.mount('#app')
+initApp()
+
+// 生产环境注册 Service Worker(开发时不注册,避免缓存干扰 HMR)
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then(() => console.log('[PWA] Service Worker 已注册'))
+      .catch((err) => console.warn('[PWA] Service Worker 注册失败:', err))
+  })
+}
