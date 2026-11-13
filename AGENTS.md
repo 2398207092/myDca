@@ -60,7 +60,7 @@ bash scripts/doc-check.sh
   - `next` 三面版（2026-11-13）：入口 `next.html`，代码全部在 `src/next/`（`src/next/main.ts`），现在是 / 过去 / 未来三面 + Sheet；路由独立（`#/now` `#/past` `#/future`）；
   - 切换：三套的「我的 / 设置 → 界面皮肤」点选后整页跳到对应入口；classic ⇄ Auros 保留 hash，三面版路由不互通、进出回各自首页；偏好存 `localStorage.mydca.ui_skin`，`public/skin-boot.js` 首帧前纠正入口；
   - 规则：**改原版只动 `src/` 非 `auros-skin` / `next` 文件；改 Auros 只动 `src/auros-skin/`；改三面版只动 `src/next/`；三边互不污染。不要再新增配色皮肤；新增整包皮肤需用户批准。**
-  - **仓库现状（2026-11-13）**：`main` = `origin/main`（f760d32，已含双皮肤包上线）；三面版在 `new-frontend` 分支，领先 `main` 11 个提交，**未推送**。旧版本 bundle 备份见 `D:\mySpace\backups\myDca-旧版本归档-20261112.bundle`。
+  - **仓库现状（2026-11-13）**：`main` = 本地 `5544335`（已合并 `new-frontend`，三面版 P0 收口完成），领先 `origin/main` **13 个提交，未推送**；生产仍是 f760d32。旧版本 bundle 备份见 `D:\mySpace\backups\myDca-旧版本归档-20261112.bundle`。
 - 视觉决策入口：[design/00-基准.md](design/00-基准.md)。
 - 门禁：`node scripts/design-check.cjs`（error 基线 **248**，只降不升）；`npm run build` 必须产出 `dist/index.html` / `dist/auros.html` / `dist/next.html`；三套入口都要给真实渲染截图（390/320、0 console、0 横向溢出）。
 - 不引入新组件库；技能一次只用一家（技能库在 `design/skills/`，清单与「适配哪些动作」见 [docs/06-技能.md](docs/06-技能.md)）；改 UI 必须给真实渲染截图。
