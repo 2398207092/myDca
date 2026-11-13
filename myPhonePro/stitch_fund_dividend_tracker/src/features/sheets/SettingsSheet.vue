@@ -12,6 +12,7 @@ import { authState, signOut } from '@/shared/auth'
 import SheetFrame from '@/shared/components/SheetFrame.vue'
 import DataRow from '@/shared/components/DataRow.vue'
 import SectionLabel from '@/shared/components/SectionLabel.vue'
+import SeamDivider from '@/shared/components/SeamDivider.vue'
 import BtnKey from '@/shared/components/BtnKey.vue'
 import EmptyState from '@/shared/components/EmptyState.vue'
 import ErrorState from '@/shared/components/ErrorState.vue'
@@ -94,7 +95,7 @@ async function logout(): Promise<void> {
       <SectionLabel text="账号" />
       <DataRow label="登录邮箱" :value="email" :meta="authState.user ? '' : '未获取到登录信息'" />
 
-      <div class="divider" />
+      <SeamDivider />
 
       <SectionLabel text="账户" />
       <SkeletonRows v-if="asyncData.loading.value && !asyncData.data.value" :rows="2" />
@@ -120,7 +121,7 @@ async function logout(): Promise<void> {
       </template>
       <p class="note micro">账户合计含持仓市值与现金；USDT 账户按 CNY 折算后计入合计。</p>
 
-      <div class="divider" />
+      <SeamDivider />
 
       <SectionLabel text="数据" />
       <div class="actions">
@@ -132,7 +133,7 @@ async function logout(): Promise<void> {
       <p class="note micro">刷新会重新拉取各面数据；同步会把基金分红记录同步为分红事件，可能新增待确认事件。</p>
       <p v-if="syncError" class="sync-error" role="alert">⚠ {{ syncError }}</p>
 
-      <div class="divider" />
+      <SeamDivider />
 
       <SectionLabel text="登录" />
       <div class="actions">
@@ -156,11 +157,6 @@ async function logout(): Promise<void> {
 </template>
 
 <style scoped>
-.divider {
-  height: 1px;
-  background: var(--hairline);
-  margin: var(--space-5) 0 var(--space-4);
-}
 .actions {
   display: flex;
   flex-direction: column;

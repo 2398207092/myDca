@@ -12,6 +12,7 @@ import Readout from '@/shared/components/Readout.vue'
 import DataRow from '@/shared/components/DataRow.vue'
 import BtnKey from '@/shared/components/BtnKey.vue'
 import SectionLabel from '@/shared/components/SectionLabel.vue'
+import SeamDivider from '@/shared/components/SeamDivider.vue'
 import SkeletonRows from '@/shared/components/SkeletonRows.vue'
 import ErrorState from '@/shared/components/ErrorState.vue'
 import EmptyState from '@/shared/components/EmptyState.vue'
@@ -95,7 +96,7 @@ async function confirmSnapshot(): Promise<void> {
         <Readout label="当前总资产" :amount="totalText" size="lg" />
         <p class="readout-meta micro">{{ todayLabel }} · 口径：资产分类汇总（现金 / 黄金 / 加密资产等）</p>
 
-        <div class="divider" />
+        <SeamDivider />
 
         <SectionLabel text="构成（分类汇总）" />
         <DataRow
@@ -168,11 +169,6 @@ async function confirmSnapshot(): Promise<void> {
 <style scoped>
 .readout-meta {
   margin-top: var(--space-2);
-}
-.divider {
-  height: 1px;
-  background: var(--hairline);
-  margin: var(--space-5) 0 var(--space-4);
 }
 .confirm-lead {
   font-size: var(--text-body);

@@ -13,6 +13,7 @@ import {
 } from '@/api/expense'
 import SheetFrame from '@/shared/components/SheetFrame.vue'
 import SectionLabel from '@/shared/components/SectionLabel.vue'
+import SeamDivider from '@/shared/components/SeamDivider.vue'
 import TextField from '@/shared/components/TextField.vue'
 import BtnKey from '@/shared/components/BtnKey.vue'
 import IconKey from '@/shared/components/IconKey.vue'
@@ -151,7 +152,7 @@ async function removeExpense(item: LiveExpenseItem): Promise<void> {
         description="添加房租、餐饮等月度支出后，未来面会显示预测分红的覆盖进度。"
       />
 
-      <div class="divider" />
+      <SeamDivider />
 
       <SectionLabel text="添加支出项" />
       <TextField
@@ -287,11 +288,6 @@ async function removeExpense(item: LiveExpenseItem): Promise<void> {
 }
 .confirm-acts :deep(.btn) {
   flex: 1;
-}
-.divider {
-  height: 1px;
-  background: var(--hairline);
-  margin: var(--space-5) 0 var(--space-4);
 }
 .field-block {
   margin-bottom: var(--space-4);
