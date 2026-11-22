@@ -9,12 +9,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { createTransaction } from '@/api/transaction'
 import { listHoldings, getNavByDate } from '@/api/holding'
 import type { HoldingItem, NavByDateResult } from '@/api/holding'
+import { refreshCryptoPrices } from '@/api/crypto'
+import { calcCryptoBuyQuantity, formatCryptoQty } from '@/utils/trade-calc'
 import { formatMoney, formatPercent, formatPrice, formatQty } from '@/auros-skin/utils/format'
 import AurosNavBar from '@/auros-skin/components/auros/AurosNavBar.vue'
 import AurosCard from '@/auros-skin/components/auros/AurosCard.vue'
 import AurosChapter from '@/auros-skin/components/auros/AurosChapter.vue'
 import AurosField from '@/auros-skin/components/auros/AurosField.vue'
-import AurosRow from '@/auros-skin/components/auros/AurosRow.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -40,8 +41,14 @@ const buyAmount = ref(0)
 const navResult = ref<NavByDateResult | null>(null)
 const navState = ref<'idle' | 'loading' | 'found' | 'notfound' | 'error'>('idle')
 
+// 加密币取价：idle=未取 / loading=取价中 / live=实时价 / stale=沿用旧价 / error=失败
+const cryptoPriceState = ref<'idle' | 'loading' | 'live' | 'stale' | 'error'>('idle')
+const cryptoPriceMeta = ref('')
+let cryptoQuoteSeq = 0
+
 const qtyLabel = ref('买入数量')
-const priceLabel = ref('买入金额 (总价)')
+// 初始就是买入：标签必须与买入分支一致（此前误留了卖出页的「买入金额 (总价)」）
+const priceLabel = ref('买入单价')
 const dateLabel = ref('交易日期')
 
 const isCryptoHolding = computed(() => holdingItem.value?.quoteCurrency === 'USDT')
@@ -49,13 +56,46 @@ const qtySuffix = computed(() => (isCryptoHolding.value ? '枚' : '份'))
 const priceSuffix = computed(() => (isCryptoHolding.value ? 'USDT' : 'CNY'))
 const currencySuffix = computed(() => (isCryptoHolding.value ? 'USDT' : 'CNY'))
 
-const qtyPlaceholder = computed(() => (transactionType.value === 'bonus_share' ? '0' : '0.00'))
-const pricePlaceholder = computed(() => '0.0000')
+const qtyPlaceholder = computed(() => {
+  if (isCryptoHolding.value) return '按金额自动计算'
+  return transactionType.value === 'bonus_share' ? '0' : '0.00'
+})
+const pricePlaceholder = computed(() => {
+  if (transactionType.value === 'bonus_share') return '0.0000'
+  return isCryptoHolding.value ? '如 85000' : '0.0000'
+})
+const buyAmountPlaceholder = computed(() =>
+  isCryptoHolding.value ? '输入本次花费的 USDT，自动算数量' : '输入金额后自动计算手续费与份额'
+)
+
+function fmtUsdt(v: number | string): string {
+  return (Number(v) || 0).toLocaleString('zh-CN', { maximumFractionDigits: 4 })
+}
+
+// 加密币取价提示：不阻塞填表，失败也能手填
+const cryptoPriceLine = computed(() => {
+  const p = Number(price.value) || 0
+  const priceText = p > 0 ? `${fmtUsdt(p)} USDT/枚` : '单价'
+  switch (cryptoPriceState.value) {
+    case 'loading':
+      return '正在获取最新价…（单价可先手动填写）'
+    case 'live':
+      return `已取价 ${priceText}${cryptoPriceMeta.value ? ' · ' + cryptoPriceMeta.value : ''}，可手动修改`
+    case 'stale':
+      return p > 0
+        ? `实时取价失败，沿用上次价格 ${priceText}${cryptoPriceMeta.value ? ' · ' + cryptoPriceMeta.value : ''}，可手动修改`
+        : '实时取价失败，请手动输入 USDT 单价'
+    case 'error':
+      return '取价失败，请手动输入 USDT 单价'
+    default:
+      return '请确认 USDT 单价（可手动修改）'
+  }
+})
 
 const estimatedImpact = computed(() => {
-  const qty = quantity.value || 0
-  const unit = price.value || 0
-  const feeVal = fee.value || 0
+  const qty = Number(quantity.value) || 0
+  const unit = Number(price.value) || 0
+  const feeVal = Number(fee.value) || 0
   const total = qty * unit + feeVal
   const sign =
     transactionType.value === 'buy' ||
@@ -64,21 +104,72 @@ const estimatedImpact = computed(() => {
       ? '+'
       : '-'
   const qtyUnit = isCryptoHolding.value ? '枚' : '份'
+  const qtyText = isCryptoHolding.value ? formatCryptoQty(qty) : formatQty(qty, 2)
   const totalText = isCryptoHolding.value
     ? `${formatMoney(total, { symbol: false })} USDT`
     : formatMoney(total)
-  return `${sign}${formatQty(qty, 2)} ${qtyUnit} / ${totalText}`
+  return `${sign}${qtyText} ${qtyUnit} / ${totalText}`
 })
 
 const impactProgress = computed(() => {
-  const qty = quantity.value || 0
+  const qty = Number(quantity.value) || 0
   return Math.min((qty / 10000) * 100, 100)
 })
 
 const holdingItem = computed(() => holdings.value.find((h) => h.id === selectedHoldingId.value))
 const currentBuyFeeRate = computed(() => holdingItem.value?.buyFeeRate ?? 0.15)
 
+// 加密币取价：先用持仓里上次价格秒填，再拉一次实时价；等待期间用户手改过就不覆盖
+async function fetchCryptoPrice() {
+  if (!isCryptoHolding.value || transactionType.value !== 'buy') {
+    cryptoPriceState.value = 'idle'
+    cryptoPriceMeta.value = ''
+    return
+  }
+  const seq = ++cryptoQuoteSeq
+  const seeded = Number(holdingItem.value?.quotePrice) || 0
+  if (seeded > 0 && !(Number(price.value) > 0)) {
+    price.value = seeded
+    cryptoPriceMeta.value = holdingItem.value?.priceUpdatedAt
+      ? `上次 ${String(holdingItem.value.priceUpdatedAt).slice(5, 16).replace('T', ' ')}`
+      : '上次价格'
+    cryptoPriceState.value = 'stale'
+  }
+  const priceBefore = Number(price.value) || 0
+  cryptoPriceState.value = 'loading'
+  try {
+    const resp = await refreshCryptoPrices()
+    if (seq !== cryptoQuoteSeq) return
+    const code = (holdingItem.value?.code || '').toUpperCase()
+    const item = resp.prices.find((p) => (p.symbol || '').toUpperCase() === code)
+    const live = Number(item?.usdtPrice) || 0
+    if (live <= 0) {
+      cryptoPriceState.value = priceBefore > 0 ? 'stale' : 'error'
+      return
+    }
+    const untouched = (Number(price.value) || 0) === priceBefore
+    if (!untouched) {
+      // 用户手填的单价优先，行情价不覆盖
+      cryptoPriceState.value = 'idle'
+      return
+    }
+    price.value = live
+    cryptoPriceMeta.value = [
+      item?.source ? String(item.source).toUpperCase() : '',
+      item?.updatedAt ? String(item.updatedAt).slice(11, 16) : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+    cryptoPriceState.value = resp.stale ? 'stale' : 'live'
+    applyBuyAutoCalc()
+  } catch (e) {
+    if (seq !== cryptoQuoteSeq) return
+    cryptoPriceState.value = priceBefore > 0 ? 'stale' : 'error'
+  }
+}
+
 async function fetchNav() {
+  // 加密币持仓没有基金净值接口，价格走行情接口（fetchCryptoPrice）
   if (isCryptoHolding.value) {
     navState.value = 'idle'
     navResult.value = null
@@ -111,8 +202,14 @@ async function fetchNav() {
 
 function applyBuyAutoCalc() {
   if (transactionType.value !== 'buy') return
+  // 加密币：投入金额 − 手续费，再按「单价」折算币数（8 位小数）
+  if (isCryptoHolding.value) {
+    if (!(Number(buyAmount.value) > 0)) return
+    quantity.value = calcCryptoBuyQuantity(buyAmount.value, price.value, fee.value)
+    return
+  }
   const nav = navResult.value?.unitNav
-  const amount = buyAmount.value || 0
+  const amount = Number(buyAmount.value) || 0
   const rate = currentBuyFeeRate.value
   if (nav && nav > 0 && amount > 0) {
     const feeVal = (amount * rate) / 100
@@ -123,11 +220,39 @@ function applyBuyAutoCalc() {
   }
 }
 
-watch([selectedHoldingId, date, transactionType], () => {
+// 用户手动改单价：行情结果不再覆盖，提示回到「手动输入」
+function markPriceManual() {
+  if (!isCryptoHolding.value) return
+  if (cryptoPriceState.value !== 'idle') {
+    cryptoPriceState.value = 'idle'
+    cryptoPriceMeta.value = ''
+  }
+}
+
+watch([selectedHoldingId, date, transactionType], (next, prev) => {
+  const holdingChanged = next[0] !== prev[0]
+  const typeChanged = next[2] !== prev[2]
   buyAmount.value = 0
+  // 换标的时上一条的单价/数量/手续费一律不能带过来（跨加密币与基金更危险）
+  if (holdingChanged) {
+    quantity.value = 0
+    fee.value = 0
+    price.value = 0
+  } else if (isCryptoHolding.value) {
+    quantity.value = 0
+    if (typeChanged) {
+      price.value = 0
+      fee.value = 0
+    }
+  }
   fetchNav()
+  if (holdingChanged || typeChanged) fetchCryptoPrice()
 })
 watch(buyAmount, () => applyBuyAutoCalc())
+// 加密币：手动改单价/手续费后按当前金额重算数量（基金分支仍由净值驱动，不重复算）
+watch([price, fee], () => {
+  if (isCryptoHolding.value && transactionType.value === 'buy') applyBuyAutoCalc()
+})
 
 function setType(type: 'buy' | 'sell' | 'bonus_share' | 'reinvest') {
   transactionType.value = type
@@ -186,18 +311,27 @@ loadHoldings()
 
 async function handleSubmit() {
   if (formState.value === 'submitting') return
-  if (!selectedHoldingId.value || quantity.value <= 0) {
+  const qty = Number(quantity.value) || 0
+  const unit = Number(price.value) || 0
+  const feeVal = Number(fee.value) || 0
+  if (!selectedHoldingId.value || qty <= 0) {
     error.value = '请填写完整的交易信息'
     return
   }
-  if (transactionType.value !== 'bonus_share' && price.value <= 0) {
+  if (transactionType.value !== 'bonus_share' && unit <= 0) {
     error.value = '请填写完整的交易信息'
+    return
+  }
+  // 加密币买入：投入金额先扣手续费，扣完为 0 时算不出币数，给专门提示
+  if (isCryptoHolding.value && transactionType.value === 'buy'
+      && Number(buyAmount.value) > 0 && Number(buyAmount.value) <= feeVal) {
+    error.value = '买入金额不足以支付手续费，请调整金额或手续费'
     return
   }
 
-  let perSharePrice = price.value
-  if (transactionType.value === 'sell' && quantity.value > 0) {
-    perSharePrice = price.value / quantity.value
+  let perSharePrice = unit
+  if (transactionType.value === 'sell' && qty > 0) {
+    perSharePrice = unit / qty
   }
 
   formState.value = 'submitting'
@@ -207,9 +341,9 @@ async function handleSubmit() {
       holdingId: selectedHoldingId.value,
       type: transactionType.value,
       date: date.value,
-      quantity: quantity.value,
+      quantity: qty,
       price: perSharePrice,
-      fee: fee.value || 0,
+      fee: feeVal,
     })
     success.value = true
     setTimeout(() => {
@@ -269,10 +403,23 @@ async function handleSubmit() {
             </span>
           </label>
 
-          <!-- 加密币提示 -->
-          <p v-if="isCryptoHolding" class="hint">
-            <i class="hint__dot is-warn"></i>
-            加密币交易：请手动输入 USDT 单价；不会自动扣减交易所余额
+          <!-- 加密币取价提示 + 余额口径 -->
+          <p
+            v-if="isCryptoHolding && transactionType === 'buy'"
+            class="hint"
+            :class="{ 'is-on': cryptoPriceState === 'live', 'is-off': cryptoPriceState === 'error' }"
+          >
+            <i class="hint__dot" :class="{ 'is-warn': cryptoPriceState === 'loading' }"></i>
+            <span>
+              {{ cryptoPriceLine }}
+              <span class="hint__sub">数量按（买入金额 − 手续费）÷ 单价自动计算，可手动修改</span>
+              <span class="hint__sub">不会自动扣减交易所 USDT 余额，请以交易所记录为准</span>
+            </span>
+          </p>
+          <!-- 加密币卖出/送股等：保留余额口径提示 -->
+          <p v-else-if="isCryptoHolding" class="hint">
+            <i class="hint__dot"></i>
+            <span>不会自动扣减交易所 USDT 余额，请以交易所记录为准</span>
           </p>
 
           <!-- 净值状态 -->
@@ -304,13 +451,22 @@ async function handleSubmit() {
             :suffix="currencySuffix"
             inputmode="decimal"
             type="number"
-            placeholder="输入金额后自动算手续费与份额"
+            :placeholder="buyAmountPlaceholder"
             mono
           />
 
           <div class="grid2">
             <AurosField v-model="quantity" :label="qtyLabel" :suffix="qtySuffix" type="number" inputmode="decimal" :placeholder="qtyPlaceholder" mono />
-            <AurosField v-model="price" :label="priceLabel" :suffix="priceSuffix" type="number" inputmode="decimal" :placeholder="pricePlaceholder" mono />
+            <AurosField
+              v-model="price"
+              :label="priceLabel"
+              :suffix="priceSuffix"
+              type="number"
+              inputmode="decimal"
+              :placeholder="pricePlaceholder"
+              mono
+              @update:model-value="markPriceManual"
+            />
           </div>
 
           <AurosField v-model="fee" label="交易费用（可选）" :suffix="currencySuffix" type="number" inputmode="decimal" placeholder="0.00" mono />
@@ -319,7 +475,10 @@ async function handleSubmit() {
 
       <!-- 影响预估 -->
       <AurosChapter label="IMPACT" title="影响预估">
-        <AurosRow label="预估持仓影响" :value="estimatedImpact" />
+        <div class="impact-row">
+          <span class="impact-row__label">预估持仓影响</span>
+          <span class="impact-row__value au-num">{{ estimatedImpact }}</span>
+        </div>
         <div class="impact__bar"><i :style="{ width: impactProgress + '%' }"></i></div>
         <p v-if="error" class="error">{{ error }}</p>
         <p v-if="success" class="ok">已记录 · 正在返回交易列表</p>
@@ -366,6 +525,12 @@ async function handleSubmit() {
 }
 .grid2 > * {
   min-width: 0;
+}
+/* 320 窄屏：数量与单价并排放不下 8 位小数 + 5 位单价，改单列 */
+@media (max-width: 360px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---------- 类型切换 ---------- */
@@ -502,8 +667,33 @@ async function handleSubmit() {
   background: var(--au-pink);
   animation: au-breathe 2s ease-in-out infinite;
 }
+.hint__sub {
+  display: block;
+  margin-top: 2px;
+  color: rgba(187, 199, 198, 0.5);
+}
 
 /* ---------- 影响预估 ---------- */
+.impact-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 10px;
+  min-height: 28px;
+}
+.impact-row__label {
+  font-size: 13px;
+  color: var(--au-mist);
+  white-space: nowrap;
+}
+.impact-row__value {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--au-mist);
+  text-align: right;
+}
 .impact__bar {
   position: relative;
   height: 3px;
