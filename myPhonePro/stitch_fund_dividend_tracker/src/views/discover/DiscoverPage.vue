@@ -121,6 +121,50 @@ function formatPercent(num: number): string {
   return num >= 0 ? `+${num.toFixed(2)}%` : `${num.toFixed(2)}%`
 }
 
+// 资产配置：总资产 / 风险资产切换（2026-11-22 D 方案 + A 条形图 + A1 直拼接缝）
+const compositionTab = ref<'total' | 'risk'>('total')
+
+// 2026-11-22 用户统一色板：红利红 / 美股蓝 / 比特币橙 / 黄金亮黄 / 现金绿
+const CATEGORY_COLOR: Record<string, string> = {
+  cash: '#34A853',
+  dividend: '#E5484D',
+  us_stock: '#3B82F6',
+  crypto: '#F59E0B',
+  gold: '#FACC15',
+}
+function catColor(cat: CategoryItem): string {
+  return CATEGORY_COLOR[cat.type] || cat.color || '#8A948E'
+}
+/** 亮黄作为文字/小字对比度不足，标签文字用深黄 */
+function catTextColor(cat: CategoryItem): string {
+  return cat.type === 'gold' ? '#8A6B08' : catColor(cat)
+}
+/** 亮黄 pill 底色加深一点，避免 1% 标签看不清 */
+function catPillBg(cat: CategoryItem): string {
+  return catColor(cat) + (cat.type === 'gold' ? '26' : '18')
+}
+
+const cashCategory = computed(() => overview.value?.categories.find(c => c.type === 'cash') ?? null)
+const riskCategories = computed(() => (overview.value?.categories ?? []).filter(c => c.type !== 'cash'))
+const cashValue = computed(() => Number(cashCategory.value?.value) || 0)
+const riskValue = computed(() => riskCategories.value.reduce((sum, c) => sum + (Number(c.value) || 0), 0))
+const allocationTotal = computed(() => cashValue.value + riskValue.value)
+const cashPercent = computed(() => allocationTotal.value > 0 ? (cashValue.value / allocationTotal.value) * 100 : 0)
+const riskPercent = computed(() => 100 - cashPercent.value)
+
+/** 风险资产内部占比：分母是风险资产，不是总资产 */
+function riskShare(cat: CategoryItem): number {
+  return riskValue.value > 0 ? ((Number(cat.value) || 0) / riskValue.value) * 100 : 0
+}
+
+/** 圆点：亮黄在白底偏浅，补一圈深黄描边保证可见 */
+function catDotStyle(cat: CategoryItem): Record<string, string> {
+  return {
+    backgroundColor: catColor(cat),
+    boxShadow: cat.type === 'gold' ? 'inset 0 0 0 1px #D4A017' : 'none',
+  }
+}
+
 async function loadData() {
   pageState.value = 'loading'
   errorMsg.value = ''
@@ -565,38 +609,98 @@ async function doDelete() {
       <div class="stagger-item grid grid-cols-1 md:grid-cols-2 gap-md" style="animation-delay: 80ms">
         <!-- Allocation Treemap -->
         <section class="bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40">
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="font-body text-sm font-medium text-text-primary">持仓占比</h2>
-          </div>
-          <div v-if="overview && overview.categories.length > 0" class="space-y-3">
-            <div class="flex w-full h-8 rounded-lg overflow-hidden">
-              <div v-for="cat in overview.categories" :key="cat.type"
-                   class="flex items-center justify-center transition-all"
-                   :style="{ width: cat.percentage + '%', backgroundColor: cat.color }">
-                <span v-if="cat.percentage > 15" class="font-body text-xs text-white">
-                  {{ cat.percentage.toFixed(0) }}%
-                </span>
-              </div>
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <h2 class="font-body text-sm font-medium text-text-primary shrink-0">资产配置</h2>
+            <div class="bg-card-alt rounded-lg p-[2px] flex shrink-0">
+              <button type="button"
+                      class="px-2 py-1 rounded-md font-body text-[10px] transition-colors"
+                      :class="compositionTab === 'total'
+                        ? 'bg-card-bg text-text-primary font-medium shadow-sm'
+                        : 'text-text-tertiary'"
+                      @click="compositionTab = 'total'">
+                总资产
+              </button>
+              <button type="button"
+                      class="px-2 py-1 rounded-md font-body text-[10px] transition-colors"
+                      :class="compositionTab === 'risk'
+                        ? 'bg-card-bg text-text-primary font-medium shadow-sm'
+                        : 'text-text-tertiary'"
+                      @click="compositionTab = 'risk'">
+                风险资产
+              </button>
             </div>
-            <div class="flex flex-col gap-1.5">
-              <div v-for="cat in overview.categories" :key="cat.type"
-                   class="flex items-center gap-1">
-                <div class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: cat.color }"></div>
-                <span class="font-body text-[11px] text-text-tertiary shrink-0 w-12 truncate">{{ cat.name }}</span>
-                <!-- 进度条：flex-1 确保所有行左右对齐 -->
-                <div class="flex-1 h-1 rounded-full bg-progress-bg overflow-hidden min-w-[24px]">
-                  <div class="h-full rounded-full transition-all duration-500"
-                       :style="{ width: cat.percentage + '%', backgroundColor: cat.color }"></div>
+          </div>
+          <template v-if="overview && overview.categories.length > 0">
+            <!-- 总资产：原「持仓占比」原样保留 -->
+            <template v-if="compositionTab === 'total'">
+              <div class="space-y-3">
+                <div class="flex w-full h-8 rounded-lg overflow-hidden">
+                  <div v-for="cat in overview.categories" :key="cat.type"
+                       class="flex items-center justify-center transition-all"
+                       :style="{ width: cat.percentage + '%', backgroundColor: catColor(cat) }">
+                    <span v-if="cat.percentage > 15" class="font-body text-xs text-white">
+                      {{ cat.percentage.toFixed(0) }}%
+                    </span>
+                  </div>
                 </div>
-                <!-- 占比 Pill + 金额：合并为右侧固定区域 -->
-                <span class="font-body text-[10px] font-medium px-1 py-[1px] rounded-full shrink-0 mr-1"
-                      :style="{ backgroundColor: cat.color + '18', color: cat.color }">
-                  {{ cat.percentage.toFixed(0) }}%
-                </span>
-                <span class="font-body text-[11px] text-text-primary tabular-nums shrink-0 text-right min-w-[60px]">{{ formatMoney(cat.value) }}</span>
+                <div class="flex flex-col gap-1.5">
+                  <div v-for="cat in overview.categories" :key="cat.type"
+                       class="flex items-center gap-1">
+                    <div class="w-2.5 h-2.5 rounded-full shrink-0" :style="catDotStyle(cat)"></div>
+                    <span class="font-body text-[11px] text-text-tertiary shrink-0 w-12 truncate">{{ cat.name }}</span>
+                    <!-- 进度条：flex-1 确保所有行左右对齐 -->
+                    <div class="flex-1 h-1 rounded-full bg-progress-bg overflow-hidden min-w-[24px]">
+                      <div class="h-full rounded-full transition-all duration-500"
+                           :style="{ width: cat.percentage + '%', backgroundColor: catColor(cat) }"></div>
+                    </div>
+                    <!-- 占比 Pill + 金额：合并为右侧固定区域 -->
+                    <span class="font-body text-[10px] font-medium px-1 py-[1px] rounded-full shrink-0 mr-1"
+                          :style="{ backgroundColor: catPillBg(cat), color: catTextColor(cat) }">
+                      {{ cat.percentage.toFixed(0) }}%
+                    </span>
+                    <span class="font-body text-[11px] text-text-primary tabular-nums shrink-0 text-right min-w-[60px]">{{ formatMoney(cat.value) }}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </template>
+
+            <!-- 风险资产：A 方案（粗条 + 2×2 图例），接缝 A1 直拼 -->
+            <template v-else>
+              <div class="flex items-baseline gap-1.5 mb-3">
+                <span class="font-body text-[11px] text-text-tertiary">风险资产</span>
+                <span class="font-body text-sm font-medium text-text-primary tabular-nums">{{ formatMoney(riskValue) }}</span>
+                <span class="font-body text-[10px] text-text-tertiary">占总资产 {{ riskPercent.toFixed(0) }}%</span>
+              </div>
+              <div v-if="riskCategories.length > 0" class="space-y-3">
+                <div class="flex w-full h-10 rounded-[10px] overflow-hidden bg-progress-bg">
+                  <div v-for="cat in riskCategories" :key="cat.type"
+                       :style="{ width: riskShare(cat) + '%', backgroundColor: catColor(cat) }"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div v-for="cat in riskCategories" :key="cat.type"
+                       class="bg-card-alt/40 border border-border-light/40 rounded-lg px-2.5 py-2">
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full shrink-0" :style="catDotStyle(cat)"></span>
+                      <span class="font-body text-[11px] text-text-secondary">{{ cat.name }}</span>
+                      <span class="ml-auto font-body text-[13px] font-semibold text-text-primary tabular-nums">{{ riskShare(cat).toFixed(0) }}%</span>
+                    </div>
+                    <div class="flex items-baseline justify-between mt-1 font-body text-[10px] text-text-tertiary">
+                      <span class="text-text-primary font-medium tabular-nums">{{ formatMoney(cat.value) }}</span>
+                      <span>占总 {{ cat.percentage.toFixed(0) }}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="font-body text-xs text-text-tertiary py-2">暂无风险资产</div>
+              <div class="flex items-center gap-2 mt-3 pt-2.5 border-t border-border-light/40">
+                <span class="w-2 h-2 rounded-full shrink-0" style="background-color:#34A853"></span>
+                <span class="font-body text-[11px] text-text-secondary">现金及等价物</span>
+                <span class="font-body text-[9px] text-text-tertiary border border-border-light/60 rounded-full px-1.5 py-[1px]">不计入</span>
+                <span class="ml-auto font-body text-[10px] text-text-tertiary tabular-nums">占总 {{ cashPercent.toFixed(0) }}%</span>
+                <span class="font-body text-[11px] text-text-primary tabular-nums text-right">{{ formatMoney(cashValue) }}</span>
+              </div>
+            </template>
+          </template>
           <div v-else class="flex items-center justify-center h-20 font-body text-xs text-text-tertiary">
             暂无资产数据
           </div>
@@ -660,7 +764,7 @@ async function doDelete() {
             <div v-for="h in categorizedHoldings('gold')" :key="h.id"
                  class="flex items-center gap-3 cursor-pointer hover:bg-card-alt -m-lg p-lg rounded-lg transition-colors"
                  @click="router.push(`/holding/${h.id}`)">
-              <div class="w-3 h-3 rounded-full shrink-0" style="background-color:#8A6B08"></div>
+              <div class="w-3 h-3 rounded-full shrink-0" style="background-color:#FACC15; box-shadow: inset 0 0 0 1px #D4A017"></div>
               <div class="flex-1 min-w-0">
                 <p class="font-body text-sm font-medium text-text-primary truncate">{{ h.name }}</p>
                 <p class="font-body text-xs text-text-tertiary">黄金 · ETF</p>
@@ -672,7 +776,7 @@ async function doDelete() {
           </template>
           <template v-else>
             <div class="flex items-start gap-3">
-              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#8A6B08"></div>
+              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#FACC15; box-shadow: inset 0 0 0 1px #D4A017"></div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between">
                   <h3 class="font-body text-sm font-medium text-text-primary">黄金 · ETF</h3>
@@ -699,7 +803,7 @@ async function doDelete() {
             <div v-for="h in categorizedHoldings('dividend')" :key="h.id"
                  class="flex items-center gap-3 cursor-pointer hover:bg-card-alt -m-lg p-lg rounded-lg transition-colors"
                  @click="router.push(`/holding/${h.id}`)">
-              <div class="w-3 h-3 rounded-full shrink-0" style="background-color:#EAB308"></div>
+              <div class="w-3 h-3 rounded-full shrink-0" style="background-color:#E5484D"></div>
               <div class="flex-1 min-w-0">
                 <p class="font-body text-sm font-medium text-text-primary truncate">{{ h.name }}</p>
                 <p class="font-body text-xs text-text-tertiary">红利 · 基金</p>
@@ -711,7 +815,7 @@ async function doDelete() {
           </template>
           <template v-else>
             <div class="flex items-start gap-3">
-              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#EAB308"></div>
+              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#E5484D"></div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between">
                   <h3 class="font-body text-sm font-medium text-text-primary">红利 · 基金</h3>
@@ -737,7 +841,7 @@ async function doDelete() {
              class="bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40">
           <template v-if="accounts.length > 0">
             <div class="flex items-start gap-3">
-              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#6366F1"></div>
+              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#F59E0B"></div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between">
                   <h3 class="font-body text-sm font-medium text-text-primary">账户与现金</h3>
@@ -1365,12 +1469,12 @@ async function doDelete() {
           <p class="font-body text-xs text-text-tertiary text-center mb-3">选择资产类型</p>
           <button class="w-full flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-card-alt transition-colors"
                   @click="showAddTypePicker = false; openAddSheet('cash')">
-            <span class="w-3 h-3 rounded-full shrink-0" style="background-color:#1A6B56"></span>
+            <span class="w-3 h-3 rounded-full shrink-0" style="background-color:#34A853"></span>
             <span class="font-body text-xs text-text-primary">现金</span>
           </button>
           <button class="w-full flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-card-alt transition-colors mt-1"
                   @click="showAddTypePicker = false; openAddSheet('crypto')">
-            <span class="w-3 h-3 rounded-full shrink-0" style="background-color:#8A6B08"></span>
+            <span class="w-3 h-3 rounded-full shrink-0" style="background-color:#F59E0B"></span>
             <span class="font-body text-xs text-text-primary">加密资产（USDT 等）</span>
           </button>
           <div class="text-center mt-2 pt-2 border-t border-border-light/40">
