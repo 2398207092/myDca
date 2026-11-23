@@ -16,6 +16,7 @@ import AppHeader from '@/components/shared/AppHeader.vue'
 import PageStateComp from '@/components/shared/PageState.vue'
 import ToastNotification from '@/components/shared/ToastNotification.vue'
 import { formatMoney } from '@/utils/format'
+import { buildRiskTargetPlan, defaultTargets, type RiskTargetItem } from '@/utils/risk-target'
 
 const router = useRouter()
 
@@ -121,6 +122,11 @@ function formatPercent(num: number): string {
   return num >= 0 ? `+${num.toFixed(2)}%` : `${num.toFixed(2)}%`
 }
 
+/** 目标测算统一用「万」，避免 ¥9925.00 和 ¥1.32万 混排 */
+function formatWan(v: number): string {
+  return `¥${((Number(v) || 0) / 10000).toFixed(2)}万`
+}
+
 // 资产配置：总资产 / 风险资产切换（2026-11-22 D 方案 + A 条形图 + A1 直拼接缝）
 const compositionTab = ref<'total' | 'risk'>('total')
 
@@ -157,12 +163,138 @@ function riskShare(cat: CategoryItem): number {
   return riskValue.value > 0 ? ((Number(cat.value) || 0) / riskValue.value) * 100 : 0
 }
 
+function riskBarTextColor(cat: CategoryItem): string {
+  // 橙色上用深字，红/蓝上用白字 + 轻阴影
+  return cat.type === 'crypto' ? '#3B2F00' : '#FFFFFF'
+}
+
 /** 圆点：亮黄在白底偏浅，补一圈深黄描边保证可见 */
 function catDotStyle(cat: CategoryItem): Record<string, string> {
   return {
     backgroundColor: catColor(cat),
     boxShadow: cat.type === 'gold' ? 'inset 0 0 0 1px #D4A017' : 'none',
   }
+}
+
+// ── 风险资产目标配置（2026-11-23）──────────────────────────────
+const TARGET_STORAGE_KEY = 'mydca.risk_targets'
+const showTargetSheet = ref(false)
+const targetMode = ref<'A' | 'B'>('B')
+const targetDraftMode = ref<'A' | 'B'>('B')
+const savedTargets = ref<Record<string, number>>({})
+const targetDraft = ref<Record<string, number>>({})
+
+try {
+  const raw = localStorage.getItem(TARGET_STORAGE_KEY)
+  if (raw) {
+    const parsed = JSON.parse(raw)
+    const targets = parsed?.targets
+    if (targets && typeof targets === 'object') {
+      const values = Object.values(targets).map((v) => Number(v))
+      const sum = values.reduce((s, v) => s + v, 0)
+      if (values.every((v) => Number.isFinite(v) && v >= 0) && Math.abs(sum - 100) < 0.01) {
+        savedTargets.value = targets
+        targetMode.value = parsed.mode === 'A' ? 'A' : 'B'
+      }
+    }
+  }
+} catch (_) {}
+
+const targetDraftItems = computed<RiskTargetItem[]>(() =>
+  riskCategories.value.map((cat) => ({
+    key: cat.type,
+    name: cat.name,
+    current: Number(cat.value) || 0,
+    target: Number(targetDraft.value[cat.type]) || 0,
+  })),
+)
+const targetDraftSum = computed(() => targetDraftItems.value.reduce((sum, i) => sum + i.target, 0))
+const targetSumValid = computed(() => Math.abs(targetDraftSum.value - 100) < 0.01)
+const targetPlan = computed(() => buildRiskTargetPlan(targetDraftItems.value, targetDraftMode.value))
+const hasSavedTargets = computed(() => Object.keys(savedTargets.value).length > 0)
+
+const fixedRiskCat = computed(() => {
+  const list = riskCategories.value
+  if (!list.length) return null
+  return list.reduce((a, b) => ((Number(b.value) || 0) > (Number(a.value) || 0) ? b : a), list[0])
+})
+const fixedRiskShare = computed(() => (fixedRiskCat.value ? riskShare(fixedRiskCat.value) : 0))
+const fixedTargetLabel = computed(() =>
+  fixedRiskCat.value
+    ? `保留最高项：${fixedRiskCat.value.name} ${Math.round(fixedRiskShare.value)}%`
+    : '保留最高项',
+)
+const fixedTargetCovers = computed(() => {
+  if (targetDraftMode.value !== 'B' || !fixedRiskCat.value) return false
+  return (Number(targetDraft.value[fixedRiskCat.value.type]) || 0) >= fixedRiskShare.value
+})
+
+function savedTargetFor(cat: CategoryItem): number | null {
+  const v = savedTargets.value[cat.type]
+  if (v === undefined) return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+function openTargetSheet() {
+  const items = riskCategories.value.map((cat) => ({ key: cat.type, current: Number(cat.value) || 0 }))
+  const defaults = defaultTargets(items)
+  const draft: Record<string, number> = {}
+  for (const cat of riskCategories.value) {
+    const saved = savedTargets.value[cat.type]
+    draft[cat.type] = Number.isFinite(Number(saved)) ? Number(saved) : (defaults[cat.type] ?? 0)
+  }
+  const sum = Object.values(draft).reduce((s, v) => s + (Number(v) || 0), 0)
+  if (Math.abs(sum - 100) > 0.01 && fixedRiskCat.value) {
+    draft[fixedRiskCat.value.type] = Math.max(0, (draft[fixedRiskCat.value.type] ?? 0) + (100 - sum))
+  }
+  targetDraft.value = draft
+  targetDraftMode.value = targetMode.value
+  showTargetSheet.value = true
+}
+
+function closeTargetSheet() {
+  showTargetSheet.value = false
+}
+
+function saveTargets() {
+  if (!targetPlan.value || !targetSumValid.value) return
+  savedTargets.value = { ...targetDraft.value }
+  targetMode.value = targetDraftMode.value
+  try {
+    localStorage.setItem(TARGET_STORAGE_KEY, JSON.stringify({
+      mode: targetMode.value,
+      targets: savedTargets.value,
+    }))
+  } catch (_) {}
+  showTargetSheet.value = false
+  showToast('目标比例已保存', 'success')
+}
+
+function targetRowFor(cat: CategoryItem) {
+  return targetPlan.value?.rows.find((r) => r.key === cat.type) ?? null
+}
+
+function targetAmountFor(cat: CategoryItem): string {
+  const row = targetRowFor(cat)
+  return row ? formatWan(row.targetAmount) : '—'
+}
+
+function targetDeltaLabel(cat: CategoryItem): string {
+  const row = targetRowFor(cat)
+  if (!row) return '—'
+  if (row.fixed) return '不卖'
+  if (Math.abs(row.delta) < 0.005) return '不变'
+  const verb = row.delta > 0 ? (targetDraftMode.value === 'A' ? '买入' : '加仓') : '卖出'
+  return `${verb} ${formatWan(Math.abs(row.delta))}`
+}
+
+function targetDeltaClass(cat: CategoryItem): string {
+  const row = targetRowFor(cat)
+  if (!row || row.fixed) return 'bg-card-alt text-text-tertiary'
+  if (row.delta > 0) return 'bg-brand-light text-brand'
+  if (row.delta < 0) return 'bg-error/10 text-error'
+  return 'bg-card-alt text-text-tertiary'
 }
 
 async function loadData() {
@@ -666,23 +798,47 @@ async function doDelete() {
 
             <!-- 风险资产：A 方案（粗条 + 2×2 图例），接缝 A1 直拼 -->
             <template v-else>
-              <div class="flex items-baseline gap-1.5 mb-3">
-                <span class="font-body text-[11px] text-text-tertiary">风险资产</span>
-                <span class="font-body text-sm font-medium text-text-primary tabular-nums">{{ formatMoney(riskValue) }}</span>
-                <span class="font-body text-[10px] text-text-tertiary">占总资产 {{ riskPercent.toFixed(0) }}%</span>
+              <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-3">
+                <div class="flex items-baseline gap-1.5 min-w-0">
+                  <span class="font-body text-[11px] text-text-tertiary">风险资产</span>
+                  <span class="font-body text-sm font-medium text-text-primary tabular-nums">{{ formatMoney(riskValue) }}</span>
+                  <span class="font-body text-[10px] text-text-tertiary">占总资产 {{ riskPercent.toFixed(0) }}%</span>
+                </div>
+                <button type="button"
+                        class="flex items-center gap-0.5 font-body text-[11px] font-medium text-brand shrink-0 active:opacity-70"
+                        @click="openTargetSheet">
+                  目标配置
+                  <span class="material-symbols-outlined text-[12px] leading-none">chevron_right</span>
+                </button>
               </div>
               <div v-if="riskCategories.length > 0" class="space-y-3">
                 <div class="flex w-full h-10 rounded-[10px] overflow-hidden bg-progress-bg">
                   <div v-for="cat in riskCategories" :key="cat.type"
-                       :style="{ width: riskShare(cat) + '%', backgroundColor: catColor(cat) }"></div>
+                       class="flex items-center justify-center min-w-0"
+                       :style="{ width: riskShare(cat) + '%', backgroundColor: catColor(cat) }">
+                    <span v-if="riskShare(cat) >= 6"
+                          class="font-body text-[11px] font-semibold tabular-nums"
+                          :style="{
+                            color: riskBarTextColor(cat),
+                            textShadow: riskBarTextColor(cat) === '#FFFFFF' ? '0 1px 2px rgba(0,0,0,.28)' : 'none'
+                          }">
+                      {{ riskShare(cat).toFixed(0) }}%
+                    </span>
+                  </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                   <div v-for="cat in riskCategories" :key="cat.type"
                        class="bg-card-alt/40 border border-border-light/40 rounded-lg px-2.5 py-2">
-                    <div class="flex items-center gap-1.5">
+                    <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                       <span class="w-2 h-2 rounded-full shrink-0" :style="catDotStyle(cat)"></span>
-                      <span class="font-body text-[11px] text-text-secondary">{{ cat.name }}</span>
-                      <span class="ml-auto font-body text-[13px] font-semibold text-text-primary tabular-nums">{{ riskShare(cat).toFixed(0) }}%</span>
+                      <span class="font-body text-[11px] text-text-secondary whitespace-nowrap">{{ cat.name }}</span>
+                      <div class="ml-auto flex items-center gap-1 shrink-0">
+                        <span class="font-body text-[13px] font-semibold text-text-primary tabular-nums">{{ riskShare(cat).toFixed(0) }}%</span>
+                        <template v-if="savedTargetFor(cat) !== null">
+                          <span class="text-[9px] text-text-tertiary">→</span>
+                          <span class="font-body text-[12px] font-semibold text-brand tabular-nums">{{ savedTargetFor(cat) }}%</span>
+                        </template>
+                      </div>
                     </div>
                     <div class="flex items-baseline justify-between mt-1 font-body text-[10px] text-text-tertiary">
                       <span class="text-text-primary font-medium tabular-nums">{{ formatMoney(cat.value) }}</span>
@@ -1481,6 +1637,104 @@ async function doDelete() {
             <button class="font-body text-xs text-text-tertiary hover:text-text-primary transition-colors"
                     @click="showAddTypePicker = false">取消</button>
           </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 风险目标配置 Sheet -->
+    <Teleport to="body">
+      <div v-if="showTargetSheet"
+           class="fixed inset-0 z-modal bg-black/40 flex items-end"
+           @click="closeTargetSheet">
+        <div class="w-full bg-card-bg rounded-t-2xl max-h-[88vh] overflow-y-auto p-lg pb-8"
+             @click.stop>
+          <div class="w-9 h-1 bg-border-light rounded-full mx-auto mb-md"></div>
+          <div class="flex items-center justify-between mb-1">
+            <h3 class="font-body text-md font-medium text-text-primary">目标配置</h3>
+            <button type="button" class="w-8 h-8 -mr-2 flex items-center justify-center text-text-tertiary"
+                    @click="closeTargetSheet">
+              <span class="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 mb-md font-body text-xs text-text-tertiary">
+            <span>占风险资产 · 四项合计 100%</span>
+            <span class="text-[9px] font-semibold rounded-full px-1.5 py-[1px]"
+                  :class="targetSumValid ? 'bg-brand-light text-brand' : 'bg-error/10 text-error'">
+              合计 {{ targetDraftSum.toFixed(0) }}%
+            </span>
+          </div>
+
+          <div class="flex bg-card-alt rounded-lg p-[2px] mb-1">
+            <button type="button"
+                    class="flex-1 py-1.5 rounded-md font-body text-[10px] transition-colors"
+                    :class="targetDraftMode === 'A' ? 'bg-card-bg text-text-primary font-medium shadow-sm' : 'text-text-tertiary'"
+                    @click="targetDraftMode = 'A'">
+              总额不变（卖出再买）
+            </button>
+            <button type="button"
+                    class="flex-1 py-1.5 rounded-md font-body text-[10px] transition-colors"
+                    :class="targetDraftMode === 'B' ? 'bg-card-bg text-text-primary font-medium shadow-sm' : 'text-text-tertiary'"
+                    @click="targetDraftMode = 'B'">
+              {{ fixedTargetLabel }}
+            </button>
+          </div>
+          <p v-if="targetDraftMode === 'B'" class="font-body text-[9px] text-text-tertiary mt-1">
+            最高项自动取当前占比最大的资产（现在是 {{ fixedRiskCat?.name }} {{ fixedRiskShare.toFixed(0) }}%），数据变了会跟着换。
+          </p>
+          <p v-if="targetDraftMode === 'B' && fixedTargetCovers" class="font-body text-[9px] text-error mt-1">
+            最高项目标 ≥ 当前占比，保留最高项会压缩总额，其他项可能需要卖出。
+          </p>
+
+          <div class="mt-md">
+            <div v-for="cat in riskCategories" :key="cat.type"
+                 class="py-2 border-b border-border-light/40 last:border-0">
+              <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span class="w-2 h-2 rounded-full shrink-0" :style="catDotStyle(cat)"></span>
+                <span class="font-body text-xs text-text-primary whitespace-nowrap">{{ cat.name }}</span>
+                <span class="font-body text-[10px] text-text-tertiary tabular-nums">当前 {{ riskShare(cat).toFixed(0) }}%</span>
+                <span class="text-[9px] text-text-tertiary">→</span>
+                <label class="ml-auto flex items-center gap-1 font-body text-[9px] text-text-tertiary">
+                  目标
+                  <input v-model.number="targetDraft[cat.type]" type="number" min="0" max="100" step="1"
+                         class="w-10 h-6 px-1 text-center bg-card-alt border border-border-light/60 rounded-md font-body text-[11px] font-semibold text-text-primary tabular-nums outline-none focus:ring-1 focus:ring-brand" />
+                  %
+                </label>
+              </div>
+              <div class="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 mt-1 pl-4 font-body text-[10px] text-text-tertiary tabular-nums">
+                <span>{{ formatWan(cat.value) }} → <b class="text-text-primary font-medium">{{ targetAmountFor(cat) }}</b></span>
+                <span v-if="targetRowFor(cat)"
+                      class="text-[9px] font-semibold rounded-full px-1.5 py-[1px]"
+                      :class="targetDeltaClass(cat)">
+                  {{ targetDeltaLabel(cat) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="targetPlan" class="mt-3 p-2.5 rounded-lg bg-card-alt font-body text-[10px] leading-relaxed text-text-secondary">
+            <template v-if="targetDraftMode === 'A'">
+              总额保持 <b class="text-text-primary">{{ formatWan(targetPlan.total) }}</b>
+              · 卖出 <b class="text-text-primary">{{ formatWan(targetPlan.sellTotal) }}</b>
+              → 买入 <b class="text-text-primary">{{ formatWan(targetPlan.buyTotal) }}</b>
+            </template>
+            <template v-else>
+              风险资产 <b class="text-text-primary">{{ formatWan(targetPlan.total) }} → {{ formatWan(targetPlan.newTotal) }}</b>
+              · <b class="text-brand">需新增 {{ formatWan(targetPlan.needNew) }}</b>（{{ fixedRiskCat?.name }}不卖）
+            </template>
+          </div>
+          <div v-else class="mt-3 p-2.5 rounded-lg bg-error/10 font-body text-[10px] text-error">
+            目标合计需为 100%（当前 {{ targetDraftSum.toFixed(0) }}%），调整后才能计算。
+          </div>
+
+          <button type="button"
+                  class="w-full h-11 mt-md bg-brand text-white rounded-lg font-body text-sm font-medium active:scale-[0.98] transition-transform disabled:opacity-50"
+                  :disabled="!targetPlan"
+                  @click="saveTargets">
+            保存目标
+          </button>
+          <p class="font-body text-[9px] leading-relaxed text-text-tertiary mt-2 text-center">
+            目标 = 占风险资产；当前百分比来自实际持仓。保存到本机，不碰后端。
+          </p>
         </div>
       </div>
     </Teleport>
