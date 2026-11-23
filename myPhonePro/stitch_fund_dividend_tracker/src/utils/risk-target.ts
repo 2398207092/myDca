@@ -31,6 +31,38 @@ export interface RiskTargetPlan {
   needNew: number
 }
 
+export interface RiskTargetConfig {
+  mode: 'A' | 'B'
+  targets: Record<string, number>
+}
+
+/** 解析云端/本地保存的配置；坏数据一律返回 null，避免污染页面 */
+export function parseRiskTargetConfig(raw: string | null | undefined): RiskTargetConfig | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return null
+    const mode = parsed.mode
+    if (mode !== 'A' && mode !== 'B') return null
+    const targets = parsed.targets
+    if (!targets || typeof targets !== 'object' || Array.isArray(targets)) return null
+
+    const out: Record<string, number> = {}
+    let sum = 0
+    let count = 0
+    for (const [key, value] of Object.entries(targets)) {
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) return null
+      out[key] = value
+      sum += value
+      count++
+    }
+    if (!count || Math.abs(sum - 100) > 0.01) return null
+    return { mode, targets: out }
+  } catch (_) {
+    return null
+  }
+}
+
 function round(n: number, digits = 2): number {
   const f = 10 ** digits
   return Math.round(n * f) / f

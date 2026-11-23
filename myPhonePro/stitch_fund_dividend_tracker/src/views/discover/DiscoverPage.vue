@@ -16,7 +16,8 @@ import AppHeader from '@/components/shared/AppHeader.vue'
 import PageStateComp from '@/components/shared/PageState.vue'
 import ToastNotification from '@/components/shared/ToastNotification.vue'
 import { formatMoney } from '@/utils/format'
-import { buildRiskTargetPlan, defaultTargets, type RiskTargetItem } from '@/utils/risk-target'
+import { buildRiskTargetPlan, defaultTargets, parseRiskTargetConfig, type RiskTargetItem } from '@/utils/risk-target'
+import { getRiskTarget, saveRiskTarget } from '@/api/risk-target'
 
 const router = useRouter()
 
@@ -177,30 +178,38 @@ function catDotStyle(cat: CategoryItem): Record<string, string> {
 }
 
 // ── 风险资产目标配置（2026-11-23）──────────────────────────────
-const TARGET_STORAGE_KEY = 'mydca.risk_targets'
-// 目标金额单位是元；差额小于 50 元视为已达标，不显示「减仓 ¥0.00万」
+// 生产是多用户：目标和模式存后端 user_risk_targets（按请求 userId 隔离），
+// 不再读共享 localStorage，避免 A 用户看到/覆盖 B 用户的目标。
 const TARGET_ACTION_EPS_YUAN = 50
 const showTargetSheet = ref(false)
+const targetsLoaded = ref(false)
+const targetsLoading = ref(false)
+const savingTargets = ref(false)
 const targetMode = ref<'A' | 'B'>('B')
 const targetDraftMode = ref<'A' | 'B'>('B')
 const savedTargets = ref<Record<string, number>>({})
 const targetDraft = ref<Record<string, number>>({})
 
-try {
-  const raw = localStorage.getItem(TARGET_STORAGE_KEY)
-  if (raw) {
-    const parsed = JSON.parse(raw)
-    const targets = parsed?.targets
-    if (targets && typeof targets === 'object') {
-      const values = Object.values(targets).map((v) => Number(v))
-      const sum = values.reduce((s, v) => s + v, 0)
-      if (values.every((v) => Number.isFinite(v) && v >= 0) && Math.abs(sum - 100) < 0.01) {
-        savedTargets.value = targets
-        targetMode.value = parsed.mode === 'A' ? 'A' : 'B'
-      }
+async function loadTargets() {
+  if (targetsLoading.value) return
+  targetsLoading.value = true
+  try {
+    const result = await getRiskTarget()
+    const config = parseRiskTargetConfig(result.riskTargetJson)
+    if (config) {
+      savedTargets.value = config.targets
+      targetMode.value = config.mode
+    } else {
+      savedTargets.value = {}
+      targetMode.value = 'B'
     }
+    targetsLoaded.value = true
+  } catch (_) {
+    // 云端不可用时不回退共享 localStorage：多用户下可能串数据
+  } finally {
+    targetsLoading.value = false
   }
-} catch (_) {}
+}
 
 const targetDraftItems = computed<RiskTargetItem[]>(() =>
   riskCategories.value.map((cat) => ({
@@ -271,7 +280,8 @@ function savedTargetActionClass(cat: CategoryItem): string {
   return row.delta > 0 ? 'text-brand' : 'text-error'
 }
 
-function openTargetSheet() {
+async function openTargetSheet() {
+  if (!targetsLoaded.value) await loadTargets()
   const items = riskCategories.value.map((cat) => ({ key: cat.type, current: Number(cat.value) || 0 }))
   const defaults = defaultTargets(items)
   const draft: Record<string, number> = {}
@@ -292,19 +302,30 @@ function closeTargetSheet() {
   showTargetSheet.value = false
 }
 
-function saveTargets() {
-  if (!targetPlan.value || !targetSumValid.value) return
-  savedTargets.value = { ...targetDraft.value }
-  targetMode.value = targetDraftMode.value
+async function saveTargets() {
+  if (!targetPlan.value || !targetSumValid.value || savingTargets.value) return
+  savingTargets.value = true
+  const payload = JSON.stringify({
+    mode: targetDraftMode.value,
+    targets: { ...targetDraft.value },
+  })
   try {
-    localStorage.setItem(TARGET_STORAGE_KEY, JSON.stringify({
-      mode: targetMode.value,
-      targets: savedTargets.value,
-    }))
-  } catch (_) {}
-  showTargetSheet.value = false
-  showToast('目标比例已保存', 'success')
+    await saveRiskTarget(payload)
+    savedTargets.value = { ...targetDraft.value }
+    targetMode.value = targetDraftMode.value
+    targetsLoaded.value = true
+    showTargetSheet.value = false
+    showToast('目标比例已保存', 'success')
+  } catch (_) {
+    showToast('云端保存失败，请稍后重试', 'error')
+  } finally {
+    savingTargets.value = false
+  }
 }
+
+onMounted(() => {
+  void loadTargets()
+})
 
 function targetRowFor(cat: CategoryItem) {
   return targetPlan.value?.rows.find((r) => r.key === cat.type) ?? null
@@ -1770,12 +1791,12 @@ async function doDelete() {
 
           <button type="button"
                   class="w-full h-11 mt-md bg-brand text-white rounded-lg font-body text-sm font-medium active:scale-[0.98] transition-transform disabled:opacity-50"
-                  :disabled="!targetPlan"
+                  :disabled="!targetPlan || savingTargets"
                   @click="saveTargets">
-            保存目标
+            {{ savingTargets ? '保存中...' : '保存目标' }}
           </button>
           <p class="font-body text-[9px] leading-relaxed text-text-tertiary mt-2 text-center">
-            目标 = 占风险资产；当前百分比来自实际持仓。保存到本机，不碰后端。
+            目标 = 占风险资产；当前百分比来自实际持仓。保存到云端，按登录账号隔离。
           </p>
         </div>
       </div>

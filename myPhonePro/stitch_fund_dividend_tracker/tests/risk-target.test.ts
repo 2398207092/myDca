@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildRiskTargetPlan, defaultTargets, type RiskTargetItem } from '@/utils/risk-target'
+import {
+  buildRiskTargetPlan,
+  defaultTargets,
+  parseRiskTargetConfig,
+  type RiskTargetItem,
+} from '@/utils/risk-target'
 
 const items: RiskTargetItem[] = [
   { key: 'dividend', name: '红利', current: 3.97, target: 60 },
@@ -73,5 +78,26 @@ describe('defaultTargets', () => {
 
   it('零总额返回空对象', () => {
     expect(defaultTargets([{ key: 'a', current: 0 }])).toEqual({})
+  })
+})
+
+describe('parseRiskTargetConfig', () => {
+  it('合法配置：模式 + 合计 100 的目标', () => {
+    const parsed = parseRiskTargetConfig(
+      '{"mode":"B","targets":{"dividend":60,"crypto":20,"us_stock":15,"gold":5}}',
+    )
+    expect(parsed).toEqual({
+      mode: 'B',
+      targets: { dividend: 60, crypto: 20, us_stock: 15, gold: 5 },
+    })
+  })
+
+  it('空值/坏 JSON/坏模式/合计不对/字符串数字 → null', () => {
+    expect(parseRiskTargetConfig(null)).toBeNull()
+    expect(parseRiskTargetConfig('')).toBeNull()
+    expect(parseRiskTargetConfig('{not json')).toBeNull()
+    expect(parseRiskTargetConfig('{"mode":"C","targets":{"dividend":100}}')).toBeNull()
+    expect(parseRiskTargetConfig('{"mode":"A","targets":{"dividend":80,"crypto":10}}')).toBeNull()
+    expect(parseRiskTargetConfig('{"mode":"A","targets":{"dividend":"80"}}')).toBeNull()
   })
 })
