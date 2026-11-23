@@ -178,6 +178,8 @@ function catDotStyle(cat: CategoryItem): Record<string, string> {
 
 // ── 风险资产目标配置（2026-11-23）──────────────────────────────
 const TARGET_STORAGE_KEY = 'mydca.risk_targets'
+// 目标金额单位是元；差额小于 50 元视为已达标，不显示「减仓 ¥0.00万」
+const TARGET_ACTION_EPS_YUAN = 50
 const showTargetSheet = ref(false)
 const targetMode = ref<'A' | 'B'>('B')
 const targetDraftMode = ref<'A' | 'B'>('B')
@@ -236,6 +238,39 @@ function savedTargetFor(cat: CategoryItem): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+// 主页面用「已保存」的目标 + 模式算动作；抽屉里改了没保存，外面不动
+const savedTargetItems = computed<RiskTargetItem[]>(() =>
+  hasSavedTargets.value
+    ? riskCategories.value.map((cat) => ({
+        key: cat.type,
+        name: cat.name,
+        current: Number(cat.value) || 0,
+        target: Number(savedTargets.value[cat.type]) || 0,
+      }))
+    : [],
+)
+const savedTargetPlan = computed(() =>
+  savedTargetItems.value.length ? buildRiskTargetPlan(savedTargetItems.value, targetMode.value) : null,
+)
+
+function savedTargetRowFor(cat: CategoryItem) {
+  return savedTargetPlan.value?.rows.find((r) => r.key === cat.type) ?? null
+}
+
+function savedTargetAction(cat: CategoryItem): string {
+  const row = savedTargetRowFor(cat)
+  if (!row) return ''
+  if (row.fixed) return '不卖'
+  if (Math.abs(row.delta) < TARGET_ACTION_EPS_YUAN) return '已达标'
+  return `${row.delta > 0 ? '加仓' : '减仓'} ${formatWan(Math.abs(row.delta))}`
+}
+
+function savedTargetActionClass(cat: CategoryItem): string {
+  const row = savedTargetRowFor(cat)
+  if (!row || row.fixed || Math.abs(row.delta) < TARGET_ACTION_EPS_YUAN) return 'text-text-tertiary'
+  return row.delta > 0 ? 'text-brand' : 'text-error'
+}
+
 function openTargetSheet() {
   const items = riskCategories.value.map((cat) => ({ key: cat.type, current: Number(cat.value) || 0 }))
   const defaults = defaultTargets(items)
@@ -284,7 +319,7 @@ function targetDeltaLabel(cat: CategoryItem): string {
   const row = targetRowFor(cat)
   if (!row) return '—'
   if (row.fixed) return '不卖'
-  if (Math.abs(row.delta) < 0.005) return '不变'
+  if (Math.abs(row.delta) < TARGET_ACTION_EPS_YUAN) return '已达标'
   const verb = row.delta > 0 ? (targetDraftMode.value === 'A' ? '买入' : '加仓') : '卖出'
   return `${verb} ${formatWan(Math.abs(row.delta))}`
 }
@@ -292,9 +327,9 @@ function targetDeltaLabel(cat: CategoryItem): string {
 function targetDeltaClass(cat: CategoryItem): string {
   const row = targetRowFor(cat)
   if (!row || row.fixed) return 'bg-card-alt text-text-tertiary'
+  if (Math.abs(row.delta) < TARGET_ACTION_EPS_YUAN) return 'bg-card-alt text-text-tertiary'
   if (row.delta > 0) return 'bg-brand-light text-brand'
-  if (row.delta < 0) return 'bg-error/10 text-error'
-  return 'bg-card-alt text-text-tertiary'
+  return 'bg-error/10 text-error'
 }
 
 async function loadData() {
@@ -742,7 +777,13 @@ async function doDelete() {
         <!-- Allocation Treemap -->
         <section class="bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40">
           <div class="flex items-center justify-between gap-2 mb-3">
-            <h2 class="font-body text-sm font-medium text-text-primary shrink-0">资产配置</h2>
+            <div class="flex items-baseline gap-1.5 min-w-0">
+              <h2 class="font-body text-sm font-medium text-text-primary shrink-0">资产配置</h2>
+              <span v-if="compositionTab === 'risk' && hasSavedTargets"
+                    class="font-body text-[9px] text-text-tertiary/60 truncate">
+                <span class="mode-prefix">目标模式：</span>{{ targetMode === 'A' ? '总额不变' : '保留最高项' }}
+              </span>
+            </div>
             <div class="bg-card-alt rounded-lg p-[2px] flex shrink-0">
               <button type="button"
                       class="px-2 py-1 rounded-md font-body text-[10px] transition-colors"
@@ -829,20 +870,21 @@ async function doDelete() {
                 <div class="grid grid-cols-2 gap-2">
                   <div v-for="cat in riskCategories" :key="cat.type"
                        class="bg-card-alt/40 border border-border-light/40 rounded-lg px-2.5 py-2">
-                    <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    <div class="alloc-tile-top flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                       <span class="w-2 h-2 rounded-full shrink-0" :style="catDotStyle(cat)"></span>
-                      <span class="font-body text-[11px] text-text-secondary whitespace-nowrap">{{ cat.name }}</span>
+                      <span class="alloc-tile-name font-body text-[11px] text-text-secondary whitespace-nowrap">{{ cat.name }}</span>
                       <div class="ml-auto flex items-center gap-1 shrink-0">
-                        <span class="font-body text-[13px] font-semibold text-text-primary tabular-nums">{{ riskShare(cat).toFixed(0) }}%</span>
+                        <span class="alloc-tile-pct font-body text-[13px] font-semibold text-text-primary tabular-nums">{{ riskShare(cat).toFixed(0) }}%</span>
                         <template v-if="savedTargetFor(cat) !== null">
-                          <span class="text-[9px] text-text-tertiary">→</span>
-                          <span class="font-body text-[12px] font-semibold text-brand tabular-nums">{{ savedTargetFor(cat) }}%</span>
+                          <span class="alloc-tile-arrow text-[9px] text-text-tertiary">→</span>
+                          <span class="alloc-tile-target font-body text-[12px] font-semibold text-brand tabular-nums">{{ savedTargetFor(cat) }}%</span>
                         </template>
                       </div>
                     </div>
-                    <div class="flex items-baseline justify-between mt-1 font-body text-[10px] text-text-tertiary">
+                    <div class="alloc-tile-meta flex flex-wrap items-baseline justify-between gap-x-1 mt-1 font-body text-[10px] text-text-tertiary">
                       <span class="text-text-primary font-medium tabular-nums">{{ formatMoney(cat.value) }}</span>
-                      <span>占总 {{ cat.percentage.toFixed(0) }}%</span>
+                      <span v-if="savedTargetPlan" class="font-medium tabular-nums" :class="savedTargetActionClass(cat)">{{ savedTargetAction(cat) }}</span>
+                      <span v-else>占总 {{ cat.percentage.toFixed(0) }}%</span>
                     </div>
                   </div>
                 </div>
@@ -1753,5 +1795,15 @@ async function doDelete() {
 .fade-slide-leave-to {
   opacity: 0;
   transform: translateY(-6px);
+}
+/* 320 窄屏：当前%→目标% + 金额/动作各压成一行，避免图例方块被挤成三行 */
+@media (max-width: 360px) {
+  .mode-prefix { display: none; }
+  .alloc-tile-top { column-gap: 3px; }
+  .alloc-tile-name { font-size: 9px; }
+  .alloc-tile-pct { font-size: 10px; }
+  .alloc-tile-arrow { font-size: 8px; }
+  .alloc-tile-target { font-size: 10px; }
+  .alloc-tile-meta { font-size: 9px; }
 }
 </style>
