@@ -755,27 +755,44 @@ function goToHolding(holdingId: string) {
                   :style="{ width: budgetPercent + '%' }"
                 ></div>
               </div>
-              <div class="flex items-center justify-between mt-1.5">
-                <span class="font-body text-xs text-text-tertiary">已用 {{ formatYuan(budget?.totalSpent) }}</span>
-                <span class="font-body text-xs text-text-tertiary tabular-nums">{{ Number(budget?.usagePercent ?? 0).toFixed(0) }}%</span>
+              <div class="flex items-center justify-between mt-1.5 gap-2">
+                <span class="font-body text-xs text-text-tertiary truncate">
+                  <!-- 只有一类时，分类额度与总预算完全同值：不重复摆一张空卡，把类型名并入这行 -->
+                  <template v-if="budgetCategories.length === 1">{{ budgetCategories[0].name }} · </template>已用 {{ formatYuan(budget?.totalSpent) }}
+                </span>
+                <span class="font-body text-xs text-text-tertiary tabular-nums shrink-0">{{ Number(budget?.usagePercent ?? 0).toFixed(0) }}%</span>
               </div>
 
-              <!-- 前三类额度 -->
-              <div class="grid grid-cols-3 gap-sm mt-md">
+              <!-- 分类额度：2 类两列、≥3 类三列；窄于 390 时三列放不下金额，统一降为单列横排 -->
+              <div
+                v-if="budgetCategories.length > 1"
+                class="grid gap-sm mt-md"
+                :class="budgetCategories.length === 2 ? 'grid-cols-1 min-[390px]:grid-cols-2' : 'grid-cols-1 min-[390px]:grid-cols-3'"
+              >
                 <button
                   v-for="cat in budgetCategories.slice(0, 3)"
                   :key="cat.id"
-                  class="text-left bg-card-alt/50 rounded-xl p-sm flex flex-col gap-1 active:scale-[0.98] transition-transform"
+                  class="text-left bg-card-alt/50 rounded-xl p-sm flex flex-col gap-1 active:scale-[0.98] transition-transform max-[389px]:flex-row max-[389px]:items-center max-[389px]:gap-2"
                   @click="openRecordDialog(cat.id)"
                 >
-                  <span class="font-body text-xs text-text-tertiary truncate">{{ cat.name }}</span>
+                  <span class="font-body text-xs text-text-tertiary truncate max-[389px]:flex-1 max-[389px]:min-w-0">{{ cat.name }}</span>
                   <span class="font-display text-sm font-semibold tabular-nums truncate"
                         :class="Number(cat.remaining) < 0 ? 'text-neg' : 'text-text-primary'">
                     {{ formatYuan(cat.spent) }}
                   </span>
-                  <span class="font-body text-[10px] text-text-tertiary tabular-nums truncate">额度 {{ formatYuan(cat.amount) }}</span>
+                  <span class="font-body text-[10px] text-text-tertiary tabular-nums truncate max-[389px]:shrink-0">额度 {{ formatYuan(cat.amount) }}</span>
                 </button>
               </div>
+
+              <!-- 超过三类只摆得下三张卡：明确告知还剩几类，点进明细 -->
+              <button
+                v-if="budgetCategories.length > 3"
+                class="mt-2 w-full flex items-center justify-between font-body text-xs text-text-tertiary active:opacity-70"
+                @click="router.push('/budget')"
+              >
+                <span>还有 {{ budgetCategories.length - 3 }} 个类型未显示</span>
+                <span class="material-symbols-outlined text-sm">chevron_right</span>
+              </button>
 
               <div class="flex items-center gap-2 mt-md">
                 <button
