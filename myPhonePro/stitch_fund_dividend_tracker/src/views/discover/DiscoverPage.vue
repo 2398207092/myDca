@@ -15,6 +15,7 @@ import type { DcaPlanVO, DcaBudgetVO } from '@/api/dca'
 import AppHeader from '@/components/shared/AppHeader.vue'
 import PageStateComp from '@/components/shared/PageState.vue'
 import ToastNotification from '@/components/shared/ToastNotification.vue'
+import AssetCategoryCard from '@/components/discover/AssetCategoryCard.vue'
 import { formatMoney } from '@/utils/format'
 import { buildRiskTargetPlan, defaultTargets, parseRiskTargetConfig, type RiskTargetItem } from '@/utils/risk-target'
 import { getRiskTarget, saveRiskTarget } from '@/api/risk-target'
@@ -510,6 +511,73 @@ function uncategorizedHoldings(): HoldingItem[] {
   return allHoldings.value.filter(h => !h.assetCategory && h.marketValue > 0)
 }
 
+/**
+ * 「各类资产」卡片数据：分类 → 一张卡片。
+ * 卡片内部自己管折叠，互不影响（可以同时展开多张）。
+ */
+interface AssetCategoryCardView {
+  key: string
+  title: string
+  subtitle: string
+  color: string
+  dotShadow?: string
+  total: number
+  holdings: HoldingItem[]
+  showCategoryIcon?: boolean
+}
+
+const assetCategoryCards = computed<AssetCategoryCardView[]>(() => {
+  const o = overview.value
+  if (!o) return []
+  const cards: AssetCategoryCardView[] = []
+  if (o.usStockValue > 0) {
+    cards.push({
+      key: 'us_stock',
+      title: '美股 · 纳斯达克100联接',
+      subtitle: '美股 · 纳斯达克100联接',
+      color: '#3B82F6',
+      total: o.usStockValue,
+      holdings: categorizedHoldings('us_stock'),
+    })
+  }
+  if (o.goldValue > 0) {
+    cards.push({
+      key: 'gold',
+      title: '黄金 · ETF',
+      subtitle: '黄金 · ETF',
+      color: '#FACC15',
+      dotShadow: '#D4A017',
+      total: o.goldValue,
+      holdings: categorizedHoldings('gold'),
+    })
+  }
+  if (o.dividendValue > 0) {
+    cards.push({
+      key: 'dividend',
+      title: '红利 · 基金',
+      subtitle: '红利 · 基金',
+      color: '#E5484D',
+      total: o.dividendValue,
+      holdings: categorizedHoldings('dividend'),
+    })
+  }
+  return cards
+})
+
+const uncategorizedCard = computed<AssetCategoryCardView | null>(() => {
+  const holdings = uncategorizedHoldings()
+  if (holdings.length === 0) return null
+  return {
+    key: 'uncategorized',
+    title: '未分类',
+    subtitle: '未分类',
+    color: '#6F6F6E',
+    total: holdings.reduce((sum, h) => sum + (h.marketValue || 0), 0),
+    holdings,
+    showCategoryIcon: true,
+  }
+})
+
 // Batch category mapping
 const showBatchCatSheet = ref(false)
 const batchCategory = ref('')
@@ -548,6 +616,10 @@ function openCategorySheet(holding: HoldingItem) {
   selectedHolding.value = holding
   selectedCategory.value = holding.assetCategory || ''
   showCatSheet.value = true
+}
+
+function openHoldingDetail(id: string) {
+  router.push(`/holding/${id}`)
 }
 
 async function saveCategory() {
@@ -933,127 +1005,21 @@ async function doDelete() {
         </div>
 
         <!-- ============================================================ -->
-        <!-- 分类资产卡片（统一布局：1个标的 → 紧凑行，>1个标的 → 展开列表） -->
+        <!-- 分类资产卡片：1 个标的→整行直达详情；多个标的→可折叠，互不影响可同时展开 -->
         <!-- ============================================================ -->
 
-        <!-- US Stocks -->
-        <div v-if="overview && overview.usStockValue > 0" class="bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40">
-          <!-- 1 个标的 → 紧凑行（整行可点击跳转） -->
-          <template v-if="categorizedHoldings('us_stock').length === 1">
-            <div v-for="h in categorizedHoldings('us_stock')" :key="h.id"
-                 class="flex items-center gap-3 cursor-pointer hover:bg-card-alt -m-lg p-lg rounded-lg transition-colors"
-                 @click="router.push(`/holding/${h.id}`)">
-              <div class="w-3 h-3 rounded-full shrink-0" style="background-color:#3B82F6"></div>
-              <div class="flex-1 min-w-0">
-                <p class="font-body text-sm font-medium text-text-primary truncate">{{ h.name }}</p>
-                <p class="font-body text-xs text-text-tertiary">美股 · 纳斯达克100联接</p>
-              </div>
-              <div class="text-right shrink-0">
-                <p class="font-body text-sm font-medium text-text-primary">{{ formatMoney(h.marketValue) }}</p>
-              </div>
-            </div>
-          </template>
-          <!-- > 1 个标的 → 展开列表 -->
-          <template v-else>
-            <div class="flex items-start gap-3">
-              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#3B82F6"></div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between">
-                  <h3 class="font-body text-sm font-medium text-text-primary">美股 · 纳斯达克100联接</h3>
-                  <span class="font-body text-sm font-medium text-text-primary shrink-0 ml-2">{{ formatMoney(overview.usStockValue) }}</span>
-                </div>
-                <span class="font-body text-xs text-text-tertiary">{{ categorizedHoldings('us_stock').length }} 个标的</span>
-              </div>
-            </div>
-            <div class="border-t border-border-light/40 my-md"></div>
-            <div class="space-y-0.5">
-              <div v-for="h in categorizedHoldings('us_stock')" :key="h.id"
-                   class="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-card-alt cursor-pointer transition-colors"
-                   @click="openCategorySheet(h)">
-                <span class="font-body text-xs text-text-primary truncate flex-1 min-w-0">{{ h.name }}</span>
-                <span class="font-body text-xs text-text-tertiary shrink-0 ml-2">{{ formatMoney(h.marketValue) }}</span>
-              </div>
-            </div>
-          </template>
-        </div>
-
-        <!-- Gold -->
-        <div v-if="overview && overview.goldValue > 0" class="bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40">
-          <template v-if="categorizedHoldings('gold').length === 1">
-            <div v-for="h in categorizedHoldings('gold')" :key="h.id"
-                 class="flex items-center gap-3 cursor-pointer hover:bg-card-alt -m-lg p-lg rounded-lg transition-colors"
-                 @click="router.push(`/holding/${h.id}`)">
-              <div class="w-3 h-3 rounded-full shrink-0" style="background-color:#FACC15; box-shadow: inset 0 0 0 1px #D4A017"></div>
-              <div class="flex-1 min-w-0">
-                <p class="font-body text-sm font-medium text-text-primary truncate">{{ h.name }}</p>
-                <p class="font-body text-xs text-text-tertiary">黄金 · ETF</p>
-              </div>
-              <div class="text-right shrink-0">
-                <p class="font-body text-sm font-medium text-text-primary">{{ formatMoney(h.marketValue) }}</p>
-              </div>
-            </div>
-          </template>
-          <template v-else>
-            <div class="flex items-start gap-3">
-              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#FACC15; box-shadow: inset 0 0 0 1px #D4A017"></div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between">
-                  <h3 class="font-body text-sm font-medium text-text-primary">黄金 · ETF</h3>
-                  <span class="font-body text-sm font-medium text-text-primary shrink-0 ml-2">{{ formatMoney(overview.goldValue) }}</span>
-                </div>
-                <span class="font-body text-xs text-text-tertiary">{{ categorizedHoldings('gold').length }} 个标的</span>
-              </div>
-            </div>
-            <div class="border-t border-border-light/40 my-md"></div>
-            <div class="space-y-0.5">
-              <div v-for="h in categorizedHoldings('gold')" :key="h.id"
-                   class="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-card-alt cursor-pointer transition-colors"
-                   @click="openCategorySheet(h)">
-                <span class="font-body text-xs text-text-primary truncate flex-1 min-w-0">{{ h.name }}</span>
-                <span class="font-body text-xs text-text-tertiary shrink-0 ml-2">{{ formatMoney(h.marketValue) }}</span>
-              </div>
-            </div>
-          </template>
-        </div>
-
-        <!-- Dividend / Fund Holdings -->
-        <div v-if="overview && overview.dividendValue > 0" class="bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40">
-          <template v-if="categorizedHoldings('dividend').length === 1">
-            <div v-for="h in categorizedHoldings('dividend')" :key="h.id"
-                 class="flex items-center gap-3 cursor-pointer hover:bg-card-alt -m-lg p-lg rounded-lg transition-colors"
-                 @click="router.push(`/holding/${h.id}`)">
-              <div class="w-3 h-3 rounded-full shrink-0" style="background-color:#E5484D"></div>
-              <div class="flex-1 min-w-0">
-                <p class="font-body text-sm font-medium text-text-primary truncate">{{ h.name }}</p>
-                <p class="font-body text-xs text-text-tertiary">红利 · 基金</p>
-              </div>
-              <div class="text-right shrink-0">
-                <p class="font-body text-sm font-medium text-text-primary">{{ formatMoney(h.marketValue) }}</p>
-              </div>
-            </div>
-          </template>
-          <template v-else>
-            <div class="flex items-start gap-3">
-              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#E5484D"></div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between">
-                  <h3 class="font-body text-sm font-medium text-text-primary">红利 · 基金</h3>
-                  <span class="font-body text-sm font-medium text-text-primary shrink-0 ml-2">{{ formatMoney(overview.dividendValue) }}</span>
-                </div>
-                <span class="font-body text-xs text-text-tertiary">{{ categorizedHoldings('dividend').length }} 个标的</span>
-              </div>
-            </div>
-            <div class="border-t border-border-light/40 my-md"></div>
-            <div class="space-y-0.5">
-              <div v-for="h in categorizedHoldings('dividend')" :key="h.id"
-                   class="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-card-alt cursor-pointer transition-colors"
-                   @click="openCategorySheet(h)">
-                <span class="font-body text-xs text-text-primary truncate flex-1 min-w-0">{{ h.name }}</span>
-                <span class="font-body text-xs text-text-tertiary shrink-0 ml-2">{{ formatMoney(h.marketValue) }}</span>
-              </div>
-            </div>
-          </template>
-        </div>
+        <AssetCategoryCard
+          v-for="cat in assetCategoryCards"
+          :key="cat.key"
+          :title="cat.title"
+          :subtitle="cat.subtitle"
+          :color="cat.color"
+          :dot-shadow="cat.dotShadow"
+          :total="cat.total"
+          :holdings="cat.holdings"
+          @detail="openHoldingDetail"
+          @sheet="openCategorySheet"
+        />
 
         <!-- Manual Assets (Cash + Crypto) -->
         <div v-if="overview"
@@ -1138,48 +1104,17 @@ async function doDelete() {
         </div>
 
         <!-- Uncategorized Holdings -->
-        <div v-if="uncategorizedHoldings().length > 0"
-             class="bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40">
-          <template v-if="uncategorizedHoldings().length === 1">
-            <div v-for="h in uncategorizedHoldings()" :key="h.id"
-                 class="flex items-center gap-3 cursor-pointer hover:bg-card-alt -m-lg p-lg rounded-lg transition-colors"
-                 @click="router.push(`/holding/${h.id}`)">
-              <div class="w-3 h-3 rounded-full shrink-0" style="background-color:#6F6F6E"></div>
-              <div class="flex-1 min-w-0">
-                <p class="font-body text-sm font-medium text-text-primary truncate">{{ h.name }}</p>
-                <p class="font-body text-xs text-text-tertiary">未分类</p>
-              </div>
-              <div class="flex items-center gap-2 shrink-0">
-                <span class="font-body text-sm font-medium text-text-primary">{{ formatMoney(h.marketValue) }}</span>
-                <span class="material-symbols-outlined text-text-tertiary text-[16px]">category</span>
-              </div>
-            </div>
-          </template>
-          <template v-else>
-            <div class="flex items-start gap-3">
-              <div class="w-3 h-3 rounded-full mt-[5px] shrink-0" style="background-color:#6F6F6E"></div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between">
-                  <h3 class="font-body text-sm font-medium text-text-primary">未分类</h3>
-                  <span class="font-body text-sm font-medium text-text-primary shrink-0 ml-2">{{ formatMoney(uncategorizedHoldings().reduce((s, h) => s + (h.marketValue || 0), 0)) }}</span>
-                </div>
-                <span class="font-body text-xs text-text-tertiary">{{ uncategorizedHoldings().length }} 个标的</span>
-              </div>
-            </div>
-            <div class="border-t border-border-light/40 my-md"></div>
-            <div class="space-y-0.5">
-              <div v-for="h in uncategorizedHoldings()" :key="h.id"
-                   class="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-card-alt cursor-pointer transition-colors"
-                   @click="openCategorySheet(h)">
-                <span class="font-body text-xs text-text-primary truncate flex-1 min-w-0">{{ h.name }}</span>
-                <div class="flex items-center gap-2 shrink-0">
-                  <span class="font-body text-xs text-text-tertiary">{{ formatMoney(h.marketValue) }}</span>
-                  <span class="material-symbols-outlined text-text-tertiary text-[16px]">category</span>
-                </div>
-              </div>
-            </div>
-          </template>
-        </div>
+        <AssetCategoryCard
+          v-if="uncategorizedCard"
+          :title="uncategorizedCard.title"
+          :subtitle="uncategorizedCard.subtitle"
+          :color="uncategorizedCard.color"
+          :total="uncategorizedCard.total"
+          :holdings="uncategorizedCard.holdings"
+          :show-category-icon="true"
+          @detail="openHoldingDetail"
+          @sheet="openCategorySheet"
+        />
 
         <!-- Empty State -->
         <div v-if="!overview || overview.categories.length === 0" class="text-center py-xl font-body text-xs text-text-tertiary">

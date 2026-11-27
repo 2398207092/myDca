@@ -60,6 +60,12 @@ const router = createRouter({
       meta: { level: 2 },
     },
     {
+      path: '/budget',
+      name: 'budget',
+      component: () => import('@/views/budget/BudgetPage.vue'),
+      meta: { level: 2 },
+    },
+    {
       path: '/accounts',
       name: 'accounts',
       component: () => import('@/views/accounts/AccountsPage.vue'),

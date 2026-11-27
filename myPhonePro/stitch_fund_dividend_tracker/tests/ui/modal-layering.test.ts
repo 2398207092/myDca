@@ -186,9 +186,11 @@ describe('共享组件层级契约', () => {
     expect(src).not.toMatch(/z-\[200\]/)
   })
 
-  it('日历页「月度分红明细」弹窗使用 z-modal', () => {
-    const src = read('src/views/calendar/CalendarPage.vue')
-    expect(src).toMatch(/z-modal/)
+  it('日历页的记账/预算弹窗使用 z-modal（弹窗从页面内联迁到 components/budget）', () => {
+    const page = read('src/views/calendar/CalendarPage.vue')
+    expect(page).toMatch(/BudgetRecordDialog/)
+    expect(read('src/components/budget/BudgetRecordDialog.vue')).toMatch(/z-modal/)
+    expect(read('src/components/budget/BudgetCategoryDialog.vue')).toMatch(/z-modal/)
   })
 
   it('添加支出弹窗（AddExpenseModal）使用 z-modal', () => {

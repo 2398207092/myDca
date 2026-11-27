@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { ref, computed, onActivated, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onActivated, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { PageState, DividendEvent, DividendEventType } from '@/types'
 import { listEvents } from '@/api/event'
-import { getMonthlyInsight, getMonthlyDetail, getAnnualInsight } from '@/api/insight'
-import type { MonthlyInsight, MonthlyDetail, AnnualInsight } from '@/api/insight'
+import { getMonthlyInsight, getAnnualInsight } from '@/api/insight'
+import type { MonthlyInsight, AnnualInsight } from '@/api/insight'
 import { refreshAllFundDividends } from '@/api/fund'
 import { syncAllEvents } from '@/api/event'
+import { getBudgetOverview, createBudgetCategory, createBudgetRecord, type BudgetOverview } from '@/api/budget'
+import { formatYuan } from '@/utils/format'
 import PageStateComp from '@/components/shared/PageState.vue'
 import AppHeader from '@/components/shared/AppHeader.vue'
+import ToastNotification from '@/components/shared/ToastNotification.vue'
+import BudgetRecordDialog from '@/components/budget/BudgetRecordDialog.vue'
+import BudgetCategoryDialog from '@/components/budget/BudgetCategoryDialog.vue'
 
 const router = useRouter()
 const pageState = ref<PageState>('loading')
@@ -64,6 +69,7 @@ onActivated(async () => {
     await Promise.all([
       syncAllEvents().catch(() => {}),
       loadMonthData(),
+      loadBudget(),
     ])
     pageState.value = 'ready'
   } catch {
@@ -207,14 +213,6 @@ const groupedEvents = computed(() => {
 })
 
 // === 月度洞察 ===
-const richestSource = computed(() => {
-  if (!monthlyInsightData.value) return { name: '--', amount: 0 }
-  return {
-    name: monthlyInsightData.value.richestSource.holdingName,
-    amount: monthlyInsightData.value.richestSource.amount,
-  }
-})
-
 const monthlyActivity = computed(() => {
   const d = monthlyInsightData.value
   if (!d || !d.monthlyActivity) return { payoutCount: 0, fundCount: 0 }
@@ -227,24 +225,77 @@ const nextDividend = computed(() => {
   return d.nextDividend
 })
 
-// === 月度分红明细弹窗 ===
-const showMonthlyDetail = ref(false)
-const monthlyDetailData = ref<MonthlyDetail | null>(null)
-const loadingDetail = ref(false)
+// === 年度预算（与分红数据独立：预算接口失败不影响日历） ===
+const budget = ref<BudgetOverview | null>(null)
+const showRecordDialog = ref(false)
+const recordDefaultCategoryId = ref('')
+const savingRecord = ref(false)
+const showCategoryDialog = ref(false)
+const savingCategory = ref(false)
+const toastMsg = ref<string | null>(null)
+const toastType = ref<'success' | 'error' | 'info'>('error')
 
-async function openMonthlyDetail() {
-  showMonthlyDetail.value = true
-  if (monthlyDetailData.value) return
-  loadingDetail.value = true
+function showToast(msg: string, type: 'success' | 'error' | 'info' = 'error') {
+  toastMsg.value = msg
+  toastType.value = type
+}
+
+async function loadBudget() {
   try {
-    const data = await getMonthlyDetail(currentYear.value, currentMonth.value + 1)
-    monthlyDetailData.value = data
+    budget.value = await getBudgetOverview(currentYear.value)
   } catch {
-    // ignore
-  } finally {
-    loadingDetail.value = false
+    // 预算失败不阻塞日历（静默，避免抖动提示）
   }
 }
+
+const budgetCategories = computed(() => budget.value?.categories ?? [])
+const budgetOverspent = computed(() => Number(budget.value?.remaining ?? 0) < 0)
+const budgetPercent = computed(() => {
+  const n = Number(budget.value?.usagePercent ?? 0)
+  if (!Number.isFinite(n)) return 0
+  return Math.min(100, Math.max(0, n))
+})
+
+function openRecordDialog(categoryId = '') {
+  if (!budgetCategories.value.length) {
+    showCategoryDialog.value = true
+    return
+  }
+  recordDefaultCategoryId.value = categoryId
+  showRecordDialog.value = true
+}
+
+async function submitRecord(payload: { categoryId: string; occurDate: string; amount: number; note: string }) {
+  savingRecord.value = true
+  try {
+    await createBudgetRecord(payload)
+    showRecordDialog.value = false
+    showToast('已记一笔', 'success')
+    await loadBudget()
+  } catch (e) {
+    showToast(e instanceof Error && e.message ? e.message : '记账失败', 'error')
+  } finally {
+    savingRecord.value = false
+  }
+}
+
+async function submitCategory(payload: { name: string; amount: number }) {
+  savingCategory.value = true
+  try {
+    await createBudgetCategory({ year: currentYear.value, name: payload.name, amount: payload.amount })
+    showCategoryDialog.value = false
+    showToast('已添加预算类型', 'success')
+    await loadBudget()
+  } catch (e) {
+    showToast(e instanceof Error && e.message ? e.message : '添加预算类型失败', 'error')
+  } finally {
+    savingCategory.value = false
+  }
+}
+
+watch(currentYear, () => {
+  loadBudget()
+})
 
 // === 年度总览
 const annualData = ref<AnnualInsight | null>(null)
@@ -384,6 +435,8 @@ function goToHolding(holdingId: string) {
 
 <template>
   <div class="min-h-screen bg-page-bg flex flex-col">
+
+    <ToastNotification :message="toastMsg" :type="toastType" @close="toastMsg = null" />
 
     <!-- Header — 统一 -->
     <AppHeader title="分红日历" :show-logo="true" />
@@ -675,47 +728,89 @@ function goToHolding(holdingId: string) {
             </div>
           </section>
 
-          <!-- Monthly Insights Bento -->
-          <section class="grid grid-cols-3 gap-sm">
-            <!-- 最丰厚来源 — 品牌色强调 -->
-            <div class="col-span-1 bg-brand-light p-sm rounded-xl flex flex-col justify-between min-h-[90px] relative overflow-hidden">
-              <p class="font-body text-xs text-brand/60 font-medium">最丰厚来源</p>
-              <div class="space-y-[2px] relative z-10">
-                <p class="text-[20px] font-display font-semibold text-brand leading-none">
-                  ¥{{ richestSource.amount.toFixed(0) }}
-                </p>
-                <p class="font-body text-xs text-text-tertiary truncate">{{ richestSource.name }}</p>
+          <!-- 年度预算（原三张分红 bento 已下线，位置给记账） -->
+          <section class="bg-card-bg rounded-lg p-lg card-shadow border border-border-light/40">
+            <!-- 有预算类型：概览 + 记一笔 -->
+            <template v-if="budgetCategories.length">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="font-body text-xs text-text-tertiary">{{ currentYear }} 年预算</p>
+                  <p class="font-display text-xl font-semibold text-text-primary tabular-nums mt-1">
+                    {{ formatYuan(budget?.totalAmount) }}
+                  </p>
+                </div>
+                <div class="text-right shrink-0">
+                  <p class="font-body text-xs text-text-tertiary">{{ budgetOverspent ? '已超支' : '剩余' }}</p>
+                  <p class="font-display text-lg font-semibold tabular-nums mt-1"
+                     :class="budgetOverspent ? 'text-neg' : 'text-brand'">
+                    {{ formatYuan(Math.abs(Number(budget?.remaining ?? 0))) }}
+                  </p>
+                </div>
               </div>
-              <!-- 角落装饰：星形 -->
-              <span class="material-symbols-outlined text-[42px] text-brand/[0.06] absolute -bottom-2 -right-2 select-none pointer-events-none">star</span>
-            </div>
-            <!-- 本月动态 — 可点击进入明细 -->
-            <div class="col-span-1 bg-card-bg p-sm rounded-xl card-shadow border border-border-light/40 flex flex-col justify-between min-h-[90px] relative cursor-pointer active:scale-[0.98] transition-transform overflow-hidden" @click="openMonthlyDetail">
-              <div class="flex items-center justify-between relative z-10">
-                <p class="font-body text-xs text-text-tertiary font-medium">本月动态</p>
-                <span class="material-symbols-outlined text-[14px] text-text-tertiary/50">chevron_right</span>
+
+              <div class="mt-md h-1.5 rounded-full bg-card-alt overflow-hidden">
+                <div
+                  class="h-full rounded-full transition-all duration-300"
+                  :class="budgetOverspent ? 'bg-neg' : 'bg-brand'"
+                  :style="{ width: budgetPercent + '%' }"
+                ></div>
               </div>
-              <div class="space-y-[2px] relative z-10">
-                <p class="text-[20px] font-display font-semibold text-text-primary leading-none">{{ monthlyActivity.payoutCount }}</p>
-                <p class="font-body text-xs text-text-tertiary truncate">{{ monthlyActivity.payoutCount }}笔分红 · {{ monthlyActivity.fundCount }}只基金</p>
+              <div class="flex items-center justify-between mt-1.5">
+                <span class="font-body text-xs text-text-tertiary">已用 {{ formatYuan(budget?.totalSpent) }}</span>
+                <span class="font-body text-xs text-text-tertiary tabular-nums">{{ Number(budget?.usagePercent ?? 0).toFixed(0) }}%</span>
               </div>
-              <!-- 角落装饰：日历月视图 -->
-              <span class="material-symbols-outlined text-[42px] text-text-tertiary/[0.04] absolute -bottom-2 -right-2 select-none pointer-events-none">calendar_view_month</span>
-            </div>
-            <!-- 下次分红 -->
-            <div class="col-span-1 bg-card-bg p-sm rounded-xl card-shadow border border-border-light/40 flex flex-col justify-between min-h-[90px] relative overflow-hidden">
-              <p class="font-body text-xs text-text-tertiary font-medium relative z-10">下次分红</p>
-              <div class="space-y-[2px] relative z-10">
-                <p class="text-[20px] font-display font-semibold leading-none"
-                   :class="nextDividend.holdingName !== '--' ? 'text-brand' : 'text-text-tertiary/40'">
-                  {{ nextDividend.holdingName !== '--' ? (nextDividend.daysRemaining > 0 ? nextDividend.daysRemaining + '天后' : '今日') : '--' }}
-                </p>
-                <p class="font-body text-xs text-text-tertiary truncate">{{ nextDividend.holdingName }}</p>
-                <p class="font-body text-xs text-text-tertiary/60">预计 ¥{{ nextDividend.amount.toFixed(0) }}</p>
+
+              <!-- 前三类额度 -->
+              <div class="grid grid-cols-3 gap-sm mt-md">
+                <button
+                  v-for="cat in budgetCategories.slice(0, 3)"
+                  :key="cat.id"
+                  class="text-left bg-card-alt/50 rounded-xl p-sm flex flex-col gap-1 active:scale-[0.98] transition-transform"
+                  @click="openRecordDialog(cat.id)"
+                >
+                  <span class="font-body text-xs text-text-tertiary truncate">{{ cat.name }}</span>
+                  <span class="font-display text-sm font-semibold tabular-nums truncate"
+                        :class="Number(cat.remaining) < 0 ? 'text-neg' : 'text-text-primary'">
+                    {{ formatYuan(cat.spent) }}
+                  </span>
+                  <span class="font-body text-[10px] text-text-tertiary tabular-nums truncate">额度 {{ formatYuan(cat.amount) }}</span>
+                </button>
               </div>
-              <!-- 角落装饰：闹钟 -->
-              <span class="material-symbols-outlined text-[42px] text-text-tertiary/[0.04] absolute -bottom-2 -right-2 select-none pointer-events-none">notifications</span>
-            </div>
+
+              <div class="flex items-center gap-2 mt-md">
+                <button
+                  class="flex-1 py-2.5 bg-brand text-white rounded-lg font-body text-sm font-medium flex items-center justify-center gap-1 active:scale-[0.99] transition-transform"
+                  @click="openRecordDialog()"
+                >
+                  <span class="material-symbols-outlined text-[18px]">add</span>
+                  记一笔
+                </button>
+                <button
+                  class="px-4 py-2.5 rounded-lg border border-border-light/60 font-body text-xs text-text-secondary active:scale-[0.99] transition-transform"
+                  @click="router.push('/budget')"
+                >明细</button>
+              </div>
+            </template>
+
+            <!-- 空态：不预置默认类型，提示先添加 -->
+            <template v-else>
+              <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-[28px] text-brand/40 shrink-0">savings</span>
+                <div class="min-w-0">
+                  <p class="font-body text-sm font-medium text-text-primary">还没有预算类型</p>
+                  <p class="font-body text-xs text-text-tertiary leading-relaxed mt-0.5">
+                    先添加一个开销类型（如餐饮、日用、出行）并设好 {{ currentYear }} 年额度，就能在这里记账、看还剩多少。
+                  </p>
+                </div>
+              </div>
+              <button
+                class="mt-md w-full py-2.5 bg-brand text-white rounded-lg font-body text-sm font-medium flex items-center justify-center gap-1 active:scale-[0.99] transition-transform"
+                @click="showCategoryDialog = true"
+              >
+                <span class="material-symbols-outlined text-[18px]">add</span>
+                添加预算类型
+              </button>
+            </template>
           </section>
         </template>
 
@@ -838,59 +933,22 @@ function goToHolding(holdingId: string) {
       </template>
     </main>
 
-    <!-- Monthly Detail Dialog -->
-    <Teleport to="body">
-      <div
-        v-if="showMonthlyDetail"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-black/40"
-        @click.self="showMonthlyDetail = false"
-      >
-        <div class="bg-card-bg rounded-2xl w-[90vw] max-w-[420px] max-h-[80vh] flex flex-col shadow-overlay">
-          <!-- Dialog Header -->
-          <div class="flex items-center justify-between px-lg pt-lg pb-sm">
-            <h3 class="font-body text-sm font-medium text-text-primary">{{ currentYear }}年{{ currentMonth + 1 }}月 分红明细</h3>
-            <button class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-card-alt" @click="showMonthlyDetail = false">
-              <span class="material-symbols-outlined text-[18px] text-text-secondary">close</span>
-            </button>
-          </div>
+    <!-- 预算：记一笔 / 添加预算类型 -->
+    <BudgetRecordDialog
+      v-model:open="showRecordDialog"
+      :categories="budgetCategories"
+      :default-category-id="recordDefaultCategoryId"
+      :year="currentYear"
+      :saving="savingRecord"
+      @submit="submitRecord"
+    />
 
-          <!-- Dialog Body -->
-          <div class="flex-1 overflow-y-auto px-lg pb-lg space-y-sm">
-            <div v-if="loadingDetail" class="flex items-center justify-center py-12">
-              <span class="material-symbols-outlined animate-spin text-text-tertiary">progress_activity</span>
-            </div>
-
-            <template v-else-if="monthlyDetailData?.details?.length">
-              <div
-                v-for="(item, i) in monthlyDetailData.details"
-                :key="i"
-                class="flex items-center justify-between py-2.5"
-                :class="{ 'border-b border-border-light/40': i < monthlyDetailData.details.length - 1 }"
-              >
-                <div class="flex-1 min-w-0">
-                  <p class="font-body text-[13px] font-medium text-text-primary truncate">{{ item.holdingName }}</p>
-                  <div class="flex items-center gap-1.5 mt-0.5">
-                    <span
-                      v-for="(type, ti) in item.eventTypes"
-                      :key="ti"
-                      class="font-body text-[10px] text-text-tertiary/60 bg-card-alt px-1.5 py-0.5 rounded"
-                    >
-                      {{ type }}
-                    </span>
-                  </div>
-                </div>
-                <p class="font-body text-[13px] font-medium text-brand shrink-0 ml-3">¥{{ item.amount.toFixed(0) }}</p>
-              </div>
-            </template>
-
-            <div v-else class="flex flex-col items-center py-12">
-              <span class="text-3xl block mb-1">📭</span>
-              <p class="font-body text-sm text-text-tertiary">本月无分红事件</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <BudgetCategoryDialog
+      v-model:open="showCategoryDialog"
+      :year="currentYear"
+      :saving="savingCategory"
+      @submit="submitCategory"
+    />
   </div>
 </template>
 

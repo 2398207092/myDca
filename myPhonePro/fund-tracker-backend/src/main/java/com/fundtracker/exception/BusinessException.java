@@ -60,6 +60,14 @@ public class BusinessException extends RuntimeException {
         return new BusinessException(7001, message);
     }
 
+    public static BusinessException budgetCategoryNotFound() {
+        return new BusinessException(8001, "预算类型不存在");
+    }
+
+    public static BusinessException budgetRecordNotFound() {
+        return new BusinessException(8002, "预算记录不存在");
+    }
+
     /** 无权限访问（管理接口 / 越权操作） */
     public static BusinessException forbidden(String message) {
         return new BusinessException(403, message);
